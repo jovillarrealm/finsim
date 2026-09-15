@@ -6,7 +6,7 @@ test('valida contratos, límites y precisión monetaria', () => {
   expect(money('1.005')).toBe('1.01');
   expect(D.precision).toBe(40);
   for (const patch of [
-    { principal: '1.001' }, { principal: '0' }, { principal: 'Infinity' },
+    { principal: '1.001' }, { principal: '0' }, { principal: 'Infinity' }, { principal: 'abc' },
     { termMonths: 1201 }, { termMonths: 0 }, { version: 2 },
     { rate: { kind: 'nominal', value: '0.12', frequency: 0 } },
     { events: [{ id: 'e', kind: 'extra', month: 0, amount: '1' }] },
