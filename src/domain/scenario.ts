@@ -6,10 +6,12 @@ export const MAX_MONTHS = 1200;
 export const money = (value: Decimal.Value): string => new D(value).toFixed(2);
 
 // Decimal strings use a dot and rates are fractions: 0.01 means 1%.
-export const decimalSchema = z.string().regex(/^\d+(\.\d+)?$/, 'Usa un número no negativo con punto decimal.')
+export const decimalSchema = z.string().max(128, 'Usa como máximo 128 caracteres.').regex(/^\d+(\.\d+)?$/, 'Usa un número no negativo con punto decimal.')
   .refine(value => { try { return new D(value).isFinite(); } catch { return false; } }, 'El número debe ser finito.');
 export const moneySchema = decimalSchema.refine(value => !value.includes('.') || value.split('.')[1].length <= 2,
-  'Usa como máximo dos decimales.');
+  'Usa como máximo dos decimales.').refine(value => {
+    try { return new D(value).lte('1000000000000000'); } catch { return false; }
+  }, 'El máximo admitido es 1.000.000.000.000.000 COP.');
 const positiveMoney = moneySchema.refine(value => { try { return new D(value).gt(0); } catch { return false; } }, 'El importe debe ser mayor que cero.');
 export const monthSchema = z.number().int().min(1).max(MAX_MONTHS);
 export const rateSchema = z.discriminatedUnion('kind', [
