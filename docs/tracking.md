@@ -2,19 +2,19 @@
 
 ## Estado actual
 
-Actualizado: 2026-09-15. Implementación iniciada. Git inicializado en main. Sesión coordinadora: /root. Tarea activa: **FS-00**.
+Actualizado: 2026-09-15. Implementación iniciada. Git inicializado en main. Sesión coordinadora: /root. Base y contratos integrados. Frentes activos: **FS-02 y FS-06**.
 
 Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md) define alcance, dependencias y criterios de cierre. Los registros por tarea guardan el detalle de continuidad.
 
 | ID | Entrega | Estado | Responsable / sesión | Rama / worktree | Evidencia integrada |
 | --- | --- | --- | --- | --- | --- |
-| FS-00 | Repositorio y aplicación | en curso | /root | main / finsim | instalación y verificación pendientes |
-| FS-01 | Contratos y validación | pendiente | — | — | — |
-| FS-02 | Motor de tasas | pendiente | — | — | — |
+| FS-00 | Repositorio y aplicación | hecha | /root | main / finsim | 26862de; build, pruebas y navegador |
+| FS-01 | Contratos y validación | hecha | /root | main / finsim | 2b79d08; tipos y contratos |
+| FS-02 | Motor de tasas | en curso | /root/rates | task/fs-02-rates / C:\Users\Lenovo\OneDrive - Universidad EAFIT\Documentos\finsim-fs02 | base 2b79d08 |
 | FS-03 | Préstamo base y seguros | pendiente | — | — | — |
 | FS-04 | Primera interfaz | pendiente | — | — | — |
 | FS-05 | Eventos y atrasos | pendiente | — | — | — |
-| FS-06 | Persistencia | pendiente | — | — | — |
+| FS-06 | Persistencia | en curso | /root/persistence | task/fs-06-persistence / C:\Users\Lenovo\OneDrive - Universidad EAFIT\Documentos\finsim-fs06 | base 2b79d08 |
 | FS-07 | Comparación y edición | pendiente | — | — | — |
 | FS-08 | Conciliación | pendiente | — | — | — |
 | FS-09 | Conversor visual | pendiente | — | — | — |
@@ -95,4 +95,5 @@ Para arrancar: «Implementa FS-00 siguiendo AGENTS.md y el protocolo de docs/tra
 Para retomar una tarea asignada: «Retoma FS-NN en su worktree registrado. Lee su ficha, verifica el estado real y continúa desde el siguiente paso. Actualiza el traspaso al terminar».
 
 Para coordinar: «Revisa entregas en revisión, integra una por vez, verifica y actualiza el tablero. Reserva las siguientes tareas independientes antes de abrir nuevas sesiones».
+
 
