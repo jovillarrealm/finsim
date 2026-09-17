@@ -12,11 +12,11 @@ Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md)
 | FS-01 | Contratos y validación | hecha | /root | main / finsim | 2b79d08; tipos y contratos |
 | FS-02 | Motor de tasas | hecha | /root/rates | task/fs-02-rates / finsim-fs02 | 01dbbc8 integrado; 9 pruebas y build conjunto |
 | FS-03 | Préstamo base y seguros | en curso | /root/loan_engine | task/fs-03-loan / C:\Users\Lenovo\OneDrive - Universidad EAFIT\Documentos\finsim-fs03 | base 084ee1d |
-| FS-04 | Primera interfaz | pendiente | — | — | — |
+| FS-04 | Primera interfaz | en curso | /root/loan_ui | task/fs-04-ui / C:\Users\Lenovo\OneDrive - Universidad EAFIT\Documentos\finsim-fs04 | preparación contra contrato; cierre requiere FS-03 |
 | FS-05 | Eventos y atrasos | pendiente | — | — | — |
 | FS-06 | Persistencia | hecha | /root/persistence | task/fs-06-persistence / finsim-fs06 | a04b510 integrado en 084ee1d; 9 pruebas y build |
 | FS-07 | Comparación y edición | pendiente | — | — | — |
-| FS-08 | Conciliación | pendiente | — | — | — |
+| FS-08 | Conciliación | en curso | /root/coordinadora | task/fs-08-reconciliation / C:\Users\Lenovo\OneDrive - Universidad EAFIT\Documentos\finsim-fs08 | preparación contra contrato; cierre requiere FS-03 |
 | FS-09 | Conversor visual | en curso | /root/converter | task/fs-09-converter / C:\Users\Lenovo\OneDrive - Universidad EAFIT\Documentos\finsim-fs09 | base 084ee1d |
 | FS-10 | Aceptación integrada | pendiente | — | — | — |
 | FS-11 | GitHub Pages | pendiente | — | — | — |
@@ -95,6 +95,7 @@ Para arrancar: «Implementa FS-00 siguiendo AGENTS.md y el protocolo de docs/tra
 Para retomar una tarea asignada: «Retoma FS-NN en su worktree registrado. Lee su ficha, verifica el estado real y continúa desde el siguiente paso. Actualiza el traspaso al terminar».
 
 Para coordinar: «Revisa entregas en revisión, integra una por vez, verifica y actualiza el tablero. Reserva las siguientes tareas independientes antes de abrir nuevas sesiones».
+
 
 
 

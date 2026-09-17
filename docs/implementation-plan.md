@@ -47,6 +47,8 @@ Los directorios siguientes son límites propuestos de responsabilidad, no archiv
 
 **FS-04 · Primera interfaz con préstamo base.** Depende de FS-03.
 
+Preparación paralela permitida desde FS-01: componentes que reciben `Scenario` y `LoanResult` por propiedades. La conexión real y el cierre siguen dependiendo de FS-03.
+
 - Ejemplo identificado, entrada de préstamo personal, valores editables, resumen y tabla mensual desplegable; textos en español y formato colombiano.
 - Responsabilidad: `src/features/loan/`, estilos y composición de la aplicación.
 - Cierre: préstamo original y saldo actual funcionan en escritorio y móvil; errores junto a campos; controles etiquetados y operables con teclado. Recoger observaciones de la primera vista para FS-07.
@@ -74,6 +76,8 @@ Los directorios siguientes son límites propuestos de responsabilidad, no archiv
 - Cierre: editar un evento actualiza tabla, gráficos y totales del mismo resultado; teclado y móvil permiten todo el flujo. Un resultado incompleto no muestra ahorro definitivo. Comprobar con el usuario la interpretación de «click donde editar» y registrar respuesta pendiente si no está disponible.
 
 **FS-08 · Conciliación manual.** Depende de FS-03.
+
+Preparación paralela permitida desde FS-01 usando el contrato `MonthRow` y referencias literales. La comprobación con el cronograma real sigue dependiendo de FS-03.
 
 - Introducir filas seleccionadas de extracto y comparar componentes/saldos por mes, mostrando diferencias y explicaciones de supuestos sin ajustar el motor automáticamente.
 - Responsabilidad: `src/features/reconciliation/` y comparación pura con pruebas; registrar integración de navegación para FS-10.
