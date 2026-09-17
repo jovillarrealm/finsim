@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-Actualizado: 2026-09-15. Implementación iniciada. Git inicializado en main. Sesión coordinadora: /root. Base y contratos integrados. Frentes activos: **FS-03 y FS-09**.
+Actualizado: 2026-09-17. Implementación iniciada. Git inicializado en main. Sesión coordinadora: /root. Base y contratos integrados. Frentes activos: **FS-03 y FS-09**.
 
 Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md) define alcance, dependencias y criterios de cierre. Los registros por tarea guardan el detalle de continuidad.
 
@@ -11,13 +11,13 @@ Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md)
 | FS-00 | Repositorio y aplicación | hecha | /root | main / finsim | 26862de; build, pruebas y navegador |
 | FS-01 | Contratos y validación | hecha | /root | main / finsim | 2b79d08; tipos y contratos |
 | FS-02 | Motor de tasas | hecha | /root/rates | task/fs-02-rates / finsim-fs02 | 01dbbc8 integrado; 9 pruebas y build conjunto |
-| FS-03 | Préstamo base y seguros | en curso | /root/financial_review | task/fs-03-loan / C:\Users\Lenovo\OneDrive - Universidad EAFIT\Documentos\finsim-fs03 | base 084ee1d |
+| FS-03 | Préstamo base y seguros | en curso | /root/loan_engine | task/fs-03-loan / C:\Users\Lenovo\OneDrive - Universidad EAFIT\Documentos\finsim-fs03 | base 084ee1d |
 | FS-04 | Primera interfaz | pendiente | — | — | — |
 | FS-05 | Eventos y atrasos | pendiente | — | — | — |
 | FS-06 | Persistencia | hecha | /root/persistence | task/fs-06-persistence / finsim-fs06 | a04b510 integrado en 084ee1d; 9 pruebas y build |
 | FS-07 | Comparación y edición | pendiente | — | — | — |
 | FS-08 | Conciliación | pendiente | — | — | — |
-| FS-09 | Conversor visual | en curso | /root/rates | task/fs-09-converter / C:\Users\Lenovo\OneDrive - Universidad EAFIT\Documentos\finsim-fs09 | base 084ee1d |
+| FS-09 | Conversor visual | en curso | /root/converter | task/fs-09-converter / C:\Users\Lenovo\OneDrive - Universidad EAFIT\Documentos\finsim-fs09 | base 084ee1d |
 | FS-10 | Aceptación integrada | pendiente | — | — | — |
 | FS-11 | GitHub Pages | pendiente | — | — | — |
 | FS-12 | CDT/ETF | diferida | — | — | — |
@@ -95,6 +95,7 @@ Para arrancar: «Implementa FS-00 siguiendo AGENTS.md y el protocolo de docs/tra
 Para retomar una tarea asignada: «Retoma FS-NN en su worktree registrado. Lee su ficha, verifica el estado real y continúa desde el siguiente paso. Actualiza el traspaso al terminar».
 
 Para coordinar: «Revisa entregas en revisión, integra una por vez, verifica y actualiza el tablero. Reserva las siguientes tareas independientes antes de abrir nuevas sesiones».
+
 
 
 
