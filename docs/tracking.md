@@ -15,8 +15,8 @@ Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md)
 | FS-04 | Primera interfaz | en curso | /root/loan_ui | task/fs-04-ui / C:\Users\Lenovo\OneDrive - Universidad EAFIT\Documentos\finsim-fs04 | preparación contra contrato; cierre requiere FS-03 |
 | FS-05 | Eventos y atrasos | en curso | /root/converter | task/fs-05-events / finsim-fs05 | implementación incluida en FS-03; verificación independiente |
 | FS-06 | Persistencia | hecha | /root/persistence | task/fs-06-persistence / finsim-fs06 | a04b510 integrado en 084ee1d; 9 pruebas y build |
-| FS-07 | Comparación y edición | pendiente | — | — | — |
-| FS-08 | Conciliación | en curso | /root/coordinadora | task/fs-08-reconciliation / C:\Users\Lenovo\OneDrive - Universidad EAFIT\Documentos\finsim-fs08 | preparación contra contrato; cierre requiere FS-03 |
+| FS-07 | Comparación y edición | en curso | /root/loan_engine | task/fs-07-comparison / finsim-fs07 | preparación; cierre espera FS-04 y FS-05 |
+| FS-08 | Conciliación | en revisión | /root | task/fs-08-reconciliation / finsim-fs08 | 77582c3 integrado; prueba con motor real; falta navegación |
 | FS-09 | Conversor visual | en revisión | /root/converter | task/fs-09-converter / finsim-fs09 | 3eea6d6 integrado; falta navegación y revisión visual |
 | FS-10 | Aceptación integrada | pendiente | — | — | — |
 | FS-11 | GitHub Pages | pendiente | — | — | — |
@@ -95,6 +95,7 @@ Para arrancar: «Implementa FS-00 siguiendo AGENTS.md y el protocolo de docs/tra
 Para retomar una tarea asignada: «Retoma FS-NN en su worktree registrado. Lee su ficha, verifica el estado real y continúa desde el siguiente paso. Actualiza el traspaso al terminar».
 
 Para coordinar: «Revisa entregas en revisión, integra una por vez, verifica y actualiza el tablero. Reserva las siguientes tareas independientes antes de abrir nuevas sesiones».
+
 
 
 

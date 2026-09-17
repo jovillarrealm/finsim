@@ -69,6 +69,8 @@ Preparación paralela permitida desde FS-01: componentes que reciben `Scenario` 
 
 **FS-07 · Comparación y edición directa.** Depende de FS-04, FS-05 y FS-06.
 
+Preparación de gráficos y editor permitida cuando el motor de eventos y persistencia ya están integrados. El cierre requiere completar la verificación FS-05 y conectar la interfaz FS-04.
+
 - Conectar original/modificado, gráficos mensuales apilados con ejes y escala temporal comunes, selección de mes, controles cercanos y alternativa desde tabla.
 - Mostrar capital habitual, extras y su distribución, intereses, seguros, fecha de liquidación, caja total y diferencias con signo. Incluir meses de seguros posteriores y plazos extendidos.
 - Conectar guardado/importación/exportación y reflejar fallos sin perder edición.
