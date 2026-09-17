@@ -123,3 +123,64 @@ describe('eventos y límites', () => {
     expect(() => simulateLoan(scenario({ principal: '-1' }))).toThrow();
   });
 });
+
+describe('aceptación independiente de eventos', () => {
+  it('paga seguros vencidos aunque ya no se generen cargos', () => {
+    const result = simulateLoan(scenario({ principal: '100', payment: '30', rate: { kind: 'monthly', value: '0' },
+      insurance: [{ ...fixed, endMonth: 1 }], events: [{ id: 'miss', kind: 'missed', month: 1 }] }));
+    expect(result.rows[0]).toMatchObject({ pendingInsurance: '5.00', overduePrincipal: '30.00', debt: '105.00' });
+    expect(result.rows[1]).toMatchObject({ insuranceCharged: '0.00', pendingInsurance: '0.00',
+      scheduled: { insurance: '5.00', principal: '25.00' }, closingBalance: '75.00', overduePrincipal: '35.00' });
+    expect(result.payoffMonth).toBe(5);
+    expect(result.lastInsuranceMonth).toBe(1);
+    expect(result.totals).toMatchObject({ principal: '100.00', insurance: '5.00', cashPaid: '105.00' });
+  });
+
+  it('aplica recurrentes solo en meses programados y conserva la cuota', () => {
+    const result = simulateLoan(scenario({ rate: { kind: 'monthly', value: '0' }, events: [
+      { id: 'repeat', kind: 'recurring', month: 2, endMonth: 6, every: 2, amount: '50' },
+    ] }));
+    expect(result.rows.map(row => row.extra.principal)).toEqual([
+      '0.00', '50.00', '0.00', '50.00', '0.00', '50.00', '0.00', '0.00', '0.00',
+    ]);
+    expect(result.rows.map(row => row.scheduled.applied)).toEqual([
+      '100.00', '100.00', '100.00', '100.00', '100.00', '100.00', '100.00', '100.00', '50.00',
+    ]);
+    expect(result.payoffMonth).toBe(9);
+    expect(result.totals.cashPaid).toBe('1000.00');
+  });
+
+  it('limita vencidos al capital restante tras omisiones consecutivas', () => {
+    const result = simulateLoan(scenario({ principal: '100', payment: '40', rate: { kind: 'monthly', value: '0' },
+      events: [1, 2, 3, 4].map(month => ({ id: `miss-${month}`, kind: 'missed', month })) }));
+    expect(result.rows.map(row => row.overduePrincipal)).toEqual(['40.00', '80.00', '100.00', '100.00', '60.00', '20.00', '0.00']);
+    expect(result.rows.slice(0, 4).map(row => row.debt)).toEqual(['100.00', '100.00', '100.00', '100.00']);
+    expect(result.payoffMonth).toBe(7);
+    expect(result.totals.principal).toBe('100.00');
+  });
+
+  it('espera recuperación futura aunque las cuotas no amorticen', () => {
+    const result = simulateLoan(scenario({ payment: '1', events: [{ id: 'recover', kind: 'catchup', month: 12, amount: '1108' }] }));
+    expect(result.rows[10]).toMatchObject({ closingBalance: '1000.00', pendingInterest: '99.00', debt: '1099.00' });
+    expect(result.rows[11].catchup).toMatchObject({ interest: '108.00', principal: '1000.00', unapplied: '0.00' });
+    expect(result.payoffMonth).toBe(12);
+    expect(result.complete).toBe(true);
+    expect(result.totals).toMatchObject({ interest: '120.00', principal: '1000.00', cashPaid: '1120.00' });
+  });
+
+  it('ajusta residuo tras recuperar atrasos y nunca perdona capital', () => {
+    const input = scenario({ principal: '100', payment: undefined, termMonths: 3, rate: { kind: 'monthly', value: '0' }, events: [
+      { id: 'miss', kind: 'missed' as const, month: 1 }, { id: 'recover', kind: 'catchup' as const, month: 2, amount: '33.33' },
+    ] });
+    const recovered = simulateLoan(input);
+    expect(recovered.rows.map(row => row.cashPaid)).toEqual(['0.00', '66.66', '33.34']);
+    expect(recovered.totals.principal).toBe('100.00');
+    const tiny = simulateLoan({ ...input, principal: '0.01', events: [] });
+    expect(tiny.rows.map(row => row.cashPaid)).toEqual(['0.00', '0.00', '0.01']);
+    expect(tiny.totals.principal).toBe('0.01');
+    const missedFinal = simulateLoan({ ...input, principal: '0.01', events: [{ id: 'miss-final', kind: 'missed', month: 3 }] });
+    expect(missedFinal.complete).toBe(false);
+    expect(missedFinal.remainingDebt).toBe('0.01');
+    expect(missedFinal.totals.principal).toBe('0.00');
+  });
+});
