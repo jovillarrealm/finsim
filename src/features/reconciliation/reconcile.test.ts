@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import { type Allocation, type MonthRow } from '../../domain/scenario';
 import { reconcileRow, statementSchema } from './reconcile';
+import { simulateLoan } from '../../engine/loan';
 
 const zero: Allocation = { offered: '0.00', applied: '0.00', principal: '0.00', insurance: '0.00', interest: '0.00', unapplied: '0.00' };
 const row: MonthRow = {
@@ -15,4 +16,12 @@ test('muestra igualdad y diferencia de extracto contra referencia independiente'
   expect(() => reconcileRow({ month: 2, balance: '0.00' }, [row])).toThrow('Ese mes no existe');
   expect(statementSchema.safeParse({ month: 1 }).success).toBe(false);
   expect(statementSchema.safeParse({ month: 1, interest: '1.001' }).success).toBe(false);
+});
+
+test('conecta extracto literal con el motor real sin modificar el cronograma', () => {
+  const result = simulateLoan({ version: 1, name: 'Referencia', source: 'original', principal: '1000',
+    startDate: '2026-10', termMonths: 2, rate: { kind: 'monthly', value: '0.01' }, insurance: [], events: [] });
+  const before = JSON.stringify(result);
+  expect(reconcileRow({ month: 2, interest: '5.02', principal: '502.49', balance: '0' }, result.rows).every(item => item.difference === '0.00')).toBe(true);
+  expect(JSON.stringify(result)).toBe(before);
 });
