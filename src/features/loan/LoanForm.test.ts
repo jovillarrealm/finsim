@@ -25,6 +25,8 @@ test('valida el formulario completo y conserva eventos sin reemplazar entradas i
   expect(result.data.rate).toEqual({ kind: 'nominal', value: '0.12', frequency: 12 });
   expect(result.data.insurance[0]).toMatchObject({ value: '0.0005', endMonth: 15, endsAtPayoff: false });
   expect(result.data.events).toEqual(scenario.events);
+  const limited = readLoanForm(data, scenario, [{ ...insurance[0], endsAtPayoff: true, endMonth: 15 }]);
+  expect(limited.success && limited.data.insurance[0].endMonth).toBe(15);
   data.set('principal', '1,001');
   expect(readLoanForm(data, scenario, insurance).success).toBe(false);
   data.set('principal', '1.000'); data.set('termMonths', '1201');

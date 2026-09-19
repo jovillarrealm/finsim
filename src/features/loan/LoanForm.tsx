@@ -26,7 +26,7 @@ export function readLoanForm(data: FormData, scenario: Scenario, insurance: Insu
       id: item.id, name: text(`insurance.${index}.name`).trim(), kind: item.kind,
       value: parseSpanishNumber(text(`insurance.${index}.value`), item.kind === 'percentage'),
       endsAtPayoff: item.endsAtPayoff,
-      ...(!item.endsAtPayoff ? { endMonth: Number(text(`insurance.${index}.endMonth`)) } : {}),
+      ...(!item.endsAtPayoff || item.endMonth !== undefined ? { endMonth: Number(text(`insurance.${index}.endMonth`)) } : {}),
     })),
   });
 }
@@ -101,7 +101,7 @@ function LoanFields({ scenario, onChange }: { scenario: Scenario; onChange: (sce
           {field(`insurance.${index}.endsAtPayoff`, 'Final del seguro', <select {...attrs(`insurance.${index}.endsAtPayoff`)} value={String(item.endsAtPayoff)}
             onChange={event => updateInsurance(index, { endsAtPayoff: event.target.value === 'true' })}>
             <option value="true">Termina al liquidar el préstamo</option><option value="false">Continúa hasta un mes definido</option></select>)}
-          {!item.endsAtPayoff && field(`insurance.${index}.endMonth`, 'Último mes de cobro (inclusive)',
+          {(!item.endsAtPayoff || item.endMonth !== undefined) && field(`insurance.${index}.endMonth`, 'Último mes de cobro (inclusive)',
             <input {...attrs(`insurance.${index}.endMonth`)} type="number" min="1" max="1200" step="1" defaultValue={item.endMonth ?? scenario.termMonths} />, 'Mes 1 = primer mes de la simulación.')}
         </div>
         <button className="button ghost" type="button" onClick={() => setInsurance(items => items.filter((_, position) => position !== index))}>Quitar seguro {index + 1}</button>

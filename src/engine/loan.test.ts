@@ -8,6 +8,13 @@ const scenario = (changes: Partial<Scenario> = {}): Scenario => ({ version: 1, n
 const fixed = { id: 'fixed', name: 'Seguro', kind: 'fixed' as const, value: '5.00', endsAtPayoff: true };
 
 describe('referencias financieras literales', () => {
+  it('calcula tasas diminutas sin cancelación numérica ni cuotas infinitas', () => {
+    for (const value of ['0.0000000000000000000000000000000000000001', '0.000000000000000000000000000001']) {
+      const result = simulateLoan(scenario({ principal: '100', payment: undefined, termMonths: 3, rate: { kind: 'monthly', value } }));
+      expect(result.rows.map(row => row.cashPaid)).toEqual(['33.33', '33.33', '33.34']);
+      expect(result.basePayment).toBe('33.33');
+    }
+  });
   it('redondea mitad de centavo hacia arriba', () => {
     expect(simulateLoan(scenario({ principal: '100.50' })).rows[0].interestCharged).toBe('1.01');
   });

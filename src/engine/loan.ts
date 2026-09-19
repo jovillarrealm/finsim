@@ -6,8 +6,13 @@ export function simulateLoan(scenario: Scenario): LoanResult {
   const input = scenarioSchema.parse(scenario);
   const rate = toMonthlyRate(input.rate);
   let balance = new D(input.principal);
-  const base = new D(input.payment ?? money(rate.isZero() ? balance.div(input.termMonths)
-    : balance.times(rate).div(new D(1).minus(rate.plus(1).pow(-input.termMonths)))));
+  // Sum discounted periods: equivalent annuity formula without subtracting nearly equal numbers.
+  let discount = new D(1), annuity = new D(0);
+  if (!input.payment) for (let period = 0; period < input.termMonths; period++) {
+    discount = discount.div(rate.plus(1));
+    annuity = annuity.plus(discount);
+  }
+  const base = new D(input.payment ?? money(balance.div(annuity)));
   let referenceBalance = balance;
   let interest = new D(0), insurance = new D(0), overdue = new D(0);
   const result: LoanResult = {
