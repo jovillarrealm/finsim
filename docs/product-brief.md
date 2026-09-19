@@ -1,6 +1,6 @@
 # Financial simulator: agreed product brief
 
-Status: interview decisions consolidated; implementation has not started.
+Status: first loan implementation available locally. Technical verification and remaining acceptance are tracked in [tracking](tracking.md).
 
 ## Purpose
 
@@ -70,7 +70,7 @@ Financial verification should cover independently checked schedules, principal c
 
 ## Remaining verification before implementation/release
 
-- Confirm the consolidated brief captures the user's intended product before starting implementation.
+- The user authorized implementation of the consolidated brief; audience acceptance remains to be observed.
 - Check direct editing and chart readability in the first interface preview.
 - Verify the implementation against the specified [financial conventions and reference examples](financial-conventions.md), particularly rounding, insurance calculation timing, and illustrative delinquency behavior. These are simulator rules, not a universal lender policy.
 - Reconcile against a real example before describing any loan model as matching that lender.

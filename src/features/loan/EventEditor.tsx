@@ -24,14 +24,14 @@ export default function EventEditor({ scenario, month, onChange }: { scenario: S
     onChange(next.data); setEditing(null); setError('');
   }
   return <section aria-labelledby="events-title" className="event-editor">
-    <h3 id="events-title">Editar mes {month}</h3>
+    <h3 id="events-title" tabIndex={-1}>Editar mes {month}</h3>
     <p>Primero se paga la cuota habitual; después la recuperación y los extras. Cada pago cubre seguros, intereses y finalmente capital. Un pago extra solo es abono a capital por la parte aplicada a capital.</p>
     <form key={`${editing?.id ?? 'new'}-${month}`} aria-describedby={error ? 'event-error' : undefined} onSubmit={event => { event.preventDefault(); save(event.currentTarget); }}>
       <label>Tipo de evento<select value={kind} onChange={event => setKind(event.target.value as LoanEvent['kind'])}>
         {Object.entries(names).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select></label>
       <label>Mes inicial<input name="month" type="number" min="1" max={MAX_MONTHS} required defaultValue={editing?.month ?? month} /></label>
-      {kind !== 'missed' && <label>Importe ofrecido (COP)<input name="amount" inputMode="decimal" required defaultValue={editing && 'amount' in editing ? editing.amount.replace('.', ',') : ''} aria-describedby={error ? 'event-error' : undefined} /><small>Ej.: 100.000,50</small></label>}
+      {kind !== 'missed' && <div className="field"><label htmlFor="event-amount">Importe ofrecido (COP)</label><input id="event-amount" name="amount" inputMode="decimal" required defaultValue={editing && 'amount' in editing ? editing.amount.replace('.', ',') : ''} aria-describedby={`event-amount-help${error ? ' event-error' : ''}`} /><small id="event-amount-help">Ej.: 100.000,50</small></div>}
       {kind === 'recurring' && <><label>Mes final inclusivo<input name="endMonth" type="number" min="1" max={MAX_MONTHS} required defaultValue={editing?.kind === 'recurring' ? editing.endMonth : month} /></label>
         <label>Cada cuántos meses<input name="every" type="number" min="1" max={MAX_MONTHS} required defaultValue={editing?.kind === 'recurring' ? editing.every : 1} /></label></>}
       {error && <p id="event-error" role="alert">{error}</p>}

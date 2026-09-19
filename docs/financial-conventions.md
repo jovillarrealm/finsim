@@ -1,6 +1,6 @@
 # Convenciones financieras del simulador
 
-Estado: reglas seleccionadas siguiendo las recomendaciones aceptadas por el usuario. Los detalles restantes se cierran con el mismo criterio, conforme a su instrucción de continuar. Implementación y verificación del motor pendientes.
+Estado: reglas seleccionadas siguiendo las recomendaciones aceptadas por el usuario. Motor implementado y referencias automatizadas verificadas; estado de integración y aceptación en [tracking](tracking.md).
 
 Este es un modelo educativo mensual. No representa las condiciones de un banco ni una política legal de cobro. Para afirmar coincidencia con una entidad, será necesario reconciliar un ejemplo real.
 
@@ -107,4 +107,4 @@ Variantes independientes del mismo mes 2:
 - Verificar el estado de simulación incompleta y evitar presentar saldos truncados como liquidación.
 - Reconciliar un ejemplo real antes de afirmar equivalencia con un prestamista. Las diferencias deben mostrarse, no corregirse silenciosamente.
 
-Verificación actual: ejemplos aritméticos revisados; estas comprobaciones aún no validan una implementación, porque el motor no existe.
+Verificación actual: ejemplos literales e invariantes comprobados en `src/engine/loan.test.ts` y conversiones en `src/engine/rates.test.ts`. Las pruebas de navegador están en `tests/acceptance.spec.ts`. No se ha reconciliado un extracto real ni afirmado equivalencia con un prestamista.

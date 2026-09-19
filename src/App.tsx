@@ -4,6 +4,7 @@ import { simulateLoan } from './engine/loan';
 import LoanForm from './features/loan/LoanForm';
 import LoanSummary from './features/loan/LoanSummary';
 import MonthlyTable from './features/loan/MonthlyTable';
+import ScenarioComparison from './features/loan/ScenarioComparison';
 import RateConverter from './features/rates/RateConverter';
 import Reconciliation from './features/reconciliation/Reconciliation';
 import { loadScenario, parseScenario, saveScenario, serializeScenario } from './persistence/scenario';
@@ -27,6 +28,7 @@ export default function App() {
   const [error, setError] = useState('');
   const [page, setPage] = useState('loan');
   const [tableMode, setTableMode] = useState('modified');
+  const [selectedMonth, setSelectedMonth] = useState(1);
   const fileInput = useRef<HTMLInputElement>(null);
   function applyScenario(scenario: Scenario) {
     try { setCurrent(workspace(scenario)); setError(''); setNotice('Escenario actualizado. Guarda para conservarlo en este navegador.'); }
@@ -70,8 +72,16 @@ export default function App() {
       <div hidden={page !== 'loan'}>
         <LoanForm scenario={current.scenario} onChange={applyScenario} />
         <LoanSummary result={current.modified} />
+        <ScenarioComparison scenario={current.scenario} original={current.original} modified={current.modified}
+          onChange={applyScenario} selectedMonth={selectedMonth} onSelectMonth={setSelectedMonth} />
         <div className="table-choice field"><label htmlFor="table-mode">Cronograma que quieres consultar</label><select id="table-mode" value={tableMode} onChange={event => setTableMode(event.target.value)}><option value="modified">Escenario modificado</option><option value="original">Escenario original · sin eventos</option></select></div>
-        <MonthlyTable result={tableMode === 'modified' ? current.modified : current.original} />
+        <MonthlyTable result={tableMode === 'modified' ? current.modified : current.original} onSelectMonth={month => {
+          setSelectedMonth(month);
+          requestAnimationFrame(() => {
+            const heading = document.getElementById('events-title');
+            heading?.focus(); heading?.scrollIntoView({ block: 'center' });
+          });
+        }} />
       </div>
       <div hidden={page !== 'rates'}><RateConverter /></div>
       <div hidden={page !== 'reconcile'}><Reconciliation result={current.original} /></div>
