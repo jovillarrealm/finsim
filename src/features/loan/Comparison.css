@@ -1,0 +1,17 @@
+.scenario-comparison { margin-block: 2rem; }
+.comparison-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.comparison-charts figure { margin: 0; min-width: 0; }
+.comparison-charts figcaption { font-weight: 700; margin-bottom: .8rem; }
+.comparison-deltas { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+.comparison-deltas div { border: 1px solid var(--line); border-radius: .6rem; padding: 1rem; min-width: 0; }
+.comparison-deltas dd { margin: .5rem 0 0; font-weight: 700; overflow-wrap: anywhere; }
+.event-editor { border: 1px solid var(--line); border-radius: .6rem; padding: 1rem; margin-block: 1rem; }
+.event-editor form { display: flex; flex-wrap: wrap; gap: .8rem; align-items: end; }
+.event-editor label, .month-selector { display: flex; flex-direction: column; gap: .3rem; min-width: 0; }
+.event-editor input, .event-editor select, .month-selector input { padding: .6rem; max-width: 100%; min-height: 44px; border: 1px solid #cbd5c6; border-radius: 8px; background: white; color: var(--green); }
+.event-editor button { min-height: 44px; }
+.event-list { padding-left: 1.2rem; }
+.event-list li { margin-top: .6rem; }
+.event-list button { margin-left: .5rem; }
+.month-selector { max-width: 14rem; }
+@media (max-width: 800px) { .comparison-charts { grid-template-columns: 1fr; } .event-editor form > label { width: 100%; } }
