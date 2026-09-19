@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-Actualizado: 2026-09-19. Implementación iniciada. Git inicializado en main. Sesión coordinadora: /root. Base y contratos integrados. Frentes activos: **FS-07 y FS-10**. Motor, formulario y navegación integrados.
+Actualizado: 2026-09-19. Primera versión local integrada en **1167e15**. Sesión coordinadora: /root. Verificación técnica completada: 42 pruebas unitarias, 2 flujos de navegador y build con comprobación de tipos. Pendientes: aceptación de uso FS-07/FS-10 y publicación FS-11.
 
 Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md) define alcance, dependencias y criterios de cierre. Los registros por tarea guardan el detalle de continuidad.
 
@@ -12,14 +12,14 @@ Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md)
 | FS-01 | Contratos y validación | hecha | /root | main / finsim | 2b79d08; tipos y contratos |
 | FS-02 | Motor de tasas | hecha | /root/rates | task/fs-02-rates / finsim-fs02 | 01dbbc8 integrado; 9 pruebas y build conjunto |
 | FS-03 | Préstamo base y seguros | hecha | /root/loan_engine | task/fs-03-loan / finsim-fs03 | 911885c; 28 pruebas y build conjunto |
-| FS-04 | Primera interfaz | en revisión | /root | main / finsim | cbfde53 y 2395254 integrados; revisión visual pendiente |
+| FS-04 | Primera interfaz | hecha | /root | main / finsim | 1167e15; escritorio, móvil y teclado verificados |
 | FS-05 | Eventos y atrasos | hecha | /root/converter | task/fs-05-events / finsim-fs05 | 44f9330 integrado en 4d7b7ec; pruebas financieras |
 | FS-06 | Persistencia | hecha | /root/persistence | task/fs-06-persistence / finsim-fs06 | a04b510 integrado en 084ee1d; 9 pruebas y build |
-| FS-07 | Comparación y edición | en curso | /root/comparison_finish | task/fs-07-comparison / finsim-fs07 | retoma archivos sin commit de sesión interrumpida |
-| FS-08 | Conciliación | en revisión | /root | task/fs-08-reconciliation / finsim-fs08 | 77582c3 integrado; prueba con motor real; falta navegación |
-| FS-09 | Conversor visual | en revisión | /root/converter | task/fs-09-converter / finsim-fs09 | 3eea6d6 integrado; falta navegación y revisión visual |
-| FS-10 | Aceptación integrada | en curso | /root | main / finsim | preparación de pruebas; cierre espera FS-07 y observación real |
-| FS-11 | GitHub Pages | pendiente | — | — | — |
+| FS-07 | Comparación y edición | en revisión | /root | task/fs-07-comparison / finsim-fs07 | 2099e69 integrado; interacción verificada; falta confirmación de uso |
+| FS-08 | Conciliación | hecha | /root | task/fs-08-reconciliation / finsim-fs08 | referencia literal, navegación y diferencia visible verificadas |
+| FS-09 | Conversor visual | hecha | /root | task/fs-09-converter / finsim-fs09 | referencia 1% EM, navegación y teclado verificados |
+| FS-10 | Aceptación integrada | en revisión | /root | main / finsim | 42 pruebas, 2 flujos navegador; falta observación del criterio 8 |
+| FS-11 | GitHub Pages | pendiente | /root | main / finsim | workflow manual preparado; falta destino y publicación solicitada |
 | FS-12 | CDT/ETF | diferida | — | — | — |
 
 ## Estados
@@ -29,7 +29,7 @@ Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md)
 - `en curso`: reservada por una sesión identificada, con rama y worktree propios.
 - `pausada`: conserva su reserva y un siguiente paso registrado para otra sesión.
 - `bloqueada`: registra impedimento concreto, quién puede resolverlo y condición de salida.
-- `en revisión`: implementación en rama con evidencia; falta revisión o integración.
+- `en revisión`: implementación con evidencia; falta revisión, integración o aceptación de uso expresamente registrada.
 - `hecha`: integrada en `main`, criterios satisfechos y comprobaciones del conjunto exitosas.
 - `diferida`: fuera del hito activo.
 
@@ -90,16 +90,8 @@ Copiar en `docs/tasks/FS-NN.md` al reservar. El estado operativo de la ficha pue
 
 ## Inicio de una próxima sesión
 
-Para arrancar: «Implementa FS-00 siguiendo AGENTS.md y el protocolo de docs/tracking.md. Registra evidencia y deja la siguiente tarea lista».
+Para continuar: «Retoma FS-10 desde main. Lee su ficha y registra la aceptación de uso pendiente. La implementación técnica ya está integrada; no reinicies FS-00».
 
 Para retomar una tarea asignada: «Retoma FS-NN en su worktree registrado. Lee su ficha, verifica el estado real y continúa desde el siguiente paso. Actualiza el traspaso al terminar».
 
 Para coordinar: «Revisa entregas en revisión, integra una por vez, verifica y actualiza el tablero. Reserva las siguientes tareas independientes antes de abrir nuevas sesiones».
-
-
-
-
-
-
-
-
