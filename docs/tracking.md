@@ -95,3 +95,7 @@ Para continuar: «Retoma FS-10 desde main. Lee su ficha y registra la aceptació
 Para retomar una tarea asignada: «Retoma FS-NN en su worktree registrado. Lee su ficha, verifica el estado real y continúa desde el siguiente paso. Actualiza el traspaso al terminar».
 
 Para coordinar: «Revisa entregas en revisión, integra una por vez, verifica y actualiza el tablero. Reserva las siguientes tareas independientes antes de abrir nuevas sesiones».
+
+## FS-13 · Moneda del escenario
+
+2026-09-20 · en curso · /root · codex/fs-13-currency · worktree hermano finsim-fs13. COP, ARS, USD y EUR; sin conversión; compatibilidad con escenarios anteriores en COP.
