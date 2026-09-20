@@ -100,3 +100,7 @@ Para coordinar: «Revisa entregas en revisión, integra una por vez, verifica y 
 ## FS-13 · Moneda del escenario
 
 2026-09-20 · hecha · /root · codex/fs-13-currency · worktree hermano finsim-fs13. COP, ARS, USD y EUR; sin conversión; compatibilidad con escenarios anteriores en COP.
+
+## FS-14 · Edición de meses por lotes
+
+2026-09-20 · en curso · /root · codex/fs-14-batch-events · worktree hermano finsim-fs14. Feedback: edición inmediata incómoda; agregar/modificar/quitar varios eventos antes de aplicar, con validación atómica y descarte.
