@@ -31,7 +31,7 @@ export default function EventEditor({ scenario, month, onChange }: { scenario: S
         {Object.entries(names).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select></label>
       <label>Mes inicial<input name="month" type="number" min="1" max={MAX_MONTHS} required defaultValue={editing?.month ?? month} /></label>
-      {kind !== 'missed' && <div className="field"><label htmlFor="event-amount">Importe ofrecido (COP)</label><input id="event-amount" name="amount" inputMode="decimal" required defaultValue={editing && 'amount' in editing ? editing.amount.replace('.', ',') : ''} aria-describedby={`event-amount-help${error ? ' event-error' : ''}`} /><small id="event-amount-help">Ej.: 100.000,50</small></div>}
+      {kind !== 'missed' && <div className="field"><label htmlFor="event-amount">Importe ofrecido ({scenario.currency})</label><input id="event-amount" name="amount" inputMode="decimal" required defaultValue={editing && 'amount' in editing ? editing.amount.replace('.', ',') : ''} aria-describedby={`event-amount-help${error ? ' event-error' : ''}`} /><small id="event-amount-help">Ej.: 100.000,50</small></div>}
       {kind === 'recurring' && <><label>Mes final inclusivo<input name="endMonth" type="number" min="1" max={MAX_MONTHS} required defaultValue={editing?.kind === 'recurring' ? editing.endMonth : month} /></label>
         <label>Cada cuántos meses<input name="every" type="number" min="1" max={MAX_MONTHS} required defaultValue={editing?.kind === 'recurring' ? editing.every : 1} /></label></>}
       {error && <p id="event-error" role="alert">{error}</p>}
@@ -41,7 +41,7 @@ export default function EventEditor({ scenario, month, onChange }: { scenario: S
     {scenario.events.length === 0 ? <p>Sin eventos. Ambos escenarios coinciden.</p> : <ul className="event-list">
       {scenario.events.map(event => <li key={event.id}><span>{names[event.kind]} · mes {event.month}
         {event.kind === 'recurring' ? ` al ${event.endMonth}, cada ${event.every}` : ''}
-        {'amount' in event ? ` · ${formatMoney(event.amount)}` : ''}</span>
+        {'amount' in event ? ` · ${formatMoney(event.amount, scenario.currency)}` : ''}</span>
         <button className="button secondary" type="button" aria-label={`Editar ${names[event.kind]} del mes ${event.month}`} onClick={() => { setEditing(event); setKind(event.kind); setError(''); }}>Editar</button>
         <button className="button ghost" type="button" aria-label={`Quitar ${names[event.kind]} del mes ${event.month}`} onClick={() => { onChange({ ...scenario, events: scenario.events.filter(item => item.id !== event.id) }); if (editing?.id === event.id) setEditing(null); }}>Quitar</button>
       </li>)}

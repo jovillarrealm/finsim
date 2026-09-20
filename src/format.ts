@@ -1,8 +1,8 @@
-import { D } from './domain/scenario';
+import { D, type Currency } from './domain/scenario';
 
-export function formatMoney(value: string): string {
+export function formatMoney(value: string, currency: Currency = 'COP'): string {
   const [whole, cents] = new D(value).abs().toFixed(2).split('.');
-  return `${new D(value).isNegative() ? '−' : ''}$ ${BigInt(whole).toLocaleString('es-CO')},${cents}`;
+  return `${new D(value).isNegative() ? '−' : ''}${currency} ${BigInt(whole).toLocaleString('es-CO')},${cents}`;
 }
 
 export function formatMonth(value: string): string {

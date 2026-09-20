@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { D, money, type Scenario } from '../domain/scenario';
+import { D, currencies, money, type Scenario } from '../domain/scenario';
 import { simulateLoan } from './loan';
 
-const scenario = (changes: Partial<Scenario> = {}): Scenario => ({ version: 1, name: 'Prueba', source: 'original',
+const scenario = (changes: Partial<Scenario> = {}): Scenario => ({ version: 1, currency: 'COP', name: 'Prueba', source: 'original',
   principal: '1000.00', startDate: '2026-01', termMonths: 12, payment: '100.00',
   rate: { kind: 'monthly', value: '0.01' }, insurance: [], events: [], ...changes });
 const fixed = { id: 'fixed', name: 'Seguro', kind: 'fixed' as const, value: '5.00', endsAtPayoff: true };
@@ -190,4 +190,11 @@ describe('aceptación independiente de eventos', () => {
     expect(missedFinal.remainingDebt).toBe('0.01');
     expect(missedFinal.totals.principal).toBe('0.00');
   });
+});
+
+
+it('la moneda no convierte importes ni cambia resultados financieros', () => {
+  const input = scenario({ insurance: [fixed], events: [{ id: 'e', kind: 'extra', month: 2, amount: '20.50' }] });
+  const expected = simulateLoan(input);
+  for (const currency of currencies) expect(simulateLoan({ ...input, currency })).toEqual(expected);
 });

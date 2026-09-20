@@ -39,10 +39,10 @@ test('chart labels retain cents that Number cannot represent and differences ret
     rate: { kind: 'monthly', value: '0' }, insurance: [] });
   const row = chartRows(result, 1)[0];
   expect(row.scheduled).toBe(1000000000000000);
-  expect(chartMoney(row, 'scheduled')).toBe('$ 999.999.999.999.999,99');
-  expect(signedMoney('20.50')).toBe('+$ 20,50');
-  expect(signedMoney('-20.50')).toBe('−$ 20,50');
-  expect(signedMoney('0.00')).toBe('$ 0,00');
+  expect(chartMoney(row, 'scheduled')).toBe('COP 999.999.999.999.999,99');
+  expect(signedMoney('20.50')).toBe('+COP 20,50');
+  expect(signedMoney('-20.50')).toBe('−COP 20,50');
+  expect(signedMoney('0.00')).toBe('COP 0,00');
 });
 
 test('charts include insurance after payoff and incomplete comparison stays provisional', () => {

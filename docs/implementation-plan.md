@@ -6,7 +6,7 @@ Fecha inicial: 2026-09-15. Existen las especificaciones; aún no hay código, re
 
 Este plan toma como base el [producto acordado](product-brief.md), las [convenciones financieras](financial-conventions.md) y el [stack recomendado](research/stack-maintainability.md). La solicitud de plan permite organizar el trabajo; los estados del [tablero](tracking.md) reflejan ejecución real, no intención.
 
-Primera entrega: préstamos COP de tasa fija, dos escenarios, abonos para reducir plazo, seguros, omisiones y recuperación, conciliación manual, conversor y persistencia local. CDT/ETF queda en el siguiente hito.
+Primera entrega: préstamos en COP, ARS, USD o EUR de tasa fija (sin conversión monetaria), dos escenarios, abonos para reducir plazo, seguros, omisiones y recuperación, conciliación manual, conversor y persistencia local. CDT/ETF queda en el siguiente hito.
 
 Stack de partida: TypeScript estricto, React, Vite, decimal.js, Zod, Recharts y Vitest. Una aplicación, motor independiente de React, sin backend. Las versiones compatibles se fijan al instalar; el archivo de dependencias bloqueadas se integra antes de abrir trabajo paralelo.
 

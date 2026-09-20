@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest';
-import { exampleScenario, type Scenario } from '../domain/scenario';
+import { currencies, exampleScenario, type Scenario } from '../domain/scenario';
 import { loadScenario, parseScenario, saveScenario, SCENARIO_STORAGE_KEY, serializeScenario } from './scenario';
 
 const scenario: Scenario = {
@@ -76,4 +76,20 @@ test('fallos de acceso y cuota reportan errores españoles sin borrar la copia p
   vi.stubGlobal('localStorage', undefined);
   expect(() => saveScenario(scenario)).toThrow('No se pudo guardar');
   expect(() => loadScenario()).toThrow('No se pudo acceder');
+});
+
+
+test('preserva cada moneda y los importes; escenarios anteriores usan COP', () => {
+  const { currency: _currency, ...legacy } = scenario;
+  expect(parseScenario(JSON.stringify(legacy))).toEqual(scenario);
+  for (const currency of currencies) {
+    const input = { ...scenario, currency };
+    const storage = memoryStorage();
+    saveScenario(input, storage);
+    expect(loadScenario(storage)).toEqual(input);
+    expect(parseScenario(serializeScenario(input))).toEqual(input);
+  }
+  for (const currency of ['GBP', '', null, 123]) {
+    expect(() => parseScenario(JSON.stringify({ ...scenario, currency }))).toThrow('datos inválidos');
+  }
 });

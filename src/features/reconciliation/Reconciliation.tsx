@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react';
-import { type LoanResult } from '../../domain/scenario';
+import { type Currency, type LoanResult } from '../../domain/scenario';
 import { formatMoney } from '../../format';
 import { fieldLabels, reconcileRow, statementSchema, type StatementField, type StatementRow } from './reconcile';
 
-export default function Reconciliation({ result }: { result: LoanResult }) {
+export default function Reconciliation({ result, currency }: { result: LoanResult; currency: Currency }) {
   const [statements, setStatements] = useState<StatementRow[]>([]);
   const [error, setError] = useState('');
   function addRow(event: FormEvent<HTMLFormElement>) {
@@ -29,7 +29,7 @@ export default function Reconciliation({ result }: { result: LoanResult }) {
     <form onSubmit={addRow} className="form-grid">
       <label className="field">Mes del extracto<input name="month" type="number" min="1" max="1200" defaultValue="1" required /></label>
       {(Object.keys(fieldLabels) as StatementField[]).map(field => <label className="field" key={field}>
-        {fieldLabels[field]} (COP)<input name={field} inputMode="decimal" placeholder="Opcional · sin separador de miles" />
+        {fieldLabels[field]} ({currency})<input name={field} inputMode="decimal" placeholder="Opcional · sin separador de miles" />
       </label>)}
       <button className="button" type="submit">Comparar fila</button>
     </form>
@@ -43,7 +43,7 @@ export default function Reconciliation({ result }: { result: LoanResult }) {
         <div className="section-heading"><h3>Mes {statement.month}</h3><button className="button secondary" onClick={() => setStatements(rows => rows.filter(row => row.month !== statement.month))}>Quitar mes {statement.month}</button></div>
         <div className="table-scroll"><table><caption className="sr-only">Comparación del mes {statement.month}</caption>
           <thead><tr><th>Concepto</th><th>Extracto</th><th>Simulación</th><th>Diferencia</th></tr></thead>
-          <tbody>{comparisons.map(item => <tr key={item.field}><th scope="row">{fieldLabels[item.field]}</th><td>{formatMoney(item.actual)}</td><td>{formatMoney(item.simulated)}</td><td>{item.difference === '0.00' ? 'Coincide' : formatMoney(item.difference)}</td></tr>)}</tbody>
+          <tbody>{comparisons.map(item => <tr key={item.field}><th scope="row">{fieldLabels[item.field]}</th><td>{formatMoney(item.actual, currency)}</td><td>{formatMoney(item.simulated, currency)}</td><td>{item.difference === '0.00' ? 'Coincide' : formatMoney(item.difference, currency)}</td></tr>)}</tbody>
         </table></div>
       </div>;
     })}

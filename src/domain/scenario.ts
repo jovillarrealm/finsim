@@ -2,6 +2,8 @@ import Decimal from 'decimal.js';
 import { z } from 'zod';
 
 export const D = Decimal.clone({ precision: 40, rounding: Decimal.ROUND_HALF_UP });
+export const currencies = ['COP', 'ARS', 'USD', 'EUR'] as const;
+export type Currency = typeof currencies[number];
 export const MAX_MONTHS = 1200;
 export const money = (value: Decimal.Value): string => new D(value).toFixed(2);
 
@@ -11,7 +13,7 @@ export const decimalSchema = z.string().max(128, 'Usa como máximo 128 caractere
 export const moneySchema = decimalSchema.refine(value => !value.includes('.') || value.split('.')[1].length <= 2,
   'Usa como máximo dos decimales.').refine(value => {
     try { return new D(value).lte('1000000000000000'); } catch { return false; }
-  }, 'El máximo admitido es 1.000.000.000.000.000 COP.');
+  }, 'El máximo admitido es 1.000.000.000.000.000 en la moneda seleccionada.');
 const positiveMoney = moneySchema.refine(value => { try { return new D(value).gt(0); } catch { return false; } }, 'El importe debe ser mayor que cero.');
 export const monthSchema = z.number().int().min(1).max(MAX_MONTHS);
 export const rateSchema = z.discriminatedUnion('kind', [
@@ -46,7 +48,7 @@ export const eventSchema = z.discriminatedUnion('kind', [
 export type LoanEvent = z.infer<typeof eventSchema>;
 
 export const scenarioSchema = z.object({
-  version: z.literal(1), name: z.string().min(1).max(120),
+  version: z.literal(1), currency: z.enum(currencies).default('COP'), name: z.string().min(1).max(120),
   source: z.enum(['original', 'current']),
   principal: positiveMoney,
   // The first payment month is YYYY-MM; month indexes are one-based.
@@ -103,7 +105,7 @@ export interface LoanResult {
 }
 
 export const exampleScenario: Scenario = {
-  version: 1, name: 'Ejemplo · Crédito de libre inversión', source: 'original',
+  version: 1, currency: 'COP', name: 'Ejemplo · Crédito de libre inversión', source: 'original',
   principal: '20000000.00', startDate: '2026-10', termMonths: 36,
   rate: { kind: 'annual', value: '0.18' },
   insurance: [{ id: 'life', name: 'Seguro de vida', kind: 'percentage', value: '0.0005', endsAtPayoff: true }],

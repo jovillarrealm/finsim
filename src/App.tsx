@@ -58,7 +58,7 @@ export default function App() {
   return <div className="shell">
     <header className="app-header"><a href="#" className="brand" onClick={event => { event.preventDefault(); setPage('loan'); }}>finsim<span className="brand-dot">.</span></a><span className="badge">Tu laboratorio financiero</span></header>
     <main>
-      <section className="hero"><div><p className="eyebrow">MENOS INCERTIDUMBRE. MÁS PERSPECTIVA.</p><h1>Decide con<br /><span>los números claros.</span></h1><p className="muted">Explora tu préstamo, cambia un mes y entiende qué pasa con tu dinero.</p></div><div className="hero-note"><span className="hero-symbol" aria-hidden="true">↗</span><p>Un pequeño cambio hoy.<br /><strong>Una historia distinta mañana.</strong></p><span className="muted">COP · pagos mensuales · tasa fija</span></div></section>
+      <section className="hero"><div><p className="eyebrow">MENOS INCERTIDUMBRE. MÁS PERSPECTIVA.</p><h1>Decide con<br /><span>los números claros.</span></h1><p className="muted">Explora tu préstamo, cambia un mes y entiende qué pasa con tu dinero.</p></div><div className="hero-note"><span className="hero-symbol" aria-hidden="true">↗</span><p>Un pequeño cambio hoy.<br /><strong>Una historia distinta mañana.</strong></p><span className="muted">{current.scenario.currency} · pagos mensuales · tasa fija</span></div></section>
       <nav className="tabs" aria-label="Herramientas financieras">
         {[['loan', 'Explorar préstamo'], ['rates', 'Convertir tasas'], ['reconcile', 'Comparar extracto']].map(([id, label]) => <button key={id} aria-current={page === id ? 'page' : undefined} onClick={() => setPage(id)}>{label}</button>)}
       </nav>
@@ -71,11 +71,11 @@ export default function App() {
       {notice && <p role="status" className="status-line">{notice}</p>}{error && <p role="alert" className="error note">{error}</p>}
       <div hidden={page !== 'loan'}>
         <LoanForm scenario={current.scenario} onChange={applyScenario} />
-        <LoanSummary result={current.modified} />
+        <LoanSummary currency={current.scenario.currency} result={current.modified} />
         <ScenarioComparison scenario={current.scenario} original={current.original} modified={current.modified}
           onChange={applyScenario} selectedMonth={selectedMonth} onSelectMonth={setSelectedMonth} />
         <div className="table-choice field"><label htmlFor="table-mode">Cronograma que quieres consultar</label><select id="table-mode" value={tableMode} onChange={event => setTableMode(event.target.value)}><option value="modified">Escenario modificado</option><option value="original">Escenario original · sin eventos</option></select></div>
-        <MonthlyTable result={tableMode === 'modified' ? current.modified : current.original} onSelectMonth={month => {
+        <MonthlyTable currency={current.scenario.currency} result={tableMode === 'modified' ? current.modified : current.original} onSelectMonth={month => {
           setSelectedMonth(month);
           requestAnimationFrame(() => {
             const heading = document.getElementById('events-title');
@@ -84,7 +84,7 @@ export default function App() {
         }} />
       </div>
       <div hidden={page !== 'rates'}><RateConverter /></div>
-      <div hidden={page !== 'reconcile'}><Reconciliation result={current.original} /></div>
+      <div hidden={page !== 'reconcile'}><Reconciliation currency={current.scenario.currency} result={current.original} /></div>
       <footer className="app-footer"><p><strong>Un espacio para explorar, no una promesa de tu banco.</strong> Modelo educativo mensual. Los extras se aplican después del pago habitual; primero seguros, luego intereses y capital. Las omisiones no generan penalidades ni intereses sobre cargos pendientes.</p><p>Los escenarios se guardan solo en este navegador. Exporta una copia para conservarlos o llevarlos a otro dispositivo.</p></footer>
     </main>
   </div>;

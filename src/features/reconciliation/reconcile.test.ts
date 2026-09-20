@@ -19,9 +19,10 @@ test('muestra igualdad y diferencia de extracto contra referencia independiente'
 });
 
 test('conecta extracto literal con el motor real sin modificar el cronograma', () => {
-  const result = simulateLoan({ version: 1, name: 'Referencia', source: 'original', principal: '1000',
+  const result = simulateLoan({ version: 1, currency: 'COP', name: 'Referencia', source: 'original', principal: '1000',
     startDate: '2026-10', termMonths: 2, rate: { kind: 'monthly', value: '0.01' }, insurance: [], events: [] });
   const before = JSON.stringify(result);
   expect(reconcileRow({ month: 2, interest: '5.02', principal: '502.49', balance: '0' }, result.rows).every(item => item.difference === '0.00')).toBe(true);
   expect(JSON.stringify(result)).toBe(before);
 });
+

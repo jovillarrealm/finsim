@@ -6,7 +6,7 @@ Este es un modelo educativo mensual. No representa las condiciones de un banco n
 
 ## 1. Periodos, cuota y redondeo
 
-- Préstamos en COP, con tasa fija y periodos mensuales completos. Los eventos pertenecen a un mes; no se calculan intereses diarios ni prorrateos.
+- Préstamos en COP, ARS, USD o EUR (una moneda por escenario, sin conversión de importes), con tasa fija y periodos mensuales completos. Los eventos pertenecen a un mes; no se calculan intereses diarios ni prorrateos.
 - El saldo inicial de un préstamo ingresado a mitad de su vida representa capital al inicio del próximo periodo y supone que está al día. Importar atrasos anteriores queda fuera de esta versión.
 - La cuota base contiene capital e intereses; el seguro se añade por separado. Puede ingresarse una cuota conocida o calcularse a partir del saldo, tasa y plazo restantes.
 - Para capital `P`, tasa mensual `r` y `n` meses, la cuota calculada es `P*r/(1-(1+r)^(-n))`. Si `r=0`, es `P/n`.

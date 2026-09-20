@@ -1,5 +1,5 @@
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
-import { D, scenarioSchema, type Insurance, type Scenario } from '../../domain/scenario';
+import { D, currencies, scenarioSchema, type Currency, type Insurance, type Scenario } from '../../domain/scenario';
 
 // Spanish input: comma decimals, optional dots separating groups of three.
 export function parseSpanishNumber(input: string, percentage = false): string {
@@ -17,6 +17,7 @@ export function readLoanForm(data: FormData, scenario: Scenario, insurance: Insu
   const rateKind = text('rate.kind');
   return scenarioSchema.safeParse({
     ...scenario,
+    currency: data.get('currency') ?? scenario.currency,
     name: text('name').trim(), source: text('source'), startDate: text('startDate'),
     principal: parseSpanishNumber(text('principal')), termMonths: Number(text('termMonths')),
     payment: text('payment').trim() ? parseSpanishNumber(text('payment')) : undefined,
@@ -40,6 +41,7 @@ function LoanFields({ scenario, onChange }: { scenario: Scenario; onChange: (sce
   const [insurance, setInsurance] = useState(scenario.insurance);
   const [rateKind, setRateKind] = useState(scenario.rate.kind);
   const [source, setSource] = useState(scenario.source);
+  const [currency, setCurrency] = useState(scenario.currency);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [applied, setApplied] = useState(false);
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -67,13 +69,15 @@ function LoanFields({ scenario, onChange }: { scenario: Scenario; onChange: (sce
 
   return <form className="panel loan-form" onSubmit={submit} onChange={() => setApplied(false)} noValidate>
     <div className="section-heading"><div><p className="eyebrow">Punto de partida</p><h2>Tu préstamo</h2></div>
-      <span className="badge">COP · tasa fija</span></div>
+      <span className="badge">{currency} · tasa fija</span></div>
     <div className="form-grid">
       {field('name', 'Nombre del escenario', <input {...attrs('name')} defaultValue={scenario.name} maxLength={120} />)}
+      {field('currency', 'Moneda', <select {...attrs('currency')} value={currency} onChange={event => setCurrency(event.target.value as Currency)}>
+        {currencies.map(code => <option key={code} value={code}>{code}</option>)}</select>, 'Cambiar la moneda conserva los importes. No hacemos conversión cambiaria.')}
       {field('source', '¿Desde dónde empezamos?', <select {...attrs('source')} value={source}
         onChange={event => setSource(event.target.value as Scenario['source'])}>
         <option value="original">Préstamo original</option><option value="current">Saldo actual al día</option></select>)}
-      {field('principal', source === 'current' ? 'Capital pendiente (COP)' : 'Capital inicial (COP)',
+      {field('principal', source === 'current' ? `Capital pendiente (${currency})` : `Capital inicial (${currency})`,
         <input {...attrs('principal')} inputMode="decimal" defaultValue={editable(scenario.principal)} />, 'Ej.: 20.000.000,00. Máximo dos decimales.')}
       {field('startDate', 'Mes del primer pago simulado', <input {...attrs('startDate')} type="month" defaultValue={scenario.startDate} />)}
       {field('rate.kind', 'Tipo de tasa', <select {...attrs('rate.kind')} value={rateKind}
@@ -85,7 +89,7 @@ function LoanFields({ scenario, onChange }: { scenario: Scenario; onChange: (sce
         <input {...attrs('rate.frequency')} type="number" min="1" step="1" defaultValue={scenario.rate.kind === 'nominal' ? scenario.rate.frequency : 12} />, '12 = mensual; 4 = trimestral; 1 = anual.')}
       {field('termMonths', source === 'current' ? 'Plazo restante (meses)' : 'Plazo (meses)',
         <input {...attrs('termMonths')} type="number" min="1" max="1200" step="1" defaultValue={scenario.termMonths} />, 'Entre 1 y 1.200 meses.')}
-      {field('payment', 'Cuota conocida (COP, opcional)', <input {...attrs('payment')} inputMode="decimal" defaultValue={scenario.payment ? editable(scenario.payment) : ''} placeholder="Calcular según el plazo" />, 'Solo capital e intereses. El seguro se suma aparte.')}
+      {field('payment', `Cuota conocida (${currency}, opcional)`, <input {...attrs('payment')} inputMode="decimal" defaultValue={scenario.payment ? editable(scenario.payment) : ''} placeholder="Calcular según el plazo" />, 'Solo capital e intereses. El seguro se suma aparte.')}
     </div>
     {source === 'current' && <p className="note">El saldo representa capital al inicio del próximo periodo. Suponemos que estás al día; no incluye atrasos previos.</p>}
     <fieldset className="insurance-list"><legend>Seguros mensuales</legend>
@@ -95,8 +99,8 @@ function LoanFields({ scenario, onChange }: { scenario: Scenario; onChange: (sce
           {field(`insurance.${index}.name`, 'Nombre', <input {...attrs(`insurance.${index}.name`)} defaultValue={item.name} />)}
           {field(`insurance.${index}.kind`, 'Tipo de cargo', <select {...attrs(`insurance.${index}.kind`)} value={item.kind}
             onChange={event => updateInsurance(index, { kind: event.target.value as Insurance['kind'] })}>
-            <option value="fixed">Importe fijo (COP)</option><option value="percentage">Porcentaje mensual (%)</option></select>)}
-          {field(`insurance.${index}.value`, item.kind === 'fixed' ? 'Importe mensual (COP)' : 'Porcentaje mensual (%)',
+            <option value="fixed">Importe fijo ({currency})</option><option value="percentage">Porcentaje mensual (%)</option></select>)}
+          {field(`insurance.${index}.value`, item.kind === 'fixed' ? `Importe mensual (${currency})` : 'Porcentaje mensual (%)',
             <input {...attrs(`insurance.${index}.value`)} inputMode="decimal" defaultValue={editable(item.value, item.kind === 'percentage')} />)}
           {field(`insurance.${index}.endsAtPayoff`, 'Final del seguro', <select {...attrs(`insurance.${index}.endsAtPayoff`)} value={String(item.endsAtPayoff)}
             onChange={event => updateInsurance(index, { endsAtPayoff: event.target.value === 'true' })}>

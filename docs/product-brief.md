@@ -15,7 +15,7 @@ A Spanish-first educational tool for the owner and their inner circle to underst
 
 ## First release: loan exploration
 
-Model fixed-rate COP loans with monthly payments. Accept either an original loan or a current balance with remaining conditions. Expose assumptions so users can reconcile the schedule with a real loan.
+Model fixed-rate loans in COP, ARS, USD or EUR (one currency per scenario, no currency conversion) with monthly payments. Accept either an original loan or a current balance with remaining conditions. Expose assumptions so users can reconcile the schedule with a real loan.
 
 Show two scenarios at a time: the original schedule and a modified schedule using the reduce-term prepayment mode. Defer reduced-installment comparisons and additional simultaneous scenarios. When missed payments are prescribed, the modified schedule may extend rather than shorten the term.
 
