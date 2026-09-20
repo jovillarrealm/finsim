@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-Actualizado: 2026-09-19. Primera versión local integrada en **1167e15**. Sesión coordinadora: /root. Verificación técnica completada: 42 pruebas unitarias, 2 flujos de navegador y build con comprobación de tipos. Pendientes: aceptación de uso FS-07/FS-10 y publicación FS-11.
+Actualizado: 2026-09-20. Primera versión local con moneda parametrizable integrada en **8cba454**. Sesión coordinadora: /root. Verificación técnica completada: 45 pruebas unitarias, 3 flujos de navegador y build con comprobación de tipos. Pendientes: aceptación de uso FS-07/FS-10 y publicación FS-11.
 
 Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md) define alcance, dependencias y criterios de cierre. Los registros por tarea guardan el detalle de continuidad.
 
@@ -21,6 +21,7 @@ Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md)
 | FS-10 | Aceptación integrada | en revisión | /root | main / finsim | 42 pruebas, 2 flujos navegador; falta observación del criterio 8 |
 | FS-11 | GitHub Pages | pendiente | /root | main / finsim | workflow manual preparado; falta destino y publicación solicitada |
 | FS-12 | CDT/ETF | diferida | — | — | — |
+| FS-13 | Moneda del escenario | hecha | /root + /root/currency_ui | codex/fs-13-currency / finsim-fs13 | 8cba454 integrado; 45 pruebas, 3 flujos navegador y build |
 
 ## Estados
 
@@ -98,4 +99,4 @@ Para coordinar: «Revisa entregas en revisión, integra una por vez, verifica y 
 
 ## FS-13 · Moneda del escenario
 
-2026-09-20 · en curso · /root · codex/fs-13-currency · worktree hermano finsim-fs13. COP, ARS, USD y EUR; sin conversión; compatibilidad con escenarios anteriores en COP.
+2026-09-20 · hecha · /root · codex/fs-13-currency · worktree hermano finsim-fs13. COP, ARS, USD y EUR; sin conversión; compatibilidad con escenarios anteriores en COP.
