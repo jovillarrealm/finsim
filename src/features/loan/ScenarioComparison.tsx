@@ -25,9 +25,9 @@ export function chartRows(result: LoanResult, months: number) {
 export const signedMoney = (value: string, currency: Currency = 'COP') => `${new D(value).gt(0) ? '+' : ''}${formatMoney(value, currency)}`;
 export const chartMoney = (row: ReturnType<typeof chartRows>[number], key: keyof ReturnType<typeof chartRows>[number]['exact'], currency: Currency = 'COP') => formatMoney(row.exact[key], currency);
 
-export default function ScenarioComparison({ scenario, original, modified, onChange, selectedMonth, onSelectMonth }: {
-  scenario: Scenario; original: LoanResult; modified: LoanResult; onChange: (value: Scenario) => void;
-  selectedMonth?: number; onSelectMonth?: (month: number) => void;
+export default function ScenarioComparison({ scenario, original, modified, onChange, selectedMonth, onSelectMonth, onPendingChange }: {
+  scenario: Scenario; original: LoanResult; modified: LoanResult; onChange: (value: Scenario) => boolean;
+  onPendingChange?: (pending: boolean) => void; selectedMonth?: number; onSelectMonth?: (month: number) => void;
 }) {
   const [internalMonth, setInternalMonth] = useState(1);
   const month = selectedMonth ?? internalMonth;
@@ -64,7 +64,7 @@ export default function ScenarioComparison({ scenario, original, modified, onCha
     </figure>)}</div>
     <label className="month-selector">Mes para editar<input aria-label="Mes para editar" type="number" min="1" max={MAX_MONTHS} value={month} onChange={event => select(Number(event.target.value))} /></label>
     <p aria-live="polite">Mes {month}{row ? ` (${formatMonth(row.date)}): habitual ${formatMoney(row.scheduled.applied, scenario.currency)}, recuperación ${formatMoney(row.catchup.applied, scenario.currency)}, extra ${formatMoney(row.extra.applied, scenario.currency)}. Capital extra y recuperación: ${formatMoney(money(new D(row.extra.principal).plus(row.catchup.principal)), scenario.currency)}. No aplicado: ${formatMoney(money(new D(row.extra.unapplied).plus(row.catchup.unapplied)), scenario.currency)}.` : ': sin pagos en el cronograma modificado.'}</p>
-    <EventEditor key={`${month}-${JSON.stringify(scenario.events)}`} scenario={scenario} month={month} onChange={onChange} />
+    <EventEditor key={JSON.stringify(scenario.events)} scenario={scenario} month={month} onChange={onChange} onPendingChange={onPendingChange} />
     {modified.unappliedEvents.length > 0 && <details><summary>Eventos posteriores no aplicados ({modified.unappliedEvents.length})</summary><ul>
       {modified.unappliedEvents.map(event => <li key={`${event.eventId}-${event.month}`}>Mes {event.month}: {formatMoney(event.amount, scenario.currency)}. {event.reason}</li>)}
     </ul></details>}

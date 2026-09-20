@@ -9,14 +9,15 @@ test('préstamo, edición de evento, exportación y persistencia mantienen resul
   await page.locator('.loan-form').getByLabel('Tasa (%)', { exact: true }).fill('1');
   await page.getByLabel('Plazo (meses)', { exact: true }).fill('2');
   await page.getByRole('button', { name: 'Quitar seguro 1', exact: true }).click();
-  await page.getByRole('button', { name: 'Aplicar cambios', exact: true }).click();
+  await page.locator('.loan-form').getByRole('button', { name: 'Aplicar cambios', exact: true }).click();
   const summary = page.getByRole('region', { name: 'Resumen del préstamo' });
   await expect(summary).toContainText('COP 507,51');
   await expect(summary).toContainText('COP 1.015,02');
+  await page.getByRole('button', { name: 'Añadir mes', exact: true }).click();
   await page.getByLabel('Importe ofrecido (COP)', { exact: true }).fill('100');
-  await page.getByRole('button', { name: 'Agregar evento', exact: true }).click();
+  await page.getByRole('region', { name: 'Editar meses', exact: true }).getByRole('button', { name: 'Aplicar cambios', exact: true }).click();
   await expect(summary).toContainText('COP 1.014,02');
-  await expect(page.getByText('Pago extra único · mes 1', { exact: false })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Cambio 1', exact: true }).getByLabel('Mes inicial', { exact: true })).toHaveValue('1');
   await page.getByRole('button', { name: 'Guardar escenario', exact: true }).click();
   await page.reload();
   await expect(summary).toContainText('COP 1.014,02');
@@ -32,11 +33,11 @@ test('préstamo, edición de evento, exportación y persistencia mantienen resul
   await page.getByRole('button', { name: 'Usar ejemplo', exact: true }).click();
   await page.getByLabel('Archivo de escenario', { exact: true }).setInputFiles({ name: 'reference.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(exported)) });
   await expect(summary).toContainText('COP 1.014,02');
-  await page.getByRole('button', { name: 'Editar Pago extra único del mes 1', exact: true }).click();
   await page.getByLabel('Importe ofrecido (COP)', { exact: true }).fill('200');
-  await page.getByRole('button', { name: 'Guardar evento', exact: true }).click();
+  await page.getByRole('region', { name: 'Editar meses', exact: true }).getByRole('button', { name: 'Aplicar cambios', exact: true }).click();
   await expect(summary).toContainText('COP 1.013,02');
-  await page.getByRole('button', { name: 'Quitar Pago extra único del mes 1', exact: true }).click();
+  await page.getByRole('button', { name: 'Quitar cambio 1', exact: true }).click();
+  await page.getByRole('region', { name: 'Editar meses', exact: true }).getByRole('button', { name: 'Aplicar cambios', exact: true }).click();
   await expect(summary).toContainText('COP 1.015,02');
 });
 
@@ -53,7 +54,7 @@ test('móvil, teclado, conciliación y conversión funcionan con referencia inde
   await expect(secondMonth).toContainText('COP 820,00');
   await expect(page.getByLabel('Capital pendiente (COP)', { exact: true })).toHaveValue('1000');
   await page.getByLabel('Capital pendiente (COP)', { exact: true }).fill('1,001');
-  await page.getByRole('button', { name: 'Aplicar cambios', exact: true }).click();
+  await page.locator('.loan-form').getByRole('button', { name: 'Aplicar cambios', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('última simulación válida');
   await expect(secondMonth).toContainText('COP 820,00');
   const rates = page.getByRole('button', { name: 'Convertir tasas', exact: true });
@@ -76,7 +77,7 @@ test('moneda seleccionada conserva importes, eventos y persistencia sin conversi
   await expect(page.getByLabel('Moneda', { exact: true })).toHaveValue('COP');
   for (const currency of ['ARS', 'USD', 'EUR', 'COP']) {
     await page.getByLabel('Moneda', { exact: true }).selectOption(currency);
-    await page.getByRole('button', { name: 'Aplicar cambios', exact: true }).click();
+    await page.locator('.loan-form').getByRole('button', { name: 'Aplicar cambios', exact: true }).click();
     await expect(summary).toContainText(`${currency} 1.014,02`);
     await expect(page.getByLabel(`Capital inicial (${currency})`, { exact: true })).toHaveValue('1000');
     await expect(page.getByLabel(`Importe ofrecido (${currency})`, { exact: true })).toBeVisible();
@@ -87,7 +88,7 @@ test('moneda seleccionada conserva importes, eventos y persistencia sin conversi
     await expect(summary).toContainText(`${currency} 1.014,02`);
   }
   await page.getByLabel('Moneda', { exact: true }).selectOption('EUR');
-  await page.getByRole('button', { name: 'Aplicar cambios', exact: true }).click();
+  await page.locator('.loan-form').getByRole('button', { name: 'Aplicar cambios', exact: true }).click();
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Exportar', exact: true }).click();
   const download = await downloadPromise;
@@ -107,3 +108,57 @@ test('moneda seleccionada conserva importes, eventos y persistencia sin conversi
   await expect(page.getByRole('table')).toContainText('EUR 1,00');
 });
 
+
+test('edita varios meses como lote, valida sin aplicar parcialmente y permite descartar', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const input = { version: 1, currency: 'USD', name: 'Lote', source: 'original', principal: '1000', startDate: '2026-01', termMonths: 3,
+    rate: { kind: 'monthly', value: '0.01' }, insurance: [], events: [] };
+  await page.getByLabel('Archivo de escenario', { exact: true }).setInputFiles({ name: 'batch.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(input)) });
+  const summary = page.getByRole('region', { name: 'Resumen del préstamo' });
+  const editor = page.getByRole('region', { name: 'Editar meses', exact: true });
+  const row = (n: number) => editor.getByRole('group', { name: `Cambio ${n}`, exact: true });
+  const apply = editor.getByRole('button', { name: 'Aplicar cambios', exact: true });
+  await expect(summary).toContainText('USD 1.020,07');
+  await editor.getByRole('button', { name: 'Añadir mes', exact: true }).click();
+  await row(1).getByLabel('Importe ofrecido (USD)', { exact: true }).fill('100');
+  await page.getByLabel('Mes para editar', { exact: true }).fill('2');
+  await editor.getByRole('button', { name: 'Añadir mes', exact: true }).click();
+  await expect(row(2).getByLabel('Mes inicial', { exact: true })).toHaveValue('2');
+  await row(2).getByLabel('Importe ofrecido (USD)', { exact: true }).fill('50');
+  await expect(summary).toContainText('USD 1.020,07');
+  await expect(page.getByRole('button', { name: 'Guardar escenario', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Exportar', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Importar', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Convertir tasas', exact: true }).click();
+  await page.getByRole('button', { name: 'Explorar préstamo', exact: true }).click();
+  await expect(row(1).getByLabel('Importe ofrecido (USD)', { exact: true })).toHaveValue('100');
+  await page.getByLabel('Nombre del escenario', { exact: true }).fill('Lote editado');
+  await page.locator('.loan-form').getByRole('button', { name: 'Aplicar cambios', exact: true }).click();
+  await expect(row(2).getByLabel('Importe ofrecido (USD)', { exact: true })).toHaveValue('50');
+  await row(2).getByLabel('Importe ofrecido (USD)', { exact: true }).fill('1,001');
+  await apply.click();
+  await expect(editor.getByRole('alert')).toBeVisible();
+  await expect(summary).toContainText('USD 1.020,07');
+  await row(2).getByLabel('Importe ofrecido (USD)', { exact: true }).fill('50');
+  await apply.click();
+  await expect(summary).toContainText('USD 1.017,56');
+  await expect(apply).toBeDisabled();
+  await page.getByText('Detalle mes a mes', { exact: false }).click();
+  await expect(page.getByRole('row').filter({ hasText: 'feb de 2026' })).toContainText('USD 185,66');
+  await row(1).getByLabel('Importe ofrecido (USD)', { exact: true }).fill('200');
+  await editor.getByRole('button', { name: 'Quitar cambio 2', exact: true }).click();
+  await expect(summary).toContainText('USD 1.017,56');
+  await editor.getByRole('button', { name: 'Descartar cambios', exact: true }).click();
+  await expect(row(1).getByLabel('Importe ofrecido (USD)', { exact: true })).toHaveValue('100');
+  await expect(row(2).getByLabel('Importe ofrecido (USD)', { exact: true })).toHaveValue('50');
+  await page.getByRole('button', { name: 'Guardar escenario', exact: true }).click();
+  await page.reload();
+  await expect(summary).toContainText('USD 1.017,56');
+  await expect(row(2).getByLabel('Mes inicial', { exact: true })).toHaveValue('2');
+  await editor.getByRole('button', { name: 'Quitar cambio 2', exact: true }).click();
+  await editor.getByRole('button', { name: 'Quitar cambio 1', exact: true }).click();
+  await apply.click();
+  await expect(summary).toContainText('USD 1.020,07');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

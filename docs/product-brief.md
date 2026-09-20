@@ -25,7 +25,7 @@ Provide an expandable monthly table with opening balance, scheduled payment comp
 
 ### Direct editing
 
-The user requested "click where to edit." Interpret this as selecting a month directly on the chart to open nearby event controls, and selecting displayed input values to edit them in place. Keep these controls keyboard-accessible and available through the monthly table as well. This interpretation should be checked in the first interface preview.
+The user requested "click where to edit." Interpret this as selecting a month directly on the chart to open nearby event controls, and selecting displayed input values to edit them in place. Keep these controls keyboard-accessible and available through the monthly table as well. User feedback on 2026-09-20 requests editing multiple months before recalculation: events are editable as a draft list, applied together with one explicit action, or discarded. Changing the selected month preserves the draft. Charts and totals show the last applied scenario until the batch is validated and applied. Saving/exporting requires applying or discarding pending event edits.
 
 Offer a clearly labeled example loan for immediate experimentation and a route to enter a personal loan. Use Spanish labels, Colombian number/currency formatting, and short explanations of financial terminology.
 

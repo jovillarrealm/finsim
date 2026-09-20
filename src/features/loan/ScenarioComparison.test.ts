@@ -4,17 +4,11 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { D, exampleScenario, type Scenario } from '../../domain/scenario';
 import { simulateLoan } from '../../engine/loan';
 import ScenarioComparison, { chartMoney, chartRows, signedMoney } from './ScenarioComparison';
-import { readEventForm } from './EventEditor';
+import { readEventDrafts, type EventDraft } from './EventEditor';
 
 const base: Scenario = { ...exampleScenario, principal: '1000.00', termMonths: 12, payment: '100.00',
   rate: { kind: 'monthly', value: '0.01' },
   insurance: [{ id: 'life', name: 'Vida', kind: 'fixed', value: '5.00', endsAtPayoff: true }], events: [] };
-
-const form = (values: Record<string, string>) => {
-  const data = new FormData();
-  Object.entries(values).forEach(([key, value]) => data.set(key, value));
-  return data;
-};
 
 test('stacks conserve cash, include catch-up allocation and extend a common time axis', () => {
   const original = simulateLoan(base);
@@ -50,33 +44,27 @@ test('charts include insurance after payoff and incomplete comparison stays prov
     insurance: [{ id: 'life', name: 'Vida', kind: 'fixed', value: '5', endsAtPayoff: false, endMonth: 3 }] });
   expect(chartRows(result, 3)[2].exact).toEqual({ scheduled: '0.00', extra: '0.00', interest: '0.00', insurance: '5.00', cash: '5.00' });
   const markup = renderToStaticMarkup(createElement(ScenarioComparison, { scenario: base, original: result,
-    modified: { ...result, complete: false, payoffMonth: null, payoffDate: null }, onChange: () => {} }));
+    modified: { ...result, complete: false, payoffMonth: null, payoffDate: null }, onChange: () => true }));
   expect(markup).toContain('no costos finales ni ahorros definitivos');
   expect(markup).toContain('Sin liquidación completa');
   expect(markup).toContain('(parcial)');
 });
 
-test('event form creates every kind, edits stable IDs and validates Spanish amounts and month limits', () => {
+
+test('valida todos los eventos del lote sin modificar el escenario aplicado', () => {
+  const draft: EventDraft = { id: 'e', kind: 'extra', month: '2', amount: '1.234,56', endMonth: '5', every: '2' };
   for (const kind of ['extra', 'recurring', 'missed', 'catchup'] as const) {
-    const data = form({ month: '2', amount: '1.234,56', endMonth: '5', every: '2' });
-    const result = readEventForm(data, base, kind, 'event');
+    const result = readEventDrafts([{ ...draft, kind }], base);
     expect(result.success).toBe(true);
     if (!result.success) throw result.error;
-    expect(result.data.events[0]).toMatchObject({ id: 'event', kind, month: 2 });
+    expect(result.data.events[0]).toMatchObject({ id: 'e', kind, month: 2 });
     if (kind !== 'missed') expect(result.data.events[0]).toHaveProperty('amount', '1234.56');
-    data.set('month', '3');
-    const updated = readEventForm(data, result.data, kind, 'event', true);
-    expect(updated.success).toBe(true);
-    if (!updated.success) throw updated.error;
-    expect(updated.data.events).toHaveLength(1);
-    expect(updated.data.events[0].month).toBe(3);
   }
-  for (const amount of ['1.23', '0', '-1', '1,001', 'Infinity']) {
-    expect(readEventForm(form({ month: '2', amount }), base, 'extra', 'event').success).toBe(false);
+  for (const patch of [{ amount: '1.23' }, { amount: '0' }, { amount: '-1' }, { amount: '1,001' }, { amount: 'Infinity' },
+    { month: '0' }, { month: '1201' }, { month: '1.5' }, { kind: 'recurring' as const, month: '6', endMonth: '5' }]) {
+    expect(readEventDrafts([draft, { ...draft, id: 'invalid', ...patch }], base).success).toBe(false);
   }
-  for (const month of ['0', '1201', '1.5']) {
-    expect(readEventForm(form({ month }), base, 'missed', 'event').success).toBe(false);
-  }
-  expect(readEventForm(form({ month: '5', amount: '10', endMonth: '4', every: '1' }), base, 'recurring', 'event').success).toBe(false);
+  expect(readEventDrafts([], base).success).toBe(true);
   expect(base.events).toEqual([]);
 });
+

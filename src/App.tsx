@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { exampleScenario, type Scenario } from './domain/scenario';
 import { simulateLoan } from './engine/loan';
 import LoanForm from './features/loan/LoanForm';
@@ -29,10 +29,19 @@ export default function App() {
   const [page, setPage] = useState('loan');
   const [tableMode, setTableMode] = useState('modified');
   const [selectedMonth, setSelectedMonth] = useState(1);
+  const [pendingEvents, setPendingEvents] = useState(false);
+  const pendingEventsRef = useRef(false);
+  pendingEventsRef.current = pendingEvents;
+  useEffect(() => {
+    if (!pendingEvents) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [pendingEvents]);
   const fileInput = useRef<HTMLInputElement>(null);
   function applyScenario(scenario: Scenario) {
-    try { setCurrent(workspace(scenario)); setError(''); setNotice('Escenario actualizado. Guarda para conservarlo en este navegador.'); }
-    catch (failure) { setError(failure instanceof Error ? failure.message : 'No se pudo calcular. Conservamos el escenario anterior.'); }
+    try { setCurrent(workspace(scenario)); setError(''); setNotice('Escenario actualizado. Guarda para conservarlo en este navegador.'); return true; }
+    catch (failure) { setError(failure instanceof Error ? failure.message : 'No se pudo calcular. Conservamos el escenario anterior.'); return false; }
   }
   function save() {
     try { saveScenario(current.scenario); setNotice('Escenario guardado en este navegador.'); setError(''); }
@@ -51,7 +60,9 @@ export default function App() {
     if (!file) return;
     try {
       if (file.size > 2_000_000) throw new Error('El archivo supera el máximo de 2 MB.');
-      const imported = workspace(parseScenario(await file.text()));
+      const content = await file.text();
+      if (pendingEventsRef.current) throw new Error('Aplica o descarta los cambios de meses antes de importar.');
+      const imported = workspace(parseScenario(content));
       setCurrent(imported); setError(''); setNotice('Escenario importado. Guarda para conservarlo en este navegador.');
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'No se pudo importar. Conservamos el escenario anterior.'); }
   }
@@ -63,17 +74,18 @@ export default function App() {
         {[['loan', 'Explorar préstamo'], ['rates', 'Convertir tasas'], ['reconcile', 'Comparar extracto']].map(([id, label]) => <button key={id} aria-current={page === id ? 'page' : undefined} onClick={() => setPage(id)}>{label}</button>)}
       </nav>
       <div className="scenario-toolbar"><div><p className="eyebrow">ESCENARIO ACTUAL</p><strong>{current.scenario.name}</strong></div><div className="toolbar-actions">
-        <button className="button ghost" onClick={() => applyScenario(exampleScenario)}>Usar ejemplo</button>
-        <button className="button ghost" onClick={() => fileInput.current?.click()}>Importar</button>
-        <input className="sr-only" aria-label="Archivo de escenario" ref={fileInput} type="file" accept="application/json,.json" onChange={importFile} />
-        <button className="button ghost" onClick={exportFile}>Exportar</button><button className="button" onClick={save}>Guardar escenario</button>
+        <button className="button ghost" disabled={pendingEvents} onClick={() => applyScenario(exampleScenario)}>Usar ejemplo</button>
+        <button className="button ghost" disabled={pendingEvents} onClick={() => fileInput.current?.click()}>Importar</button>
+        <input className="sr-only" aria-label="Archivo de escenario" ref={fileInput} disabled={pendingEvents} type="file" accept="application/json,.json" onChange={importFile} />
+        <button className="button ghost" disabled={pendingEvents} onClick={exportFile}>Exportar</button><button className="button" disabled={pendingEvents} onClick={save}>Guardar escenario</button>
       </div></div>
+      {pendingEvents && <p role="status" className="status-line">Hay cambios de meses pendientes. Aplica o descarta el lote en «Editar meses» antes de guardar, exportar o reemplazar el escenario.</p>}
       {notice && <p role="status" className="status-line">{notice}</p>}{error && <p role="alert" className="error note">{error}</p>}
       <div hidden={page !== 'loan'}>
         <LoanForm scenario={current.scenario} onChange={applyScenario} />
         <LoanSummary currency={current.scenario.currency} result={current.modified} />
         <ScenarioComparison scenario={current.scenario} original={current.original} modified={current.modified}
-          onChange={applyScenario} selectedMonth={selectedMonth} onSelectMonth={setSelectedMonth} />
+          onChange={applyScenario} onPendingChange={setPendingEvents} selectedMonth={selectedMonth} onSelectMonth={setSelectedMonth} />
         <div className="table-choice field"><label htmlFor="table-mode">Cronograma que quieres consultar</label><select id="table-mode" value={tableMode} onChange={event => setTableMode(event.target.value)}><option value="modified">Escenario modificado</option><option value="original">Escenario original · sin eventos</option></select></div>
         <MonthlyTable currency={current.scenario.currency} result={tableMode === 'modified' ? current.modified : current.original} onSelectMonth={month => {
           setSelectedMonth(month);
