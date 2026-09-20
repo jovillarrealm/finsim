@@ -36,8 +36,10 @@ La moneda es un parámetro del escenario: cambiarla conserva los importes, sin c
 
 Los datos se guardan solo en el navegador. Exportar genera una copia portátil; importar valida antes de sustituir el escenario. Los resultados se recalculan desde las entradas.
 
-## Publicación preparada
+## Publicación
 
-`.github/workflows/pages.yml` se ejecuta manualmente, después de conectar un repositorio y habilitar GitHub Pages con Actions. No publica por cada commit. No se ha desplegado todavía.
+Sitio: https://jovillarrealm.github.io/finsim/
+
+`.github/workflows/pages.yml` se ejecuta manualmente desde Actions en https://github.com/jovillarrealm/finsim. No publica por cada commit. Instala dependencias, ejecuta las pruebas y construye antes de desplegar.
 
 Consulta [el plan](docs/implementation-plan.md), [el tracking](docs/tracking.md) y [las convenciones financieras](docs/financial-conventions.md) antes de modificar cálculos.

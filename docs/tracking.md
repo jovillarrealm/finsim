@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-Actualizado: 2026-09-20. Primera versión local con moneda parametrizable integrada en **8cba454**. Sesión coordinadora: /root. Verificación técnica completada: 45 pruebas unitarias, 3 flujos de navegador y build con comprobación de tipos. Pendientes: aceptación de uso FS-07/FS-10 y publicación FS-11.
+Actualizado: 2026-09-20. Primera versión local con moneda parametrizable integrada en **8cba454**. Sesión coordinadora: /root. Verificación técnica completada: 45 pruebas unitarias, 3 flujos de navegador y build con comprobación de tipos. Publicado: https://jovillarrealm.github.io/finsim/. Pendiente: aceptación de uso FS-07/FS-10.
 
 Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md) define alcance, dependencias y criterios de cierre. Los registros por tarea guardan el detalle de continuidad.
 
@@ -19,7 +19,7 @@ Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md)
 | FS-08 | Conciliación | hecha | /root | task/fs-08-reconciliation / finsim-fs08 | referencia literal, navegación y diferencia visible verificadas |
 | FS-09 | Conversor visual | hecha | /root | task/fs-09-converter / finsim-fs09 | referencia 1% EM, navegación y teclado verificados |
 | FS-10 | Aceptación integrada | en revisión | /root | main / finsim | 42 pruebas, 2 flujos navegador; falta observación del criterio 8 |
-| FS-11 | GitHub Pages | pendiente | /root | main / finsim | publicación solicitada; destino pendiente de confirmación |
+| FS-11 | GitHub Pages | hecha | /root | main / finsim | run 35532310565 exitoso; 3 flujos comprobados sobre URL pública |
 | FS-12 | CDT/ETF | diferida | — | — | — |
 | FS-13 | Moneda del escenario | hecha | /root + /root/currency_ui | codex/fs-13-currency / finsim-fs13 | 8cba454 integrado; 45 pruebas, 3 flujos navegador y build |
 
