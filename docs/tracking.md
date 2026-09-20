@@ -19,7 +19,7 @@ Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md)
 | FS-08 | Conciliación | hecha | /root | task/fs-08-reconciliation / finsim-fs08 | referencia literal, navegación y diferencia visible verificadas |
 | FS-09 | Conversor visual | hecha | /root | task/fs-09-converter / finsim-fs09 | referencia 1% EM, navegación y teclado verificados |
 | FS-10 | Aceptación integrada | en revisión | /root | main / finsim | 42 pruebas, 2 flujos navegador; falta observación del criterio 8 |
-| FS-11 | GitHub Pages | pendiente | /root | main / finsim | workflow manual preparado; falta destino y publicación solicitada |
+| FS-11 | GitHub Pages | pendiente | /root | main / finsim | publicación solicitada; destino pendiente de confirmación |
 | FS-12 | CDT/ETF | diferida | — | — | — |
 | FS-13 | Moneda del escenario | hecha | /root + /root/currency_ui | codex/fs-13-currency / finsim-fs13 | 8cba454 integrado; 45 pruebas, 3 flujos navegador y build |
 
