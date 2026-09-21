@@ -1,5 +1,5 @@
 .scenario-comparison { margin-block: 2rem; }
-.comparison-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.comparison-charts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
 .comparison-charts figure { margin: 0; min-width: 0; }
 .comparison-charts figcaption { font-weight: 700; margin-bottom: .8rem; }
 .comparison-deltas { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
@@ -17,4 +17,5 @@
 .event-actions { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: .8rem; }
 .event-editor button:disabled { opacity: .55; cursor: not-allowed; }
 .month-selector { max-width: 14rem; }
-@media (max-width: 800px) { .comparison-charts { grid-template-columns: 1fr; } .event-editor form > label { width: 100%; } }
+@media (max-width: 800px) { .event-editor form > label { width: 100%; } }
+
