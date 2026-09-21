@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-Actualizado: 2026-09-20. Primera versión local con moneda parametrizable integrada en **8cba454**. Sesión coordinadora: /root. Verificación técnica completada: 45 pruebas unitarias, 3 flujos de navegador y build con comprobación de tipos. Publicado: https://jovillarrealm.github.io/finsim/. Pendiente: aceptación de uso FS-07/FS-10.
+Actualizado: 2026-09-21. Edición de meses por lotes integrada y publicada en **bc535a2**. Sesión coordinadora: /root. Verificación técnica completada: 45 pruebas unitarias, 4 flujos de navegador y build con comprobación de tipos. Publicado: https://jovillarrealm.github.io/finsim/. Pendiente: aceptación de uso FS-07/FS-10.
 
 Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md) define alcance, dependencias y criterios de cierre. Los registros por tarea guardan el detalle de continuidad.
 
@@ -21,6 +21,7 @@ Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md)
 | FS-10 | Aceptación integrada | en revisión | /root | main / finsim | 42 pruebas, 2 flujos navegador; falta observación del criterio 8 |
 | FS-11 | GitHub Pages | hecha | /root | main / finsim | run 35532310565 exitoso; 3 flujos comprobados sobre URL pública |
 | FS-12 | CDT/ETF | diferida | — | — | — |
+| FS-14 | Edición de meses por lotes | hecha | /root + /root/batch_events | codex/fs-14-batch-events / finsim-fs14 | bc535a2 publicado; 4 flujos verificados en URL pública |
 | FS-13 | Moneda del escenario | hecha | /root + /root/currency_ui | codex/fs-13-currency / finsim-fs13 | 8cba454 integrado; 45 pruebas, 3 flujos navegador y build |
 
 ## Estados
@@ -103,4 +104,4 @@ Para coordinar: «Revisa entregas en revisión, integra una por vez, verifica y 
 
 ## FS-14 · Edición de meses por lotes
 
-2026-09-20 · en curso · /root · codex/fs-14-batch-events · worktree hermano finsim-fs14. Feedback: edición inmediata incómoda; agregar/modificar/quitar varios eventos antes de aplicar, con validación atómica y descarte.
+2026-09-21 · hecha · /root · codex/fs-14-batch-events · worktree hermano finsim-fs14. Feedback: edición inmediata incómoda; agregar/modificar/quitar varios eventos antes de aplicar, con validación atómica y descarte.
