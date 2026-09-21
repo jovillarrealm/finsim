@@ -108,4 +108,4 @@ Para coordinar: «Revisa entregas en revisión, integra una por vez, verifica y 
 
 ## FS-15 · Gráficos verticales
 
-2026-09-21 · en curso · /root · codex/fs-15-charts · worktree hermano finsim-fs15. Original encima de modificado, ambos a ancho completo.
+2026-09-21 · hecha · /root · codex/fs-15-charts · worktree hermano finsim-fs15. Original encima de modificado, ambos a ancho completo.
