@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.finsim.app.theme.*
 import com.finsim.app.ui.components.*
+import com.finsim.core.FinsimLog
 import com.finsim.domain.*
 import com.finsim.engine.simulateLoan
 import com.finsim.persistence.*
@@ -26,6 +27,7 @@ data class Workspace(
 )
 
 fun createWorkspace(scenario: Scenario): Workspace {
+    FinsimLog.ui.i { "createWorkspace: '${scenario.name}', moneda=${scenario.currency}, eventos=${scenario.events.size}" }
     val origScenario = scenario.copy(events = emptyList())
     return Workspace(
         scenario = scenario,
@@ -184,9 +186,11 @@ fun App(
                                     onClick = {
                                         try {
                                             saveScenario(workspace.scenario, storage)
+                                            FinsimLog.ui.i { "Escenario '${workspace.scenario.name}' guardado exitosamente." }
                                             noticeMessage = "Escenario guardado en este dispositivo."
                                             errorMessage = ""
                                         } catch (e: Exception) {
+                                            FinsimLog.ui.e(e) { "Error al guardar escenario '${workspace.scenario.name}'" }
                                             errorMessage = e.message ?: "Error al guardar."
                                         }
                                     },
@@ -200,6 +204,7 @@ fun App(
                                 OutlinedButton(
                                     onClick = {
                                         val json = serializeScenario(workspace.scenario)
+                                        FinsimLog.ui.i { "Exportando copia JSON de '${workspace.scenario.name}' (${json.length} chars)" }
                                         onExportJson?.invoke(json)
                                         noticeMessage = "Copia JSON exportada."
                                     },
@@ -211,6 +216,7 @@ fun App(
 
                                 OutlinedButton(
                                     onClick = {
+                                        FinsimLog.ui.i { "Restableciendo a escenario de ejemplo predeterminado." }
                                         workspace = createWorkspace(exampleScenario)
                                         noticeMessage = "Ejemplo cargado."
                                         errorMessage = ""

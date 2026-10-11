@@ -1,11 +1,12 @@
 package com.finsim.engine
 
 import com.finsim.core.Decimal
+import com.finsim.core.FinsimLog
 import com.finsim.domain.Rate
 
 fun toMonthlyRate(rate: Rate): Decimal {
     val value = Decimal.parse(rate.value)
-    return when (rate) {
+    val monthly = when (rate) {
         is Rate.Monthly -> value
         is Rate.Annual -> {
             val one = Decimal.ONE
@@ -19,12 +20,14 @@ fun toMonthlyRate(rate: Rate): Decimal {
             (value / freq + one).pow(exp) - one
         }
     }
+    FinsimLog.rates.d { "toMonthlyRate: input=${rate::class.simpleName}(${rate.value}) -> monthly=$monthly" }
+    return monthly
 }
 
 fun convertRate(rate: Rate, target: String, frequency: Int? = null): String {
     val monthly = toMonthlyRate(rate)
     val one = Decimal.ONE
-    return when (target) {
+    val result = when (target) {
         "monthly" -> monthly.toString()
         "annual" -> {
             ((monthly + one).pow(12) - one).toString()
@@ -38,4 +41,6 @@ fun convertRate(rate: Rate, target: String, frequency: Int? = null): String {
         }
         else -> error("Tipo de tasa desconocido: $target")
     }
+    FinsimLog.rates.i { "convertRate: ${rate::class.simpleName} -> target=$target, freq=$frequency => result=$result" }
+    return result
 }

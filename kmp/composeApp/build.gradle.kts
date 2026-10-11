@@ -27,6 +27,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":shared"))
+            implementation("co.touchlab:kermit:2.0.4")
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)

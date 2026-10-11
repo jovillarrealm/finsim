@@ -27,3 +27,4 @@
 - `gradle :composeApp:wasmJsBrowserDistribution`: Distribución Web Wasm/JS generada exitosamente en `kmp/composeApp/build/dist/wasmJs/productionExecutable/` con Skiko y Binaryen.
 - `npm test`: 45 pruebas unitarias de regresión en TypeScript ejecutadas y aprobadas (10 archivos, 100% pasando).
 - Integración de herramientas MCP Android: `@abhinavyadav/adb-mcp-server` registrado en `~/.gemini/config/mcp_config.json`, herramientas `platform-tools` (v37.0.1 con `adb.exe`), y `android` CLI con inspección de layout y pantalla.
+- Sistema de Logging KMP: Integración de Touchlab Kermit (`co.touchlab:kermit:2.0.4`) en `:shared` y `:composeApp`, instrumentando motor de préstamos, conversor de tasas, persistencia, conciliación y eventos de UI; enrutamiento automático a Android Logcat y Web console.log.

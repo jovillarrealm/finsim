@@ -2,6 +2,7 @@ package com.finsim.app
 
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
+import com.finsim.core.FinsimLog
 import com.finsim.persistence.ScenarioStorage
 import kotlinx.browser.document
 import kotlinx.browser.localStorage
@@ -15,6 +16,7 @@ class WasmScenarioStorage : ScenarioStorage {
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
+    FinsimLog.ui.i { "Finsim Web (WasmJs) iniciada exitosamente" }
     val body = document.body ?: return
     val storage = WasmScenarioStorage()
     ComposeViewport(body) {

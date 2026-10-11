@@ -1,6 +1,7 @@
 package com.finsim.reconciliation
 
 import com.finsim.core.Decimal
+import com.finsim.core.FinsimLog
 import com.finsim.domain.MonthRow
 
 data class StatementRow(
@@ -50,7 +51,7 @@ fun reconcileRow(input: StatementRow, rows: List<MonthRow>): List<ReconcileDiff>
     )
 
     val fields = listOf("interest", "insurance", "principal", "balance")
-    return fields.mapNotNull { field ->
+    val diffs = fields.mapNotNull { field ->
         val actual = when (field) {
             "interest" -> input.interest
             "insurance" -> input.insurance
@@ -71,4 +72,11 @@ fun reconcileRow(input: StatementRow, rows: List<MonthRow>): List<ReconcileDiff>
             )
         } else null
     }
+    val nonZeroDiffs = diffs.filter { it.difference != "0.00" }
+    if (nonZeroDiffs.isNotEmpty()) {
+        FinsimLog.reconcile.w { "Mes ${input.month}: se detectaron ${nonZeroDiffs.size} discrepancia(s) entre el extracto y la simulación: ${nonZeroDiffs.map { "${it.label}=${it.difference}" }}" }
+    } else {
+        FinsimLog.reconcile.i { "Mes ${input.month}: conciliación exacta sin discrepancias con el extracto bancario." }
+    }
+    return diffs
 }

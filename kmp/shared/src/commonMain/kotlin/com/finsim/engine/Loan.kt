@@ -1,6 +1,7 @@
 package com.finsim.engine
 
 import com.finsim.core.Decimal
+import com.finsim.core.FinsimLog
 import com.finsim.domain.*
 
 private fun money(value: Decimal): String = value.toFixed(2)
@@ -8,6 +9,7 @@ private fun money(value: String): String = Decimal.parse(value).toFixed(2)
 
 fun simulateLoan(scenario: Scenario): LoanResult {
     scenario.validate()
+    FinsimLog.engine.i { "simulateLoan start: principal=${scenario.principal}, rate=${scenario.rate.value}, term=${scenario.termMonths}, events=${scenario.events.size}" }
     val rate = toMonthlyRate(scenario.rate)
     var balance = Decimal.parse(scenario.principal)
 
@@ -142,6 +144,9 @@ fun simulateLoan(scenario: Scenario): LoanResult {
         }
 
         val hasMissed = !paidOff && events.any { it is LoanEvent.Missed }
+        if (hasMissed) {
+            FinsimLog.engine.w { "Month $month: cuota omitida por evento. Atraso acumulado: ${debt()}" }
+        }
         val scheduled = allocate(if (hasMissed) Decimal.ZERO else scheduledOffer)
 
         var catchupOffer = Decimal.ZERO
@@ -159,6 +164,12 @@ fun simulateLoan(scenario: Scenario): LoanResult {
 
         val catchup = allocate(catchupOffer)
         val extra = allocate(extraOffer)
+        if (extraOffer.isPositive) {
+            FinsimLog.engine.d { "Month $month: abono extraordinario ofrecido $extraOffer, aplicado: capital=${extra.principal}, intereses=${extra.interest}, seguros=${extra.insurance}, excedente=${extra.unapplied}" }
+        }
+        if (catchupOffer.isPositive) {
+            FinsimLog.engine.d { "Month $month: puesta al día ofrecida $catchupOffer, aplicada: capital=${catchup.principal}, intereses=${catchup.interest}, seguros=${catchup.insurance}" }
+        }
 
         // Argentina prepayment commission and VAT calculation if profile is present
         var commissionDec = Decimal.ZERO
@@ -174,6 +185,9 @@ fun simulateLoan(scenario: Scenario): LoanResult {
                 val vRate = Decimal.parse(argProfile.vatRate)
                 commissionDec = Decimal.parse(money(totalPrepaidCapital * commRate))
                 vatDec = Decimal.parse(money(commissionDec * vRate))
+                FinsimLog.engine.i { "Month $month: precancelación antes del umbral (mes $freeThresholdMonth). Comisión: $commissionDec, IVA: $vatDec sobre capital prepagado $totalPrepaidCapital" }
+            } else {
+                FinsimLog.engine.d { "Month $month: precancelación gratuita argentina (mes $month >= umbral $freeThresholdMonth)" }
             }
         }
 
@@ -220,10 +234,16 @@ fun simulateLoan(scenario: Scenario): LoanResult {
         if (payoffMonth == null && debt().isZero) {
             payoffMonth = month
             payoffDate = dateStr
+            FinsimLog.engine.i { "Month $month: liquidación total del préstamo alcanzada (deuda = 0)" }
         }
     }
 
     val complete = payoffMonth != null && debt().isZero
+    if (!complete) {
+        FinsimLog.engine.w { "Simulación concluida sin liquidar totalmente el préstamo. Meses simulados: ${resultRows.size}, deuda remanente: ${debt()}" }
+    } else {
+        FinsimLog.engine.i { "Simulación completada con éxito en mes $payoffMonth. Total intereses: ${totals.interest}, total seguros: ${totals.insurance}, total desembolsado: ${totals.cashPaid}" }
+    }
     return LoanResult(
         rows = resultRows,
         basePayment = money(base),

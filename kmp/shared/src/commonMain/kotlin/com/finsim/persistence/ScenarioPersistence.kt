@@ -1,5 +1,6 @@
 package com.finsim.persistence
 
+import com.finsim.core.FinsimLog
 import com.finsim.domain.Currency
 import com.finsim.domain.Scenario
 import kotlinx.serialization.json.Json
@@ -20,20 +21,28 @@ val finsimJson = Json {
 
 fun serializeScenario(scenario: Scenario): String {
     scenario.validate()
-    return finsimJson.encodeToString(Scenario.serializer(), scenario)
+    val serialized = finsimJson.encodeToString(Scenario.serializer(), scenario)
+    FinsimLog.storage.d { "Escenario serializado a JSON (${serialized.length} bytes)" }
+    return serialized
 }
 
 fun parseScenario(text: String): Scenario {
-    require(text.length <= MAX_FILE_SIZE_BYTES) { "El archivo supera el máximo de 2 MB." }
+    FinsimLog.storage.i { "Intentando parsear escenario JSON (${text.length} bytes)" }
+    if (text.length > MAX_FILE_SIZE_BYTES) {
+        FinsimLog.storage.w { "El payload JSON excede el límite de 2 MB (${text.length} bytes)" }
+        throw IllegalArgumentException("El archivo supera el máximo de 2 MB.")
+    }
     val rawJson = try {
         finsimJson.parseToJsonElement(text)
     } catch (e: Exception) {
+        FinsimLog.storage.e(e) { "Error al analizar la estructura sintáctica de JSON" }
         throw IllegalArgumentException("El archivo no contiene JSON válido.", e)
     }
 
     if (rawJson is JsonObject) {
         val versionElem = rawJson["version"]?.jsonPrimitive?.intOrNull
         if (versionElem != null && versionElem != 1) {
+            FinsimLog.storage.w { "Versión no soportada de escenario: $versionElem (esperada: 1)" }
             throw IllegalArgumentException("La versión del escenario no es compatible. Se admite la versión 1.")
         }
     }
@@ -41,14 +50,17 @@ fun parseScenario(text: String): Scenario {
     val scenario = try {
         finsimJson.decodeFromJsonElement(Scenario.serializer(), rawJson)
     } catch (e: Exception) {
+        FinsimLog.storage.e(e) { "Error al deserializar campos del escenario" }
         throw IllegalArgumentException("El escenario contiene datos inválidos. Revisa los campos, importes, tasas y meses.", e)
     }
 
     try {
         scenario.validate()
     } catch (e: Exception) {
+        FinsimLog.storage.e(e) { "Validación de negocio del escenario falló" }
         throw IllegalArgumentException("El escenario contiene datos inválidos. Revisa los campos, importes, tasas y meses.", e)
     }
+    FinsimLog.storage.i { "Escenario cargado y validado exitosamente: moneda=${scenario.currency}, capital=${scenario.principal}, plazo=${scenario.termMonths}m" }
     return scenario
 }
 
