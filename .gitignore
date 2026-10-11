@@ -4,3 +4,8 @@ coverage/
 playwright-report/
 test-results/
 *.local
+.gradle/
+build/
+**/build/
+local.properties
+.kotlin/
