@@ -1,3 +1,11 @@
+/**
+ * @deprecated LEGACY TEST SUITE — Preserved for regression and web baseline validation.
+ *
+ * CANONICAL SEAM DOCUMENTATION:
+ * Canonical amortization test surface lives in `:shared` (`kmp/shared/src/commonTest/kotlin/com/finsim/engine/AmortizationAccountingTest.kt`).
+ * Invariants and cascade allocations are verified across the canonical `:shared` module interface.
+ */
+
 import { describe, expect, it } from 'vitest';
 import { D } from '../domain/scenario';
 import {

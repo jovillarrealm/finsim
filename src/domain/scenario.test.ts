@@ -1,3 +1,11 @@
+/**
+ * @deprecated LEGACY TEST SUITE — Preserved for regression and web baseline validation.
+ *
+ * CANONICAL SEAM DOCUMENTATION:
+ * Canonical domain testing surface lives in `:shared` (`kmp/shared/src/commonTest/kotlin/com/finsim/domain/`).
+ * All platform targets exercise the canonical `:shared` module interface at that seam.
+ */
+
 import { expect, test } from 'vitest';
 import { D, exampleScenario, money, scenarioSchema } from './scenario';
 

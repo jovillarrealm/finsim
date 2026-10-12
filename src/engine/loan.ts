@@ -1,3 +1,17 @@
+/**
+ * @deprecated LEGACY MODULE — Frozen for web prototype baseline verification.
+ *
+ * CANONICAL SEAM DOCUMENTATION:
+ * The canonical module for loan simulation and schedule generation is `:shared`
+ * (`kmp/shared/src/commonMain/kotlin/com/finsim/engine/Loan.kt`).
+ *
+ * Architecture rationale (see docs/adr/0001-canonical-kmp-shared-engine.md):
+ * Loan simulation in `:shared` encapsulates deep invariant checks, Argentine regulatory profiles,
+ * and Kermit diagnostic logging behind a compact interface (`simulateLoan(Scenario): LoanResult`).
+ * To maintain locality and leverage, all new features and multiplatform callers (Android DEX
+ * and Compose Web WasmJs/JS) interact with the canonical `:shared` module interface at this seam.
+ */
+
 import Decimal from 'decimal.js';
 import { D, MAX_MONTHS, money, scenarioSchema, type LoanResult, type Scenario } from '../domain/scenario';
 import { AmortizationAccount, StandardPrepaymentAdapter } from './amortizationAccounting';

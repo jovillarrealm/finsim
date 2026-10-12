@@ -1,3 +1,16 @@
+/**
+ * @deprecated LEGACY MODULE — Frozen for web prototype baseline verification.
+ *
+ * CANONICAL SEAM DOCUMENTATION:
+ * The canonical module for amortization accounting, in-process ledger state, and prepayment adapters
+ * is `:shared` (`kmp/shared/src/commonMain/kotlin/com/finsim/engine/AmortizationAccounting.kt`).
+ *
+ * Architecture rationale (see docs/adr/0001-canonical-kmp-shared-engine.md):
+ * Consolidating amortization logic into `:shared` provides depth and locality. Prepayment policies
+ * (such as ArgentinaPrepaymentAdapter) and cascade imputation are unified behind the canonical
+ * module interface at this seam, maximizing leverage across Android DEX and Web WasmJs/JS callers.
+ */
+
 import Decimal from 'decimal.js';
 import { D, money, type Allocation, type Insurance } from '../domain/scenario';
 

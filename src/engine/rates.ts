@@ -1,3 +1,17 @@
+/**
+ * @deprecated LEGACY MODULE — Frozen for web prototype baseline verification.
+ *
+ * CANONICAL SEAM DOCUMENTATION:
+ * The canonical module for interest rate conversions is `:shared`
+ * (`kmp/shared/src/commonMain/kotlin/com/finsim/engine/Rates.kt`).
+ *
+ * Architecture rationale (see docs/adr/0001-canonical-kmp-shared-engine.md):
+ * Rate conversion formulas (annual effective, monthly, and nominal) with 40-digit arbitrary
+ * precision are encapsulated in `:shared`. To ensure locality and leverage across targets
+ * (Android DEX and Web WasmJs/JS), callers must interact with the canonical `:shared` module
+ * interface at this seam.
+ */
+
 import type Decimal from 'decimal.js';
 import { D, rateSchema, type Rate } from '../domain/scenario';
 

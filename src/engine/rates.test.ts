@@ -1,3 +1,11 @@
+/**
+ * @deprecated LEGACY TEST SUITE — Preserved for regression and web baseline validation.
+ *
+ * CANONICAL SEAM DOCUMENTATION:
+ * The canonical rate conversion test surface lives in `:shared` (`kmp/shared/src/commonTest/kotlin/com/finsim/engine/RatesTest.kt`).
+ * Conversion tolerances (< 1e-12) are verified across the canonical `:shared` module interface.
+ */
+
 import { expect, test } from 'vitest';
 import { D, type Rate } from '../domain/scenario';
 import { convertRate, toMonthlyRate } from './rates';

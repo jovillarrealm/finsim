@@ -1,3 +1,11 @@
+/**
+ * @deprecated LEGACY TEST SUITE — Preserved for regression and web baseline validation.
+ *
+ * CANONICAL SEAM DOCUMENTATION:
+ * The canonical test surface for loan simulation lives in `:shared` (`kmp/shared/src/commonTest/kotlin/com/finsim/engine/LoanTest.kt`).
+ * Multiplatform regression and parity corpuses execute against the canonical `:shared` module interface.
+ */
+
 import { describe, expect, it } from 'vitest';
 import { D, currencies, money, type Scenario } from '../domain/scenario';
 import { simulateLoan } from './loan';
