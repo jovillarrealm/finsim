@@ -10,3 +10,7 @@ build/
 local.properties
 .kotlin/
 .worktrees/
+*.jks
+*.keystore
+keystore.properties
+*.pepk

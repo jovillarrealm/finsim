@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.compose)
@@ -63,10 +65,39 @@ android {
         }
     }
 
+    val keystorePropsFile = rootProject.file("keystore.properties")
+    val keystoreProps = Properties().apply {
+        if (keystorePropsFile.exists()) {
+            load(keystorePropsFile.inputStream())
+        }
+    }
+    val hasReleaseSigning = keystorePropsFile.exists() &&
+        keystoreProps.getProperty("storeFile") != null &&
+        keystoreProps.getProperty("storePassword") != null &&
+        keystoreProps.getProperty("keyAlias") != null &&
+        keystoreProps.getProperty("keyPassword") != null
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                val storeFilePath = keystoreProps.getProperty("storeFile")
+                val storeF = rootProject.file(storeFilePath)
+                storeFile = if (storeF.exists()) storeF else file(storeFilePath)
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 
