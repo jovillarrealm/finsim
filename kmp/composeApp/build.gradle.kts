@@ -52,7 +52,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.finsim.app"
+        applicationId = "io.github.jovillarrealm.finsim_alpha"
         minSdk = 35
         targetSdk = 35
         versionCode = 1
@@ -86,6 +86,8 @@ android {
                 storePassword = keystoreProps.getProperty("storePassword")
                 keyAlias = keystoreProps.getProperty("keyAlias")
                 keyPassword = keystoreProps.getProperty("keyPassword")
+                enableV1Signing = true
+                enableV2Signing = true
             }
         }
     }
@@ -93,10 +95,11 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = if (hasReleaseSigning) {
-                signingConfigs.getByName("release")
+            isDebuggable = false
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
             } else {
-                signingConfigs.getByName("debug")
+                error("Falta configuración de firma de publicación en keystore.properties")
             }
         }
     }
