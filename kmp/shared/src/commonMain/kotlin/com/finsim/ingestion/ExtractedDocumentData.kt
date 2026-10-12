@@ -66,6 +66,8 @@ data class ExtractedDocumentData(
     val rawExtractedText: String? = null,
     val confidence: Float = 1.0f
 ) {
+    val engine: ExtractionEngine get() = sourceEngine
+
     /**
      * Maps extracted monthly charges into a validated [StatementRow] for reconciliation audit.
      */

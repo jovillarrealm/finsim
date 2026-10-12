@@ -151,18 +151,19 @@ fun ExtractionReviewSheet(
                     }
 
                     // Engine Badge
+                    val isVlm = extractedData.engine == ExtractionEngine.TIER_2_LOCAL_VLM
                     Surface(
-                        color = BrandSageLight,
+                        color = if (isVlm) BrandLime else BrandSageLight,
                         shape = RoundedCornerShape(8.dp),
-                        border = androidx.compose.foundation.BorderStroke(0.5.dp, BrandSage)
+                        border = androidx.compose.foundation.BorderStroke(0.5.dp, if (isVlm) BrandForest else BrandSage)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = "⚡ ${extractedData.sourceEngine.label}",
-                                color = BrandSage,
+                                text = if (isVlm) "⚡ Visión local Gemma 4" else "⚡ Texto digital",
+                                color = if (isVlm) BrandForest else BrandSage,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
                             )

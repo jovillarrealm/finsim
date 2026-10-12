@@ -20,6 +20,7 @@ import com.finsim.app.theme.*
 import com.finsim.domain.Scenario
 import com.finsim.ingestion.*
 import com.finsim.reconciliation.StatementRow
+import kotlinx.coroutines.launch
 
 private val SAMPLE_COLOMBIA_STATEMENT = """
     Bancolombia S.A. - Extracto Crédito de Consumo / Libre Inversión
@@ -102,6 +103,14 @@ fun DocumentImportDialog(
             capabilityGate = capabilityGate
         )
     },
+    orchestrator: HybridDocumentOrchestrator = remember(capabilityGate, downloadManager) {
+        HybridDocumentOrchestrator(
+            rasterizer = getDefaultPageRasterizer(),
+            vlmRunner = FakeVlmVisionRunner(),
+            capabilityGate = capabilityGate,
+            modelStorage = downloadManager.storage
+        )
+    },
     onDismiss: () -> Unit,
     onScenarioImported: (Scenario) -> Unit = {},
     onStatementRowImported: (StatementRow) -> Unit = {}
@@ -111,6 +120,9 @@ fun DocumentImportDialog(
     var frameworkMenuExpanded by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
     var noticeMessage by remember { mutableStateOf("") }
+    var enableVlmCascade by remember { mutableStateOf(true) }
+    var isAnalyzing by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     // Dialog & UI states for Tier 2 and Storage
     var showHardwareWarningDialog by remember { mutableStateOf(false) }
@@ -387,6 +399,31 @@ fun DocumentImportDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                // VLM Cascade Toggle
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { enableVlmCascade = !enableVlmCascade },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = enableVlmCascade,
+                        onCheckedChange = { enableVlmCascade = it },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = BrandForest,
+                            checkmarkColor = BrandLime
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Si el PDF es escaneado o faltan datos, activar visión local Gemma 4",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = BrandDark
+                    )
+                }
+
                 if (errorMessage.isNotBlank()) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Surface(
@@ -539,48 +576,74 @@ fun DocumentImportDialog(
 
                     Button(
                         onClick = {
-                            if (rawText.isBlank()) {
-                                if (!capabilityGate.isEligibleForVlm) {
-                                    showHardwareWarningDialog = true
-                                    errorMessage = "Ingresa el texto del extracto. Para PDFs escaneados, la IA visual requiere >= 6.0 GB de RAM."
-                                } else if (!downloadManager.isModelDownloaded()) {
-                                    showTier2Section = true
-                                    errorMessage = "Texto vacío. Si tu extracto es escaneado, descarga el modelo local (~1.1 GB) o pega texto digital."
-                                } else {
-                                    errorMessage = "Pega o carga el texto del extracto para continuar."
-                                }
-                                return@Button
-                            }
-
-                            try {
-                                val pages = DigitalPdfTextExtractor.extractPages(rawText.encodeToByteArray())
-                                if (pages.isEmpty() || pages.all { it.isBlank() }) {
-                                    if (!capabilityGate.isEligibleForVlm) {
-                                        showHardwareWarningDialog = true
-                                        errorMessage = "No se detectó texto digital y el hardware tiene < 6 GB de RAM para IA visual."
-                                    } else if (!downloadManager.isModelDownloaded()) {
-                                        showTier2Section = true
-                                        errorMessage = "No se detectó texto digital seleccionable. Descarga el modelo local Gemma 4 E2B (~1.1 GB) para extracción visual."
-                                    } else {
-                                        errorMessage = "No se detectó texto seleccionable en el documento."
+                            coroutineScope.launch {
+                                isAnalyzing = true
+                                errorMessage = ""
+                                try {
+                                    if (!enableVlmCascade) {
+                                        if (rawText.isBlank()) {
+                                            errorMessage = "Pega o carga el texto del extracto para continuar."
+                                            return@launch
+                                        }
+                                        val pages = DigitalPdfTextExtractor.extractPages(rawText.encodeToByteArray())
+                                        if (pages.isEmpty() || pages.all { it.isBlank() }) {
+                                            errorMessage = "No se detectó texto digital seleccionable en el documento."
+                                            return@launch
+                                        }
+                                        val bestPageIndex = PageDensityScanner.findBestPageIndex(pages)
+                                        val bestPageText = pages[bestPageIndex - 1]
+                                        reviewData = DocumentTextParser.parse(bestPageText, selectedFramework, bestPageIndex)
+                                        return@launch
                                     }
-                                    return@Button
+
+                                    val pdfBytes = rawText.encodeToByteArray()
+                                    val result = orchestrator.processDocument(
+                                        pdfBytes = pdfBytes,
+                                        rawText = rawText,
+                                        framework = selectedFramework,
+                                        targetMode = targetMode,
+                                        forceTier2 = rawText.isBlank()
+                                    )
+
+                                    when (result) {
+                                        is OrchestrationResult.Success -> {
+                                            reviewData = result.data
+                                        }
+                                        is OrchestrationResult.RequiresModelDownload -> {
+                                            showTier2Section = true
+                                            errorMessage = result.message
+                                        }
+                                        is OrchestrationResult.HardwareRestricted -> {
+                                            showHardwareWarningDialog = true
+                                            errorMessage = result.reason
+                                        }
+                                        is OrchestrationResult.Error -> {
+                                            errorMessage = result.message
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    errorMessage = "Error al procesar el extracto: ${e.message}"
+                                } finally {
+                                    isAnalyzing = false
                                 }
-
-                                val bestPageIndex = PageDensityScanner.findBestPageIndex(pages)
-                                val bestPageText = pages[bestPageIndex - 1]
-                                val parsed = DocumentTextParser.parse(bestPageText, selectedFramework, bestPageIndex)
-
-                                reviewData = parsed
-                            } catch (e: Exception) {
-                                errorMessage = "Error al procesar el extracto: ${e.message}"
                             }
                         },
+                        enabled = !isAnalyzing,
                         colors = ButtonDefaults.buttonColors(containerColor = BrandForest, contentColor = Color.White),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.weight(1.5f).height(46.dp)
                     ) {
-                        Text("Analizar extracto", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        if (isAnalyzing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = BrandLime,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Procesando...", fontSize = 12.sp, color = Color.White)
+                        } else {
+                            Text("Analizar extracto", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
                     }
                 }
             }
