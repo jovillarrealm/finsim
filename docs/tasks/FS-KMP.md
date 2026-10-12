@@ -28,3 +28,4 @@
 - `npm test`: 45 pruebas unitarias de regresión en TypeScript ejecutadas y aprobadas (10 archivos, 100% pasando).
 - Integración de herramientas MCP Android: `@abhinavyadav/adb-mcp-server` registrado en `~/.gemini/config/mcp_config.json`, herramientas `platform-tools` (v37.0.1 con `adb.exe`), y `android` CLI con inspección de layout y pantalla.
 - Sistema de Logging KMP: Integración de Touchlab Kermit (`co.touchlab:kermit:2.0.4`) en `:shared` y `:composeApp`, instrumentando motor de préstamos, conversor de tasas, persistencia, conciliación y eventos de UI; enrutamiento automático a Android Logcat y Web console.log.
+- Visualización de Comparación Avanzada: Reemplazo de agrupación por tarjetas individuales por vista dual con toggle: Opción 1 (Lienzo de Doble Pista Continuo de alta densidad) y Opción 3 (Curva de Saldo y Amortización en Canvas con scrubber táctil interactivo y panel de deltas macro).
