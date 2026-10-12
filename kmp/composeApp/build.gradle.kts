@@ -55,8 +55,8 @@ android {
         applicationId = "io.github.jovillarrealm.finsim_alpha"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
     }
 
     packaging {
@@ -101,6 +101,9 @@ android {
                 "proguard-rules.pro"
             )
             isDebuggable = false
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
             } else {
