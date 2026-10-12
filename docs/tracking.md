@@ -24,6 +24,7 @@ Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md)
 | FS-14 | Edición de meses por lotes | hecha | /root + /root/batch_events | codex/fs-14-batch-events / finsim-fs14 | bc535a2 publicado; 4 flujos verificados en URL pública |
 | FS-13 | Moneda del escenario | hecha | /root + /root/currency_ui | codex/fs-13-currency / finsim-fs13 | 8cba454 integrado; 45 pruebas, 3 flujos navegador y build |
 | KMP T01–T10 | Migración Kotlin Multiplatform (Web & Android) | en revisión | /root | feat/kmp-migration | 10 tickets completados; motor decimal, paridad y persistencia verificados; APK y web preparados; adb MCP y Android CLI activos |
+| FS-15 | Ingesta de extractos en edge (Pipeline Híbrido) | lista | /root | task/fs-15-ingestion | Especificación aprobada tras grill-me en docs/specs/HYBRID-DOCUMENT-INGESTION.md |
 
 ## Estados
 
