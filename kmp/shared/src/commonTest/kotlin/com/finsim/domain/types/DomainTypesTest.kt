@@ -122,6 +122,33 @@ class DomainTypesTest {
         }
     }
 
+    private fun assertEngineParity(scenario: Scenario) {
+        val originalResult = simulateLoan(scenario)
+        val typedScenario = scenario.toTyped()
+        val typedResult = TypedEngine.simulate(typedScenario)
+        val seamResult = simulateLoan(typedScenario)
+
+        // Verify TypedEngine and Loan.kt typed seam are 100% equivalent
+        assertEquals(typedResult, seamResult, "TypedEngine and simulateLoan(TypedScenario) mismatch in ${scenario.name}")
+
+        val adaptedResult = typedResult.toUntyped()
+
+        assertEquals(originalResult.rows.size, adaptedResult.rows.size, "Row count mismatch in ${scenario.name}")
+        assertEquals(originalResult.payoffMonth, adaptedResult.payoffMonth, "Payoff month mismatch in ${scenario.name}")
+        assertEquals(originalResult.payoffDate, adaptedResult.payoffDate, "Payoff date mismatch in ${scenario.name}")
+        assertEquals(originalResult.lastInsuranceMonth, adaptedResult.lastInsuranceMonth, "Last insurance month mismatch in ${scenario.name}")
+        assertEquals(originalResult.complete, adaptedResult.complete, "Completion mismatch in ${scenario.name}")
+        assertEquals(originalResult.basePayment, adaptedResult.basePayment, "Base payment mismatch in ${scenario.name}")
+        assertEquals(originalResult.remainingDebt, adaptedResult.remainingDebt, "Remaining debt mismatch in ${scenario.name}")
+        assertEquals(originalResult.totals, adaptedResult.totals, "Totals mismatch in ${scenario.name}")
+
+        for (i in originalResult.rows.indices) {
+            val origRow = originalResult.rows[i]
+            val adaptedRow = adaptedResult.rows[i]
+            assertEquals(origRow, adaptedRow, "Row $i mismatch in ${scenario.name}")
+        }
+    }
+
     @Test
     fun testFullParityBetweenUntypedAndTypedEngineAcrossCorpus() {
         val corpus = listOf(
@@ -151,26 +178,77 @@ class DomainTypesTest {
         )
 
         for (scenario in corpus) {
-            val originalResult = simulateLoan(scenario)
-
-            val typedScenario = ScenarioAdapter.toTyped(scenario)
-            val typedResult = simulateTypedLoan(typedScenario)
-            val adaptedResult = ScenarioAdapter.toUntyped(typedResult)
-
-            assertEquals(originalResult.rows.size, adaptedResult.rows.size, "Row count mismatch in ${scenario.name}")
-            assertEquals(originalResult.payoffMonth, adaptedResult.payoffMonth, "Payoff month mismatch in ${scenario.name}")
-            assertEquals(originalResult.payoffDate, adaptedResult.payoffDate, "Payoff date mismatch in ${scenario.name}")
-            assertEquals(originalResult.lastInsuranceMonth, adaptedResult.lastInsuranceMonth, "Last insurance month mismatch in ${scenario.name}")
-            assertEquals(originalResult.complete, adaptedResult.complete, "Completion mismatch in ${scenario.name}")
-            assertEquals(originalResult.basePayment, adaptedResult.basePayment, "Base payment mismatch in ${scenario.name}")
-            assertEquals(originalResult.remainingDebt, adaptedResult.remainingDebt, "Remaining debt mismatch in ${scenario.name}")
-            assertEquals(originalResult.totals, adaptedResult.totals, "Totals mismatch in ${scenario.name}")
-
-            for (i in originalResult.rows.indices) {
-                val origRow = originalResult.rows[i]
-                val adaptedRow = adaptedResult.rows[i]
-                assertEquals(origRow, adaptedRow, "Row $i mismatch in ${scenario.name}")
-            }
+            assertEngineParity(scenario)
         }
+    }
+
+    @Test
+    fun testTypedEngineParityPrepayments() {
+        val scenario = exampleScenario.copy(
+            name = "Prepayments Edge Case",
+            principal = "50000000.00",
+            termMonths = 36,
+            events = listOf(
+                LoanEvent.Extra(id = "extra-1", month = 3, amount = "5000000.00"),
+                LoanEvent.Recurring(id = "rec-1", month = 6, endMonth = 18, every = 3, amount = "2000000.00")
+            )
+        )
+        assertEngineParity(scenario)
+    }
+
+    @Test
+    fun testTypedEngineParityArrearsAndCatchup() {
+        val scenario = exampleScenario.copy(
+            name = "Arrears and Catchup Edge Case",
+            principal = "30000000.00",
+            termMonths = 24,
+            events = listOf(
+                LoanEvent.Missed(id = "missed-1", month = 2),
+                LoanEvent.Missed(id = "missed-2", month = 3),
+                LoanEvent.Catchup(id = "catchup-1", month = 4, amount = "2500000.00"),
+                LoanEvent.Catchup(id = "catchup-2", month = 5, amount = "1000000.00")
+            )
+        )
+        assertEngineParity(scenario)
+    }
+
+    @Test
+    fun testTypedEngineParityArgentinaProfile() {
+        val scenario = exampleScenario.copy(
+            name = "Argentina Profile Edge Case",
+            currency = Currency.ARS,
+            principal = "1000000.00",
+            termMonths = 20,
+            argentinaProfile = ArgentinaProfile(
+                originalTermMonths = 20,
+                commissionRate = "0.03",
+                vatRate = "0.21"
+            ),
+            events = listOf(
+                // Prepayment before 25% threshold (month 2 < (20+3)/4 = 5 -> commission + vat)
+                LoanEvent.Extra(id = "pre-early", month = 2, amount = "100000.00"),
+                // Prepayment at/after threshold (month 6 >= 5 -> commission waived)
+                LoanEvent.Extra(id = "pre-late", month = 6, amount = "200000.00")
+            )
+        )
+        assertEngineParity(scenario)
+    }
+
+    @Test
+    fun testTypedSeamInLoanKtAndBidirectionalAdaptation() {
+        val typedScenario = exampleScenario.toTyped()
+
+        // Verify TypedEngine.simulate produces identical result to simulateLoan(TypedScenario)
+        val engineResult = TypedEngine.simulate(typedScenario)
+        val seamResult = simulateLoan(typedScenario)
+        assertEquals(engineResult, seamResult)
+
+        // Verify bidirectional adaptation
+        val roundtripScenario = typedScenario.toUntyped()
+        assertEquals(exampleScenario.name, roundtripScenario.name)
+        assertEquals(exampleScenario.principal, roundtripScenario.principal)
+        assertEquals(exampleScenario.termMonths, roundtripScenario.termMonths)
+        assertEquals(exampleScenario.currency, roundtripScenario.currency)
+        assertEquals(exampleScenario.startDate, roundtripScenario.startDate)
     }
 }

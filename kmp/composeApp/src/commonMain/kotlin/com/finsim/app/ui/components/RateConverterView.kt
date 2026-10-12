@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.sp
 import com.finsim.app.theme.*
 import com.finsim.core.Decimal
 import com.finsim.domain.Rate
+import com.finsim.engine.TargetRate
 import com.finsim.engine.convertRate
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,16 +38,16 @@ fun RateConverterView(modifier: Modifier = Modifier) {
 
     val emConverted = remember(rateObj) {
         rateObj?.let {
-            val frac = convertRate(it, "monthly")
-            val pct = (Decimal.parse(frac) * Decimal.parse("100")).toString()
+            val converted = convertRate(it, TargetRate.Monthly)
+            val pct = (Decimal.parse(converted.value) * Decimal.parse("100")).toString()
             pct
         } ?: "—"
     }
 
     val eaConverted = remember(rateObj) {
         rateObj?.let {
-            val frac = convertRate(it, "annual")
-            val pct = (Decimal.parse(frac) * Decimal.parse("100")).toString()
+            val converted = convertRate(it, TargetRate.Annual)
+            val pct = (Decimal.parse(converted.value) * Decimal.parse("100")).toString()
             pct
         } ?: "—"
     }

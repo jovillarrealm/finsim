@@ -3,6 +3,9 @@ package com.finsim.engine
 import com.finsim.core.Decimal
 import com.finsim.core.FinsimLog
 import com.finsim.domain.*
+import com.finsim.domain.types.TypedEngine
+import com.finsim.domain.types.TypedLoanResult
+import com.finsim.domain.types.TypedScenario
 
 private fun money(value: Decimal): String = value.toFixed(2)
 private fun money(value: String): String = Decimal.parse(value).toFixed(2)
@@ -179,3 +182,8 @@ fun simulateLoan(scenario: Scenario): LoanResult {
         unappliedEvents = unappliedEvents
     )
 }
+
+/**
+ * Deep typed calculation engine seam operating on type-safe value objects.
+ */
+fun simulateLoan(typedScenario: TypedScenario): TypedLoanResult = TypedEngine.simulate(typedScenario)

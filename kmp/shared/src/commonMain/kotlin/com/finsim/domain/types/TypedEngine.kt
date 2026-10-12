@@ -80,6 +80,76 @@ object ScenarioAdapter {
     }
 
     /**
+     * Adapts a TypedScenario back to untyped Scenario for serialization or legacy consumers.
+     */
+    fun toUntyped(typed: TypedScenario): Scenario {
+        val rate = when (val r = typed.rate) {
+            is RateValue.EffectiveMonthly -> Rate.Monthly(r.fractionDecimal.toString())
+            is RateValue.EffectiveAnnual -> Rate.Annual(r.fractionDecimal.toString())
+            is RateValue.NominalAnnual -> Rate.Nominal(r.fractionDecimal.toString(), r.frequency)
+        }
+        val insurance = typed.insurance.map { ins ->
+            val (kind, value) = when (val c = ins.charge) {
+                is InsuranceCharge.Fixed -> "fixed" to c.amount.toFormattedString()
+                is InsuranceCharge.Percentage -> "percentage" to c.monthlyRateFraction.toString()
+            }
+            Insurance(
+                id = ins.id.value,
+                name = ins.name,
+                kind = kind,
+                value = value,
+                endsAtPayoff = ins.endsAtPayoff,
+                endMonth = ins.endMonth?.value
+            )
+        }
+        val events = typed.events.map { ev ->
+            when (ev) {
+                is TypedLoanEvent.Extra -> LoanEvent.Extra(
+                    id = ev.id.value,
+                    month = ev.month.value,
+                    amount = ev.amount.toFormattedString()
+                )
+                is TypedLoanEvent.Recurring -> LoanEvent.Recurring(
+                    id = ev.id.value,
+                    month = ev.month.value,
+                    endMonth = ev.endMonth.value,
+                    every = ev.everyMonths,
+                    amount = ev.amount.toFormattedString()
+                )
+                is TypedLoanEvent.Missed -> LoanEvent.Missed(
+                    id = ev.id.value,
+                    month = ev.month.value
+                )
+                is TypedLoanEvent.Catchup -> LoanEvent.Catchup(
+                    id = ev.id.value,
+                    month = ev.month.value,
+                    amount = ev.amount.toFormattedString()
+                )
+            }
+        }
+        val argProfile = typed.argentinaPolicy?.let {
+            ArgentinaProfile(
+                originalTermMonths = it.originalTermMonths,
+                commissionRate = it.commissionRate.toString(),
+                vatRate = it.vatRate.toString()
+            )
+        }
+        return Scenario(
+            currency = typed.currency,
+            name = typed.name,
+            source = typed.source,
+            principal = typed.principal.toFormattedString(),
+            startDate = typed.startDate,
+            termMonths = typed.termMonths,
+            rate = rate,
+            payment = typed.payment?.toFormattedString(),
+            insurance = insurance,
+            events = events,
+            argentinaProfile = argProfile
+        )
+    }
+
+    /**
      * Adapts a TypedLoanResult back to untyped LoanResult for JSON serialization or legacy UI callers.
      */
     fun toUntyped(typed: TypedLoanResult): LoanResult {
@@ -151,6 +221,22 @@ object ScenarioAdapter {
             }
         )
     }
+}
+
+/**
+ * Extension adapters facilitating seamless bidirectional conversions between typed and untyped models.
+ */
+fun Scenario.toTyped(): TypedScenario = ScenarioAdapter.toTyped(this)
+fun TypedScenario.toUntyped(): Scenario = ScenarioAdapter.toUntyped(this)
+fun TypedLoanResult.toUntyped(): LoanResult = ScenarioAdapter.toUntyped(this)
+
+/**
+ * Typed calculation engine module.
+ *
+ * Encapsulates the complete amortization and multi-currency ledger simulation behind a deep typed interface.
+ */
+object TypedEngine {
+    fun simulate(scenario: TypedScenario): TypedLoanResult = simulateTypedLoan(scenario)
 }
 
 /**
