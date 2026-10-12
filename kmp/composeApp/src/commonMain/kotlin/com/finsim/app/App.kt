@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.finsim.app.theme.*
 import com.finsim.app.ui.components.*
+import com.finsim.app.ui.ingestion.DocumentImportDialog
 import com.finsim.core.FinsimLog
 import com.finsim.domain.*
 import com.finsim.engine.simulateLoan
@@ -43,6 +44,7 @@ fun App(
 
     var noticeMessage by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
+    var showImportDialog by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
 
@@ -240,6 +242,17 @@ fun App(
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                 ) {
                                     Text("Exportar", fontSize = 12.sp, color = BrandForest)
+                                }
+
+                                OutlinedButton(
+                                    onClick = { showImportDialog = true },
+                                    enabled = !workspace.hasPendingDraft,
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandForest),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Text("Importar", fontSize = 12.sp, color = BrandForest)
                                 }
 
                                 Button(
@@ -468,6 +481,26 @@ fun App(
                 // Extra breathing room at bottom for navigation bar / gesture notch
                 Spacer(modifier = Modifier.navigationBarsPadding().height(24.dp))
             }
+        }
+
+        if (showImportDialog) {
+            DocumentImportDialog(
+                onDismiss = { showImportDialog = false },
+                onScenarioImported = { importedScenario ->
+                    val outcome = store.updateConditions(importedScenario)
+                    workspace = store.state
+                    when (outcome) {
+                        is WorkspaceOutcome.Success -> {
+                            noticeMessage = "Escenario importado: '${importedScenario.name}'."
+                            errorMessage = ""
+                        }
+                        is WorkspaceOutcome.Failure -> {
+                            errorMessage = outcome.error
+                        }
+                    }
+                    showImportDialog = false
+                }
+            )
         }
     }
 }

@@ -1,0 +1,351 @@
+package com.finsim.app.ui.ingestion
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import com.finsim.app.theme.*
+import com.finsim.domain.Scenario
+import com.finsim.ingestion.*
+
+private val SAMPLE_COLOMBIA_STATEMENT = """
+    Bancolombia S.A. - Extracto Crédito de Consumo / Libre Inversión
+    Fecha de corte: 15/10/2026
+    Titular: Juan Pérez - Obligación No. 450-89123-01
+    
+    RESUMEN DE LA OBLIGACIÓN
+    Saldo de capital a la fecha: $ 24.500.000,00
+    Capital inicial desembolsado: $ 30.000.000,00
+    Tasa Efectiva Anual (E.A.): 19.50%
+    Tasa Mes Vencido (M.V.): 1.50%
+    Plazo pactado: 48 meses
+    Valor cuota mensual: $ 850.000,00
+    
+    DESGLOSE DE CARGOS Y SEGUROS
+    Seguro deudores: $ 12.500,00
+    Seguro de vida grupo: $ 10.000,00
+    Total otros cobros: $ 22.500,00
+""".trimIndent()
+
+private val SAMPLE_MEXICO_STATEMENT = """
+    BBVA México - Estado de Cuenta de Crédito al Consumo
+    Fecha de corte: 2026-10-01
+    Número de crédito: 0148-9923812
+    
+    CONDICIONES DEL CRÉDITO
+    Saldo insoluto: $ 120,000.00
+    Capital original: $ 150,000.00
+    Tasa de interés ordinaria anual fija: 22.50%
+    CAT Promedio: 26.8% sin IVA
+    Plazo total: 24 meses
+    Pago mensual regular: $ 6,250.00
+    
+    COMISIONES Y SEGUROS
+    Seguro de desempleo: $ 450.00
+    Seguro de vida: $ 320.00
+""".trimIndent()
+
+private val SAMPLE_ARGENTINA_STATEMENT = """
+    Banco Galicia - Resumen de Préstamo Personal
+    Fecha de liquidación: 10/10/2026
+    Cuenta Nro: 4012948-1
+    
+    DETALLE FINANCIERO
+    Saldo deudor: $ 850.000,50
+    Monto desembolsado: $ 1.200.000,00
+    TNA (Tasa Nominal Anual): 48.00%
+    TEA (Tasa Efectiva Anual): 60.10%
+    CFT TEA: 78.50%
+    Plazo restante: 36 meses
+    Cuota mensual: $ 45.200,00
+    Seguro de vida sobre saldo deudor: $ 1.850,00
+""".trimIndent()
+
+/**
+ * Main ingestion modal where users select their jurisdiction / regulatory framework,
+ * provide the document text (paste, sample, or loaded document), and trigger Tier 1 parsing.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DocumentImportDialog(
+    onDismiss: () -> Unit,
+    onScenarioImported: (Scenario) -> Unit
+) {
+    var selectedFramework by remember { mutableStateOf(RegulatoryFramework.COLOMBIA_SFC) }
+    var rawText by remember { mutableStateOf("") }
+    var frameworkMenuExpanded by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+
+    // State holding extracted document data for review sheet
+    var reviewData by remember { mutableStateOf<ExtractedDocumentData?>(null) }
+
+    val scrollState = rememberScrollState()
+
+    if (reviewData != null) {
+        ExtractionReviewSheet(
+            extractedData = reviewData!!,
+            framework = selectedFramework,
+            onDismiss = { reviewData = null },
+            onConfirmImport = { scenario ->
+                reviewData = null
+                onScenarioImported(scenario)
+                onDismiss()
+            }
+        )
+        return
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = SurfaceWarm,
+            border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
+            shadowElevation = 8.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .verticalScroll(scrollState)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Importar extracto bancario",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = BrandDark
+                        )
+                        Text(
+                            text = "Lectura nativa en dispositivo (Tier 1: 0 MB · 100% privado).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextForestMuted
+                        )
+                    }
+
+                    Surface(
+                        color = BrandLime.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = "Tier 1",
+                            color = BrandForest,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Selector de Marco Regulatorio
+                Text(
+                    text = "MARCO REGULATORIO / PAÍS",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BrandForest,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                ExposedDropdownMenuBox(
+                    expanded = frameworkMenuExpanded,
+                    onExpandedChange = { frameworkMenuExpanded = it },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = selectedFramework.label,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Regulación y convención financiera") },
+                        shape = RoundedCornerShape(8.dp),
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = frameworkMenuExpanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = frameworkMenuExpanded,
+                        onDismissRequest = { frameworkMenuExpanded = false }
+                    ) {
+                        RegulatoryFramework.entries.forEach { framework ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(framework.label, fontWeight = FontWeight.SemiBold, color = BrandDark)
+                                        Text(
+                                            "Moneda: ${framework.defaultCurrency.name} · Tasa base: ${framework.defaultRateKind}",
+                                            fontSize = 11.sp,
+                                            color = TextForestMuted
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    selectedFramework = framework
+                                    frameworkMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Quick load samples
+                Text(
+                    text = "EJEMPLO RÁPIDO",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BrandForest,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            selectedFramework = RegulatoryFramework.COLOMBIA_SFC
+                            rawText = SAMPLE_COLOMBIA_STATEMENT
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("🇨🇴 Bancolombia", fontSize = 11.sp, color = BrandForest)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            selectedFramework = RegulatoryFramework.MEXICO_CONDUSEF
+                            rawText = SAMPLE_MEXICO_STATEMENT
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("🇲🇽 BBVA Mex", fontSize = 11.sp, color = BrandForest)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            selectedFramework = RegulatoryFramework.ARGENTINA_BCRA
+                            rawText = SAMPLE_ARGENTINA_STATEMENT
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("🇦🇷 Galicia", fontSize = 11.sp, color = BrandForest)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Input de texto del extracto
+                Text(
+                    text = "CONTENIDO DEL EXTRACTO (TEXTO DIGITAL O PDF)",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BrandForest,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                OutlinedTextField(
+                    value = rawText,
+                    onValueChange = {
+                        rawText = it
+                        if (errorMessage.isNotBlank()) errorMessage = ""
+                    },
+                    label = { Text("Pega el texto del extracto o carga las páginas...") },
+                    placeholder = { Text("Copia y pega el texto del PDF bancario aquí...") },
+                    minLines = 6,
+                    maxLines = 10,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (errorMessage.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Actions: Cancel & Analyze
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(10.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
+                        modifier = Modifier.weight(1f).height(46.dp)
+                    ) {
+                        Text("Cancelar", color = TextForestMuted, fontWeight = FontWeight.Medium)
+                    }
+
+                    Button(
+                        onClick = {
+                            if (rawText.isBlank()) {
+                                errorMessage = "Pega o carga el texto del extracto para continuar."
+                                return@Button
+                            }
+
+                            try {
+                                val pages = DigitalPdfTextExtractor.extractPages(rawText.encodeToByteArray())
+                                if (pages.isEmpty()) {
+                                    errorMessage = "No se detectó texto en el documento suministrado."
+                                    return@Button
+                                }
+
+                                val bestPageIndex = PageDensityScanner.findBestPageIndex(pages)
+                                val bestPageText = pages[bestPageIndex - 1]
+                                val parsed = DocumentTextParser.parse(bestPageText, selectedFramework, bestPageIndex)
+
+                                reviewData = parsed
+                            } catch (e: Exception) {
+                                errorMessage = "Error al procesar el extracto: ${e.message}"
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BrandForest, contentColor = Color.White),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1.5f).height(46.dp)
+                    ) {
+                        Text("Analizar extracto", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+    }
+}
