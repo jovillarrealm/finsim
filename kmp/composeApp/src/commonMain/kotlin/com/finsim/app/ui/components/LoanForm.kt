@@ -1,11 +1,13 @@
 package com.finsim.app.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,7 +38,6 @@ fun LoanForm(
             }
         )
     }
-    // Percentage display: 0.18 -> 18
     var ratePercent by remember(scenario) {
         val dec = Decimal.parse(scenario.rate.value) * Decimal.parse("100")
         mutableStateOf(dec.toString())
@@ -51,48 +52,61 @@ fun LoanForm(
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceLight),
         border = CardDefaults.outlinedCardBorder()
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(18.dp)) {
             Text(
                 text = "Condiciones del préstamo",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = BrandNavy
             )
             Text(
-                text = "Ingresa las características de tu préstamo o saldo actual.",
+                text = "Configura el importe, plazo, tasas y amortización base.",
                 style = MaterialTheme.typography.bodySmall,
                 color = TextMuted,
-                modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+                modifier = Modifier.padding(top = 2.dp, bottom = 14.dp)
             )
 
             if (errorMessage.isNotBlank()) {
                 Surface(
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
                 ) {
                     Text(
                         text = errorMessage,
                         color = MaterialTheme.colorScheme.onErrorContainer,
                         fontSize = 12.sp,
-                        modifier = Modifier.padding(8.dp)
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(10.dp)
                     )
                 }
             }
+
+            // Section 1: Identificación
+            Text(
+                text = "DATOS GENERALES",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = BrandBlue,
+                letterSpacing = 0.5.sp
+            )
+            Spacer(modifier = Modifier.height(6.dp))
 
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
                 label = { Text("Nombre del escenario") },
+                shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 // Currency dropdown
                 var currencyExpanded by remember { mutableStateOf(false) }
                 ExposedDropdownMenuBox(
@@ -105,6 +119,7 @@ fun LoanForm(
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Moneda") },
+                        shape = RoundedCornerShape(8.dp),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = currencyExpanded) },
                         modifier = Modifier.menuAnchor()
                     )
@@ -136,6 +151,7 @@ fun LoanForm(
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Origen") },
+                        shape = RoundedCornerShape(8.dp),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sourceExpanded) },
                         modifier = Modifier.menuAnchor()
                     )
@@ -155,44 +171,68 @@ fun LoanForm(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Section 2: Capital y Fechas
+            Text(
+                text = "CAPITAL Y PLAZO",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = BrandBlue,
+                letterSpacing = 0.5.sp
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     value = principal,
                     onValueChange = { principal = it },
                     label = { Text("Capital ($currency)") },
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.weight(1f)
                 )
                 OutlinedTextField(
                     value = startDate,
                     onValueChange = { startDate = it },
-                    label = { Text("Fecha primer pago (AAAA-MM)") },
+                    label = { Text("Primer pago (AAAA-MM)") },
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.weight(1f)
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     value = termMonths,
                     onValueChange = { termMonths = it },
                     label = { Text("Plazo (meses)") },
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.weight(1f)
                 )
                 OutlinedTextField(
                     value = ratePercent,
                     onValueChange = { ratePercent = it },
-                    label = { Text("Tasa (%)") },
+                    label = { Text("Tasa de interés (%)") },
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.weight(1f)
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Rate Kind
+            // Section 3: Tasas y Cuota
+            Text(
+                text = "TIPO DE TASA Y CUOTA",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = BrandBlue,
+                letterSpacing = 0.5.sp
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Rate Kind dropdown
                 var rateExpanded by remember { mutableStateOf(false) }
                 ExposedDropdownMenuBox(
                     expanded = rateExpanded,
@@ -208,6 +248,7 @@ fun LoanForm(
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Tipo de tasa") },
+                        shape = RoundedCornerShape(8.dp),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = rateExpanded) },
                         modifier = Modifier.menuAnchor()
                     )
@@ -226,19 +267,21 @@ fun LoanForm(
                         value = nominalFreq,
                         onValueChange = { nominalFreq = it },
                         label = { Text("Capitalizaciones/año") },
+                        shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.weight(1f)
                     )
                 } else {
                     OutlinedTextField(
                         value = payment,
                         onValueChange = { payment = it },
-                        label = { Text("Cuota conocida (opcional)") },
+                        label = { Text("Cuota pactada (opcional)") },
+                        shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.weight(1f)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             Button(
                 onClick = {
@@ -248,31 +291,29 @@ fun LoanForm(
                             "monthly" -> Rate.Monthly(rateDecValue)
                             "annual" -> Rate.Annual(rateDecValue)
                             "nominal" -> Rate.Nominal(rateDecValue, nominalFreq.toIntOrNull() ?: 12)
-                            else -> error("Tipo inválido")
+                            else -> error("Tipo de tasa inválido")
                         }
                         val newScenario = scenario.copy(
-                            name = name,
+                            name = name.trim().ifBlank { "Mi préstamo" },
                             currency = currency,
                             source = source,
-                            principal = principal,
-                            startDate = startDate,
-                            termMonths = termMonths.toIntOrNull() ?: 36,
+                            principal = principal.trim(),
+                            startDate = startDate.trim(),
+                            termMonths = termMonths.trim().toIntOrNull() ?: error("Indica un plazo en meses válido."),
                             rate = newRate,
-                            payment = payment.ifBlank { null }
+                            payment = payment.trim().ifBlank { null }
                         )
                         val ok = onApplyScenario(newScenario)
-                        if (ok) {
-                            errorMessage = ""
-                        } else {
-                            errorMessage = "Revisa los campos del formulario."
-                        }
+                        if (ok) errorMessage = ""
                     } catch (e: Exception) {
-                        errorMessage = e.message ?: "Datos inválidos en el formulario."
+                        errorMessage = e.message ?: "Verifica los datos del préstamo."
                     }
                 },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = BrandBlue)
             ) {
-                Text("Aplicar cambios al préstamo")
+                Text("Actualizar condiciones del préstamo", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
         }
     }
