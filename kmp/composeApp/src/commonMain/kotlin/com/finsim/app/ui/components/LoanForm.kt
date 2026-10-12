@@ -12,9 +12,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.finsim.app.theme.*
-import com.finsim.core.Decimal
 import com.finsim.domain.*
 
+/**
+ * Adaptador visual presentacional para las condiciones y parámetros del préstamo.
+ *
+ * El módulo profundo [LoanConditionsDraft] encapsula el análisis de cadenas, la
+ * validación rigurosa de invariantes de dominio, la conversión automática de tasas
+ * y el seguimiento de suciedad (isDirty). Este composable actúa puramente como
+ * adaptador de presentación en el seam visual: enlaza el estado del borrador a
+ * los controles de formulario y delega las transiciones de estado a través de
+ * la interfaz del módulo.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoanForm(
@@ -22,32 +31,7 @@ fun LoanForm(
     onApplyScenario: (Scenario) -> Boolean,
     modifier: Modifier = Modifier
 ) {
-    var name by remember(scenario) { mutableStateOf(scenario.name) }
-    var currency by remember(scenario) { mutableStateOf(scenario.currency) }
-    var source by remember(scenario) { mutableStateOf(scenario.source) }
-    var principal by remember(scenario) { mutableStateOf(scenario.principal) }
-    var startDate by remember(scenario) { mutableStateOf(scenario.startDate) }
-    var termMonths by remember(scenario) { mutableStateOf(scenario.termMonths.toString()) }
-
-    var rateKind by remember(scenario) {
-        mutableStateOf(
-            when (scenario.rate) {
-                is Rate.Monthly -> "monthly"
-                is Rate.Annual -> "annual"
-                is Rate.Nominal -> "nominal"
-            }
-        )
-    }
-    var ratePercent by remember(scenario) {
-        val dec = Decimal.parse(scenario.rate.value) * Decimal.parse("100")
-        mutableStateOf(dec.toString())
-    }
-    var nominalFreq by remember(scenario) {
-        val r = scenario.rate
-        mutableStateOf(if (r is Rate.Nominal) r.frequency.toString() else "12")
-    }
-
-    var payment by remember(scenario) { mutableStateOf(scenario.payment ?: "") }
+    var draft by remember(scenario) { mutableStateOf(LoanConditionsDraft.from(scenario)) }
     var errorMessage by remember { mutableStateOf("") }
 
     Card(
@@ -97,9 +81,13 @@ fun LoanForm(
             Spacer(modifier = Modifier.height(6.dp))
 
             OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
+                value = draft.state.name,
+                onValueChange = {
+                    draft = draft.updateName(it)
+                    errorMessage = ""
+                },
                 label = { Text("Nombre del escenario") },
+                isError = errorMessage.isNotBlank() && draft.errors.containsKey(LoanField.Name),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -115,7 +103,7 @@ fun LoanForm(
                     modifier = Modifier.weight(1f)
                 ) {
                     OutlinedTextField(
-                        value = currency.name,
+                        value = draft.state.currency.name,
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Moneda") },
@@ -131,7 +119,8 @@ fun LoanForm(
                             DropdownMenuItem(
                                 text = { Text(curr.name) },
                                 onClick = {
-                                    currency = curr
+                                    draft = draft.updateCurrency(curr)
+                                    errorMessage = ""
                                     currencyExpanded = false
                                 }
                             )
@@ -147,7 +136,7 @@ fun LoanForm(
                     modifier = Modifier.weight(1f)
                 ) {
                     OutlinedTextField(
-                        value = if (source == "original") "Préstamo original" else "Saldo actual",
+                        value = draft.state.paymentOrigin.displayName,
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Origen") },
@@ -160,12 +149,20 @@ fun LoanForm(
                         onDismissRequest = { sourceExpanded = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Préstamo original") },
-                            onClick = { source = "original"; sourceExpanded = false }
+                            text = { Text(PaymentOrigin.Original.displayName) },
+                            onClick = {
+                                draft = draft.updatePaymentOrigin(PaymentOrigin.Original)
+                                errorMessage = ""
+                                sourceExpanded = false
+                            }
                         )
                         DropdownMenuItem(
-                            text = { Text("Saldo actual") },
-                            onClick = { source = "current"; sourceExpanded = false }
+                            text = { Text(PaymentOrigin.Current.displayName) },
+                            onClick = {
+                                draft = draft.updatePaymentOrigin(PaymentOrigin.Current)
+                                errorMessage = ""
+                                sourceExpanded = false
+                            }
                         )
                     }
                 }
@@ -185,16 +182,24 @@ fun LoanForm(
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
-                    value = principal,
-                    onValueChange = { principal = it },
-                    label = { Text("Capital ($currency)") },
+                    value = draft.state.principalStr,
+                    onValueChange = {
+                        draft = draft.updatePrincipal(it)
+                        errorMessage = ""
+                    },
+                    label = { Text("Capital (${draft.state.currency})") },
+                    isError = errorMessage.isNotBlank() && draft.errors.containsKey(LoanField.Principal),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.weight(1f)
                 )
                 OutlinedTextField(
-                    value = startDate,
-                    onValueChange = { startDate = it },
+                    value = draft.state.startDate,
+                    onValueChange = {
+                        draft = draft.updateStartDate(it)
+                        errorMessage = ""
+                    },
                     label = { Text("Primer pago (AAAA-MM)") },
+                    isError = errorMessage.isNotBlank() && draft.errors.containsKey(LoanField.StartDate),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.weight(1f)
                 )
@@ -204,16 +209,24 @@ fun LoanForm(
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
-                    value = termMonths,
-                    onValueChange = { termMonths = it },
+                    value = draft.state.termMonthsStr,
+                    onValueChange = {
+                        draft = draft.updateTermMonths(it)
+                        errorMessage = ""
+                    },
                     label = { Text("Plazo (meses)") },
+                    isError = errorMessage.isNotBlank() && draft.errors.containsKey(LoanField.TermMonths),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.weight(1f)
                 )
                 OutlinedTextField(
-                    value = ratePercent,
-                    onValueChange = { ratePercent = it },
+                    value = draft.state.ratePercentageStr,
+                    onValueChange = {
+                        draft = draft.updateRatePercentage(it)
+                        errorMessage = ""
+                    },
                     label = { Text("Tasa de interés (%)") },
+                    isError = errorMessage.isNotBlank() && draft.errors.containsKey(LoanField.RatePercentage),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.weight(1f)
                 )
@@ -240,11 +253,7 @@ fun LoanForm(
                     modifier = Modifier.weight(1f)
                 ) {
                     OutlinedTextField(
-                        value = when (rateKind) {
-                            "monthly" -> "Efectiva mensual (EM)"
-                            "annual" -> "Efectiva anual (EA)"
-                            else -> "Nominal anual"
-                        },
+                        value = draft.state.rateKind.displayName,
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Tipo de tasa") },
@@ -256,25 +265,54 @@ fun LoanForm(
                         expanded = rateExpanded,
                         onDismissRequest = { rateExpanded = false }
                     ) {
-                        DropdownMenuItem(text = { Text("Efectiva mensual (EM)") }, onClick = { rateKind = "monthly"; rateExpanded = false })
-                        DropdownMenuItem(text = { Text("Efectiva anual (EA)") }, onClick = { rateKind = "annual"; rateExpanded = false })
-                        DropdownMenuItem(text = { Text("Nominal anual") }, onClick = { rateKind = "nominal"; rateExpanded = false })
+                        DropdownMenuItem(
+                            text = { Text(RateKind.Monthly.displayName) },
+                            onClick = {
+                                draft = draft.updateRateKind(RateKind.Monthly)
+                                errorMessage = ""
+                                rateExpanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(RateKind.Annual.displayName) },
+                            onClick = {
+                                draft = draft.updateRateKind(RateKind.Annual)
+                                errorMessage = ""
+                                rateExpanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(RateKind.Nominal.displayName) },
+                            onClick = {
+                                draft = draft.updateRateKind(RateKind.Nominal)
+                                errorMessage = ""
+                                rateExpanded = false
+                            }
+                        )
                     }
                 }
 
-                if (rateKind == "nominal") {
+                if (draft.state.rateKind == RateKind.Nominal) {
                     OutlinedTextField(
-                        value = nominalFreq,
-                        onValueChange = { nominalFreq = it },
+                        value = draft.state.nominalFrequencyStr,
+                        onValueChange = {
+                            draft = draft.updateNominalFrequency(it)
+                            errorMessage = ""
+                        },
                         label = { Text("Capitalizaciones/año") },
+                        isError = errorMessage.isNotBlank() && draft.errors.containsKey(LoanField.NominalFrequency),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.weight(1f)
                     )
                 } else {
                     OutlinedTextField(
-                        value = payment,
-                        onValueChange = { payment = it },
+                        value = draft.state.paymentStr,
+                        onValueChange = {
+                            draft = draft.updatePayment(it)
+                            errorMessage = ""
+                        },
                         label = { Text("Cuota pactada (opcional)") },
+                        isError = errorMessage.isNotBlank() && draft.errors.containsKey(LoanField.Payment),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.weight(1f)
                     )
@@ -285,29 +323,15 @@ fun LoanForm(
 
             Button(
                 onClick = {
-                    try {
-                        val rateDecValue = (Decimal.parse(ratePercent) / Decimal.parse("100")).toString()
-                        val newRate = when (rateKind) {
-                            "monthly" -> Rate.Monthly(rateDecValue)
-                            "annual" -> Rate.Annual(rateDecValue)
-                            "nominal" -> Rate.Nominal(rateDecValue, nominalFreq.toIntOrNull() ?: 12)
-                            else -> error("Tipo de tasa inválido")
+                    draft.validateAndCommit().fold(
+                        onSuccess = { newScenario ->
+                            val ok = onApplyScenario(newScenario)
+                            if (ok) errorMessage = ""
+                        },
+                        onFailure = { err ->
+                            errorMessage = err.message ?: "Verifica los datos del préstamo."
                         }
-                        val newScenario = scenario.copy(
-                            name = name.trim().ifBlank { "Mi préstamo" },
-                            currency = currency,
-                            source = source,
-                            principal = principal.trim(),
-                            startDate = startDate.trim(),
-                            termMonths = termMonths.trim().toIntOrNull() ?: error("Indica un plazo en meses válido."),
-                            rate = newRate,
-                            payment = payment.trim().ifBlank { null }
-                        )
-                        val ok = onApplyScenario(newScenario)
-                        if (ok) errorMessage = ""
-                    } catch (e: Exception) {
-                        errorMessage = e.message ?: "Verifica los datos del préstamo."
-                    }
+                    )
                 },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(10.dp),
