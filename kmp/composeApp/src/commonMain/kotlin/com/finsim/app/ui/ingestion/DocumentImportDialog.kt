@@ -18,11 +18,13 @@ import androidx.compose.ui.window.Dialog
 import com.finsim.app.theme.*
 import com.finsim.domain.Scenario
 import com.finsim.ingestion.*
+import com.finsim.reconciliation.StatementRow
 
 private val SAMPLE_COLOMBIA_STATEMENT = """
     Bancolombia S.A. - Extracto Crédito de Consumo / Libre Inversión
     Fecha de corte: 15/10/2026
     Titular: Juan Pérez - Obligación No. 450-89123-01
+    Cuota 12 de 48
     
     RESUMEN DE LA OBLIGACIÓN
     Saldo de capital a la fecha: $ 24.500.000,00
@@ -33,15 +35,19 @@ private val SAMPLE_COLOMBIA_STATEMENT = """
     Valor cuota mensual: $ 850.000,00
     
     DESGLOSE DE CARGOS Y SEGUROS
+    Abono a capital: $ 350.000,00
+    Interés corriente: $ 477.500,00
     Seguro deudores: $ 12.500,00
     Seguro de vida grupo: $ 10.000,00
     Total otros cobros: $ 22.500,00
+    Saldo final: $ 24.150.000,00
 """.trimIndent()
 
 private val SAMPLE_MEXICO_STATEMENT = """
     BBVA México - Estado de Cuenta de Crédito al Consumo
     Fecha de corte: 2026-10-01
     Número de crédito: 0148-9923812
+    Cuota 5 de 24
     
     CONDICIONES DEL CRÉDITO
     Saldo insoluto: $ 120,000.00
@@ -52,14 +58,18 @@ private val SAMPLE_MEXICO_STATEMENT = """
     Pago mensual regular: $ 6,250.00
     
     COMISIONES Y SEGUROS
+    Amortización a capital: $ 4,120.00
+    Interés ordinario: $ 1,360.00
     Seguro de desempleo: $ 450.00
     Seguro de vida: $ 320.00
+    Saldo final: $ 115,880.00
 """.trimIndent()
 
 private val SAMPLE_ARGENTINA_STATEMENT = """
     Banco Galicia - Resumen de Préstamo Personal
     Fecha de liquidación: 10/10/2026
     Cuenta Nro: 4012948-1
+    Cuota 3 de 36
     
     DETALLE FINANCIERO
     Saldo deudor: $ 850.000,50
@@ -69,7 +79,10 @@ private val SAMPLE_ARGENTINA_STATEMENT = """
     CFT TEA: 78.50%
     Plazo restante: 36 meses
     Cuota mensual: $ 45.200,00
+    Abono a capital: $ 12.500,00
+    Interés del periodo: $ 30.850,00
     Seguro de vida sobre saldo deudor: $ 1.850,00
+    Saldo final: $ 837.500,50
 """.trimIndent()
 
 /**
@@ -79,8 +92,10 @@ private val SAMPLE_ARGENTINA_STATEMENT = """
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DocumentImportDialog(
+    targetMode: ImportTargetMode = ImportTargetMode.SCENARIO,
     onDismiss: () -> Unit,
-    onScenarioImported: (Scenario) -> Unit
+    onScenarioImported: (Scenario) -> Unit = {},
+    onStatementRowImported: (StatementRow) -> Unit = {}
 ) {
     var selectedFramework by remember { mutableStateOf(RegulatoryFramework.COLOMBIA_SFC) }
     var rawText by remember { mutableStateOf("") }
@@ -96,10 +111,16 @@ fun DocumentImportDialog(
         ExtractionReviewSheet(
             extractedData = reviewData!!,
             framework = selectedFramework,
+            targetMode = targetMode,
             onDismiss = { reviewData = null },
             onConfirmImport = { scenario ->
                 reviewData = null
                 onScenarioImported(scenario)
+                onDismiss()
+            },
+            onConfirmStatementImport = { stmt ->
+                reviewData = null
+                onStatementRowImported(stmt)
                 onDismiss()
             }
         )
@@ -129,13 +150,16 @@ fun DocumentImportDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Importar extracto bancario",
+                            text = if (targetMode == ImportTargetMode.RECONCILIATION) "Auditar extracto mensual" else "Importar extracto bancario",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = BrandDark
                         )
                         Text(
-                            text = "Lectura nativa en dispositivo (Tier 1: 0 MB · 100% privado).",
+                            text = if (targetMode == ImportTargetMode.RECONCILIATION)
+                                "Lectura nativa de cobros del mes (Tier 1: 0 MB · 100% privado)."
+                            else
+                                "Lectura nativa en dispositivo (Tier 1: 0 MB · 100% privado).",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextForestMuted
                         )

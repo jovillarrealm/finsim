@@ -34,15 +34,25 @@ object DocumentTextParser {
         val termMonths = extractTermMonths(pageText)
         val monthlyPayment = extractMonthlyPayment(pageText)
         val statementCutDate = extractCutDate(pageText)
-        val statementMonth = statementCutDate?.split("-")?.getOrNull(1)?.toIntOrNull()
+        val cuotaMonth = extractStatementMonth(pageText)
+        val statementMonth = cuotaMonth ?: statementCutDate?.split("-")?.getOrNull(1)?.toIntOrNull()
         val insurances = extractInsurances(lines)
+        val principalPaid = extractPrincipalPaid(pageText)
+        val interestCharged = extractInterestCharged(pageText)
+        val totalInsurance = extractTotalInsurance(pageText, insurances)
 
         var confidence = 0.0f
         if (closingBalance != null || originalPrincipal != null) confidence += 0.35f
-        if (rate != null) confidence += 0.35f
+        if (rate != null) {
+            confidence += 0.35f
+        } else if (interestCharged != null && principalPaid != null) {
+            confidence += 0.35f
+        } else if (interestCharged != null || principalPaid != null) {
+            confidence += 0.20f
+        }
         if (termMonths != null) confidence += 0.15f
         if (monthlyPayment != null) confidence += 0.08f
-        if (insurances.isNotEmpty()) confidence += 0.07f
+        if (insurances.isNotEmpty() || totalInsurance != null) confidence += 0.07f
 
         return ExtractedDocumentData(
             sourceEngine = ExtractionEngine.TIER_1_DIGITAL_TEXT,
@@ -55,6 +65,9 @@ object DocumentTextParser {
             termMonths = termMonths,
             rate = rate,
             monthlyPayment = monthlyPayment,
+            principalPaid = principalPaid,
+            interestCharged = interestCharged,
+            totalInsurance = totalInsurance,
             insurances = insurances,
             rawExtractedText = pageText,
             confidence = confidence.coerceIn(0.0f, 1.0f)
@@ -83,9 +96,9 @@ object DocumentTextParser {
             cleanCurrencyNumber(raw)?.let { originalPrincipal = it }
         }
 
-        // 2. Closing Balance patterns (saldo actual / insoluto / de capital)
+        // 2. Closing Balance patterns (saldo final / nuevo saldo / saldo actual / insoluto / de capital / a capital)
         val closingRegex = Regex(
-            """(?i)(?:saldo\s+(?:de\s+)?capital|saldo\s+insoluto|saldo\s+actual|saldo\s+pendiente|saldo\s+deudor|saldo\s+a\s+capital)[:\s]*\$?\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2})?|[0-9]+(?:[.,][0-9]{1,2})?)"""
+            """(?i)(?:saldo\s+final|nuevo\s+saldo|saldo\s+(?:de\s+)?capital|saldo\s+insoluto|saldo\s+actual|saldo\s+pendiente|saldo\s+deudor|saldo\s+a\s+capital)[:\s]*\$?\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2})?|[0-9]+(?:[.,][0-9]{1,2})?)"""
         )
         closingRegex.find(text)?.groupValues?.get(1)?.let { raw ->
             cleanCurrencyNumber(raw)?.let { closingBalance = it }
@@ -306,6 +319,74 @@ object DocumentTextParser {
         }
 
         return insurances
+    }
+
+    private fun extractStatementMonth(text: String): Int? {
+        // Pattern 1: "Cuota 12 de 36" or "Mes 12 de 36" or "Cuota 12/36"
+        val fractionRegex = Regex("""(?i)\b(?:cuota|mes)\s+([0-9]{1,3})\s*(?:de|\/)\s*[0-9]{1,3}\b""")
+        fractionRegex.find(text)?.groupValues?.get(1)?.toIntOrNull()?.let {
+            if (it in 1..1200) return it
+        }
+
+        // Pattern 2: "Cuota No. 12", "Cuota N° 12", "Cuota # 12", "Cuota número 12", "Mes No. 12"
+        val cuotaNumberRegex = Regex("""(?i)\b(?:cuota|mes)\s+(?:n[uú]mero|no\.?|n[°º]|#)\s*([0-9]{1,3})\b""")
+        cuotaNumberRegex.find(text)?.groupValues?.get(1)?.toIntOrNull()?.let {
+            if (it in 1..1200) return it
+        }
+
+        // Pattern 3: Explicit label "Número de cuota: 12", "Nro. de cuota: 12", "Cuota actual: 12", "Mes actual: 12"
+        val labelRegex = Regex("""(?i)(?:n[uú]mero\s+de\s+cuota|nro\.?\s+de\s+cuota|cuota\s+actual|mes\s+actual)[:\s]+([0-9]{1,3})\b""")
+        labelRegex.find(text)?.groupValues?.get(1)?.toIntOrNull()?.let {
+            if (it in 1..1200) return it
+        }
+
+        // Pattern 4: Standalone "Cuota 12" or "Mes 12"
+        val standaloneRegex = Regex("""(?i)\b(?:cuota|mes)\s+([0-9]{1,3})\b(?!\s*(?:de\s+[a-záéíóúñ]+|mensual|fija|\$|pesos|usd))""")
+        standaloneRegex.find(text)?.groupValues?.get(1)?.toIntOrNull()?.let {
+            if (it in 1..1200) return it
+        }
+
+        return null
+    }
+
+    private fun extractPrincipalPaid(text: String): String? {
+        val principalPaidRegex = Regex(
+            """(?i)(?<!tabla\s+de\s+)(?<!sistema\s+de\s+)(?:abono\s+(?:a\s+)?capital|pago\s+(?:a|de)\s+capital|capital\s+pagado|capital\s+amortizado|amortizaci[oó]n(?:\s+(?:a\s+capital|de\s+capital|ordinaria|del\s+periodo))?)[:\s]*\$?\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2})?|[0-9]+(?:[.,][0-9]{1,2})?)"""
+        )
+        return principalPaidRegex.find(text)?.groupValues?.get(1)?.let { cleanCurrencyNumber(it) }
+    }
+
+    private fun extractInterestCharged(text: String): String? {
+        val interestRegex = Regex(
+            """(?i)(?:inter[eé]s\s+corriente|intereses\s+corrientes|intereses?\s+del\s+periodo|intereses?\s+del\s+mes|inter[eé]s\s+mes|intereses?\s+cobrados?|inter[eé]s\s+cobrado|intereses?\s+ordinarios?|inter[eé]s\s+ordinario|intereses?\s+facturados?|inter[eé]s\s+facturado|intereses?\s+liquidados?|inter[eé]s\s+liquidado)[:\s]*\$?\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2})?|[0-9]+(?:[.,][0-9]{1,2})?)(?!\s*%)"""
+        )
+        return interestRegex.find(text)?.groupValues?.get(1)?.let { cleanCurrencyNumber(it) }
+    }
+
+    private fun extractTotalInsurance(text: String, insurances: List<ExtractedInsurance>): String? {
+        // 1. Explicit aggregate line: "Total seguros: $ 22.500" or "Total otros cobros: $ 22.500"
+        val totalRegex = Regex(
+            """(?i)(?:total\s+seguros?|total\s+(?:otros\s+)?cargos\s+y\s+seguros|total\s+otros\s+cobros)[:\s]*\$?\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2})?|[0-9]+(?:[.,][0-9]{1,2})?)"""
+        )
+        totalRegex.find(text)?.groupValues?.get(1)?.let { cleanCurrencyNumber(it) }?.let {
+            return it
+        }
+
+        // 2. Sum of individual extracted insurance lines if present
+        if (insurances.isNotEmpty()) {
+            try {
+                val sum = insurances.fold(Decimal.fromInt(0)) { acc, ins ->
+                    acc + Decimal.parse(ins.monthlyCost.replace(',', '.'))
+                }
+                if (sum.isPositive) return sum.toFixed(2)
+            } catch (_: Exception) {}
+        }
+
+        // 3. Fallback: single "Seguro deudor" or "Seguro deudores" or "Seguro vida"
+        val singleInsuranceRegex = Regex(
+            """(?i)(?:seguro\s+(?:deudores?|vida|desgravamen))[:\s]*\$?\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2})?|[0-9]+(?:[.,][0-9]{1,2})?)"""
+        )
+        return singleInsuranceRegex.find(text)?.groupValues?.get(1)?.let { cleanCurrencyNumber(it) }
     }
 
     /**

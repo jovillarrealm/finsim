@@ -6,7 +6,14 @@ import com.finsim.domain.Insurance
 import com.finsim.domain.Rate
 import com.finsim.domain.Scenario
 import com.finsim.domain.exampleScenario
+import com.finsim.reconciliation.StatementRow
 import kotlinx.serialization.Serializable
+
+@Serializable
+enum class ImportTargetMode(val label: String) {
+    SCENARIO("Escenario"),
+    RECONCILIATION("Conciliación")
+}
 
 @Serializable
 enum class ExtractionEngine(val label: String) {
@@ -52,10 +59,46 @@ data class ExtractedDocumentData(
     val termMonths: Int? = null,
     val rate: ExtractedRate? = null,
     val monthlyPayment: String? = null,
+    val principalPaid: String? = null,
+    val interestCharged: String? = null,
+    val totalInsurance: String? = null,
     val insurances: List<ExtractedInsurance> = emptyList(),
     val rawExtractedText: String? = null,
     val confidence: Float = 1.0f
 ) {
+    /**
+     * Maps extracted monthly charges into a validated [StatementRow] for reconciliation audit.
+     */
+    fun toStatementRow(fallbackMonth: Int = 1): StatementRow {
+        val m = statementMonth ?: fallbackMonth
+        val totIns = totalInsurance ?: if (insurances.isNotEmpty()) {
+            try {
+                insurances.fold(Decimal.fromInt(0)) { acc, item ->
+                    acc + Decimal.parse(item.monthlyCost.replace(',', '.'))
+                }.toFixed(2)
+            } catch (_: Exception) {
+                null
+            }
+        } else null
+
+        val cleanPrincipal = principalPaid?.let {
+            try { Decimal.parse(it.replace(',', '.')).toFixed(2) } catch (_: Exception) { null }
+        }
+        val cleanInterest = interestCharged?.let {
+            try { Decimal.parse(it.replace(',', '.')).toFixed(2) } catch (_: Exception) { null }
+        }
+        val cleanBalance = closingBalance?.let {
+            try { Decimal.parse(it.replace(',', '.')).toFixed(2) } catch (_: Exception) { null }
+        }
+
+        return StatementRow(
+            month = m,
+            interest = cleanInterest,
+            insurance = totIns,
+            principal = cleanPrincipal,
+            balance = cleanBalance
+        )
+    }
     /**
      * Maps extracted document candidates into a validated [Scenario] instance.
      */

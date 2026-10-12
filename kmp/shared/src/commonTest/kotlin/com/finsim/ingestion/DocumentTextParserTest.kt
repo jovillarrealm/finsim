@@ -2,7 +2,11 @@ package com.finsim.ingestion
 
 import com.finsim.core.Decimal
 import com.finsim.domain.Currency
+import com.finsim.domain.Insurance
 import com.finsim.domain.Rate
+import com.finsim.domain.Scenario
+import com.finsim.engine.simulateLoan
+import com.finsim.reconciliation.reconcileRow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -200,5 +204,114 @@ class DocumentTextParserTest {
         assertEquals(2, pages.size)
         assertEquals("Extracto línea 1", pages[0])
         assertEquals("Extracto línea 2", pages[1])
+    }
+
+    @Test
+    fun testMonthlyStatementExtractionToStatementRowAndReconciliation() {
+        val statement = """
+            Bancolombia S.A. - Extracto Mensual de Préstamo
+            Fecha de corte: 15/10/2026
+            Cuota 12 de 48
+            Saldo a capital: $ 24.150.000,00
+            Abono a capital: $ 350.000,00
+            Interés corriente: $ 477.500,00
+            Seguro deudores: $ 12.500,00
+            Seguro de vida grupo: $ 10.000,00
+            Total otros cobros: $ 22.500,00
+        """.trimIndent()
+
+        val extracted = DocumentTextParser.parse(statement, RegulatoryFramework.COLOMBIA_SFC)
+
+        assertEquals(12, extracted.statementMonth)
+        assertEquals("350000.00", extracted.principalPaid)
+        assertEquals("477500.00", extracted.interestCharged)
+        assertEquals("22500.00", extracted.totalInsurance)
+        assertEquals("24150000.00", extracted.closingBalance)
+
+        val stmtRow = extracted.toStatementRow()
+        assertEquals(12, stmtRow.month)
+        assertEquals("350000.00", stmtRow.principal)
+        assertEquals("477500.00", stmtRow.interest)
+        assertEquals("22500.00", stmtRow.insurance)
+        assertEquals("24150000.00", stmtRow.balance)
+
+        // Simulate loan scenario and calculate reconciliation differences
+        val scenario = Scenario(
+            name = "Test Loan",
+            principal = "25000000.00",
+            startDate = "2025-10",
+            termMonths = 48,
+            rate = Rate.Monthly("0.015"),
+            insurance = listOf(
+                Insurance(
+                    id = "ins1",
+                    name = "Seguros",
+                    kind = "fixed",
+                    value = "22500.00",
+                    endsAtPayoff = true
+                )
+            )
+        )
+        val loanResult = simulateLoan(scenario)
+
+        val diffs = reconcileRow(stmtRow, loanResult.rows)
+        assertTrue(diffs.isNotEmpty())
+        assertEquals(4, diffs.size) // interest, insurance, principal, balance
+        val insuranceDiff = diffs.first { it.field == "insurance" }
+        assertEquals("Seguro cobrado", insuranceDiff.label)
+        assertEquals("22500.00", insuranceDiff.actual)
+        assertEquals("22500.00", insuranceDiff.simulated)
+        assertEquals("0.00", insuranceDiff.difference)
+    }
+
+    @Test
+    fun testMexicanStatementRowExtractionAndDifferences() {
+        val statement = """
+            BBVA México - Estado de Cuenta
+            Fecha de corte: 2026-10-01
+            Cuota 5 de 24
+            Amortización a capital: $ 4,120.00
+            Interés ordinario: $ 1,360.00
+            Seguro de desempleo: $ 450.00
+            Saldo final: $ 115,880.00
+        """.trimIndent()
+
+        val extracted = DocumentTextParser.parse(statement, RegulatoryFramework.MEXICO_CONDUSEF)
+
+        val stmtRow = extracted.toStatementRow()
+        assertEquals(5, stmtRow.month)
+        assertEquals("4120.00", stmtRow.principal)
+        assertEquals("1360.00", stmtRow.interest)
+        assertEquals("450.00", stmtRow.insurance)
+        assertEquals("115880.00", stmtRow.balance)
+    }
+
+    @Test
+    fun testFallbackMonthHandlingInStatementRow() {
+        val statementWithDateOnly = """
+            Banco de Bogotá
+            Fecha de corte: 2026-08-15
+            Saldo final: $ 10.000.000,00
+            Abono a capital: $ 200.000,00
+            Interés del periodo: $ 150.000,00
+            Total seguros: $ 25.000,00
+        """.trimIndent()
+
+        val extractedWithDate = DocumentTextParser.parse(statementWithDateOnly, RegulatoryFramework.COLOMBIA_SFC)
+        // Uses month 8 from 2026-08
+        assertEquals(8, extractedWithDate.statementMonth)
+        assertEquals(8, extractedWithDate.toStatementRow(fallbackMonth = 1).month)
+
+        val statementWithoutDateOrCuota = """
+            Pago a capital: $ 100.000,00
+            Interés corriente: $ 80.000,00
+        """.trimIndent()
+
+        val extractedWithoutDate = DocumentTextParser.parse(statementWithoutDateOrCuota, RegulatoryFramework.COLOMBIA_SFC)
+        assertEquals(null, extractedWithoutDate.statementMonth)
+        // Falls back to fallbackMonth
+        assertEquals(3, extractedWithoutDate.toStatementRow(fallbackMonth = 3).month)
+        assertEquals("100000.00", extractedWithoutDate.toStatementRow().principal)
+        assertEquals("80000.00", extractedWithoutDate.toStatementRow().interest)
     }
 }

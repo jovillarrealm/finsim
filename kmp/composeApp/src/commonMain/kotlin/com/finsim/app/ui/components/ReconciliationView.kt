@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -11,8 +12,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.finsim.app.theme.*
 import com.finsim.app.ui.formatMoney
+import com.finsim.app.ui.ingestion.DocumentImportDialog
 import com.finsim.domain.Currency
 import com.finsim.domain.LoanResult
+import com.finsim.ingestion.ImportTargetMode
 import com.finsim.reconciliation.ReconcileDiff
 import com.finsim.reconciliation.StatementRow
 import com.finsim.reconciliation.reconcileRow
@@ -31,6 +34,29 @@ fun ReconciliationView(
 
     var differences by remember { mutableStateOf<List<ReconcileDiff>>(emptyList()) }
     var errorMessage by remember { mutableStateOf("") }
+    var showImportDialog by remember { mutableStateOf(false) }
+
+    if (showImportDialog) {
+        DocumentImportDialog(
+            targetMode = ImportTargetMode.RECONCILIATION,
+            onDismiss = { showImportDialog = false },
+            onStatementRowImported = { stmt ->
+                monthStr = stmt.month.toString()
+                interestStr = stmt.interest ?: ""
+                insuranceStr = stmt.insurance ?: ""
+                principalStr = stmt.principal ?: ""
+                balanceStr = stmt.balance ?: ""
+                showImportDialog = false
+                try {
+                    differences = reconcileRow(stmt, original.rows)
+                    errorMessage = ""
+                } catch (e: Exception) {
+                    errorMessage = e.message ?: "Error al comparar fila de extracto."
+                    differences = emptyList()
+                }
+            }
+        )
+    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -39,18 +65,45 @@ fun ReconciliationView(
         border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
-            Text(
-                text = "Comparar extracto bancario",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = BrandDark
-            )
-            Text(
-                text = "Compara los importes reales cobrados por tu banco contra la amortización simulada.",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextForestMuted,
-                modifier = Modifier.padding(top = 2.dp, bottom = 14.dp)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Comparar extracto bancario",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = BrandDark
+                    )
+                    Text(
+                        text = "Compara los importes reales cobrados por tu banco contra la amortización simulada.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextForestMuted,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                OutlinedButton(
+                    onClick = { showImportDialog = true },
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = BrandLime.copy(alpha = 0.25f),
+                        contentColor = BrandForest
+                    ),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "Importar extracto",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
 
             if (errorMessage.isNotBlank()) {
                 Surface(
