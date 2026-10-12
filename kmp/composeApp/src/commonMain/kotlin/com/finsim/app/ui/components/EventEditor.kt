@@ -57,7 +57,7 @@ fun EventEditor(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Editar meses · Lote de eventos",
                         style = MaterialTheme.typography.titleMedium,
@@ -69,6 +69,7 @@ fun EventEditor(
                         color = TextMuted
                     )
                 }
+                Spacer(modifier = Modifier.width(8.dp))
                 Button(
                     onClick = {
                         batch = batch.add(month = selectedMonth)

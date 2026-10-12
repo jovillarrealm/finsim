@@ -30,36 +30,38 @@ fun LoanSummary(
         border = CardDefaults.outlinedCardBorder()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(
                         text = "Resumen del préstamo",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = BrandNavy
                     )
-                    Text(
-                        text = "Valores consolidados según las condiciones del escenario.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted
-                    )
+                    Surface(
+                        color = if (result.complete) BrandTeal.copy(alpha = 0.12f) else BrandOrange.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = if (result.complete) "Liquidado" else "En curso",
+                            color = if (result.complete) BrandTeal else BrandOrange,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
                 }
-                Surface(
-                    color = if (result.complete) BrandTeal.copy(alpha = 0.12f) else BrandOrange.copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        text = if (result.complete) "Liquidado" else "En curso",
-                        color = if (result.complete) BrandTeal else BrandOrange,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Valores consolidados según las condiciones del escenario.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextMuted
+                )
             }
 
             if (!result.complete) {

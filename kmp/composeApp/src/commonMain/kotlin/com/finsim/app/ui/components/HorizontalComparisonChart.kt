@@ -432,37 +432,39 @@ private fun AmortizationCurveView(
             border = CardDefaults.outlinedCardBorder(),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
                         text = "Mes seleccionado: $selectedMonth ${selModRow?.date?.let { "(${formatMonth(it)})" } ?: ""}",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
                         color = BrandNavy
                     )
-                    Text(
-                        text = "Saldo restante: Original ${formatMoney(origBal, currency)} · Modificado ${formatMoney(modBal, currency)}",
-                        fontSize = 12.sp,
-                        color = TextMuted
-                    )
+                    Surface(
+                        color = if (Decimal.parse(balSaved).isPositive) BrandTeal.copy(alpha = 0.15f) else Color(0xFFE2E8F0),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = "Deuda evitada: ${formatMoney(balSaved, currency)}",
+                            color = if (Decimal.parse(balSaved).isPositive) BrandTeal else TextMuted,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
                 }
-
-                Surface(
-                    color = if (Decimal.parse(balSaved).isPositive) BrandTeal.copy(alpha = 0.15f) else Color(0xFFE2E8F0),
-                    shape = RoundedCornerShape(6.dp)
-                ) {
-                    Text(
-                        text = "Deuda evitada: ${formatMoney(balSaved, currency)}",
-                        color = if (Decimal.parse(balSaved).isPositive) BrandTeal else TextMuted,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Saldo restante: Original ${formatMoney(origBal, currency)} · Modificado ${formatMoney(modBal, currency)}",
+                    fontSize = 12.sp,
+                    color = TextMuted
+                )
             }
         }
     }
