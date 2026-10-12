@@ -35,7 +35,7 @@ kotlin {
 
 android {
     namespace = "com.finsim.shared"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 24
