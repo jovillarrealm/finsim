@@ -295,7 +295,7 @@ fun DocumentImportDialog(
                         label = { Text("Regulación y convención financiera") },
                         shape = RoundedCornerShape(8.dp),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = frameworkMenuExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true).fillMaxWidth()
                     )
                     ExposedDropdownMenu(
                         expanded = frameworkMenuExpanded,

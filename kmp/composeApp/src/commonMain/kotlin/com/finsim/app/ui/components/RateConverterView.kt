@@ -89,7 +89,7 @@ fun RateConverterView(modifier: Modifier = Modifier) {
                         label = { Text("Tasa de origen") },
                         shape = RoundedCornerShape(8.dp),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        modifier = Modifier.menuAnchor()
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
                     )
                     ExposedDropdownMenu(
                         expanded = expanded,

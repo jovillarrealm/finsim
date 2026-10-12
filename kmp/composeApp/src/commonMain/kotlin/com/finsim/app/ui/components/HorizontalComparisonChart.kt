@@ -610,7 +610,7 @@ private fun DualTrackRow(
 
         // Modified track bar
         Box(modifier = Modifier.weight(1f)) {
-            if (!isPaidOffInMod && item.modifiedRow != null) {
+            if (!isPaidOffInMod) {
                 MiniStackedBar(
                     row = item.modifiedRow,
                     ceiling = ceiling,

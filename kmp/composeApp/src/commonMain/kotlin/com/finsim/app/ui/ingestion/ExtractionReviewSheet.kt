@@ -365,7 +365,7 @@ fun ExtractionReviewSheet(
                                 label = { Text("Tipo de tasa") },
                                 shape = RoundedCornerShape(8.dp),
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = rateExpanded) },
-                                modifier = Modifier.menuAnchor()
+                                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
                             )
                             ExposedDropdownMenu(
                                 expanded = rateExpanded,

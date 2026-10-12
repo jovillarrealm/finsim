@@ -1,9 +1,9 @@
 plugins {
-    id("org.jetbrains.kotlin.multiplatform")
-    id("org.jetbrains.kotlin.plugin.compose")
-    id("org.jetbrains.compose")
-    id("com.android.application")
-    id("org.jetbrains.kotlin.plugin.serialization")
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.compose)
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -27,7 +27,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":shared"))
-            implementation("co.touchlab:kermit:2.0.4")
+            implementation(libs.kermit)
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
@@ -36,8 +36,8 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
         }
         androidMain.dependencies {
-            implementation("androidx.activity:activity-compose:1.9.3")
-            implementation("androidx.appcompat:appcompat:1.7.0")
+            implementation(libs.androidx.activity.compose)
+            implementation(libs.androidx.appcompat)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
