@@ -11,27 +11,28 @@ fun simulateLoan(scenario: Scenario): LoanResult {
     scenario.validate()
     FinsimLog.engine.i { "simulateLoan start: principal=${scenario.principal}, rate=${scenario.rate.value}, term=${scenario.termMonths}, events=${scenario.events.size}" }
     val rate = toMonthlyRate(scenario.rate)
-    var balance = Decimal.parse(scenario.principal)
 
-    // Base installment calculation
-    val base: Decimal = if (scenario.payment != null) {
-        Decimal.parse(scenario.payment)
-    } else if (rate.isZero) {
-        Decimal.parse((balance / Decimal.fromInt(scenario.termMonths)).toFixed(2))
+    val prepaymentRule = if (scenario.argentinaProfile != null) {
+        val arg = scenario.argentinaProfile
+        ArgentinaPrepaymentAdapter(
+            originalTermMonths = arg.originalTermMonths ?: scenario.termMonths,
+            commissionRate = Decimal.parse(arg.commissionRate),
+            vatRate = Decimal.parse(arg.vatRate)
+        )
     } else {
-        var discount = Decimal.ONE
-        var annuity = Decimal.ZERO
-        for (period in 0 until scenario.termMonths) {
-            discount = discount / (rate + Decimal.ONE)
-            annuity = annuity + discount
-        }
-        Decimal.parse((balance / annuity).toFixed(2))
+        StandardPrepaymentAdapter()
     }
 
-    var referenceBalance = balance
-    var interest = Decimal.ZERO
-    var insurance = Decimal.ZERO
-    var overdue = Decimal.ZERO
+    val account = AmortizationAccount.open(
+        AmortizationTerms(
+            principal = Decimal.parse(scenario.principal),
+            monthlyRate = rate,
+            termMonths = scenario.termMonths,
+            basePayment = scenario.payment?.let { Decimal.parse(it) },
+            isPaymentExplicit = scenario.payment != null,
+            prepaymentRule = prepaymentRule
+        )
+    )
 
     val resultRows = mutableListOf<MonthRow>()
     var payoffMonth: Int? = null
@@ -39,32 +40,6 @@ fun simulateLoan(scenario: Scenario): LoanResult {
     var lastInsuranceMonth: Int? = null
     val totals = Totals()
     val unappliedEvents = mutableListOf<UnappliedEvent>()
-
-    fun debt(): Decimal = balance + interest + insurance
-
-    fun allocate(offered: Decimal): Allocation {
-        val paidInsurance = Decimal.min(offered, insurance)
-        val rem1 = offered - paidInsurance
-        val paidInterest = Decimal.min(rem1, interest)
-        val rem2 = rem1 - paidInterest
-        val paidPrincipal = Decimal.min(rem2, balance)
-
-        insurance = insurance - paidInsurance
-        interest = interest - paidInterest
-        balance = balance - paidPrincipal
-        overdue = Decimal.max(Decimal.ZERO, overdue - paidPrincipal)
-
-        val applied = paidInsurance + paidInterest + paidPrincipal
-        val unapplied = offered - applied
-        return Allocation(
-            offered = money(offered),
-            applied = money(applied),
-            insurance = money(paidInsurance),
-            interest = money(paidInterest),
-            principal = money(paidPrincipal),
-            unapplied = money(unapplied)
-        )
-    }
 
     val dateParts = scenario.startDate.split("-").map { it.toInt() }
     val year = dateParts[0]
@@ -106,48 +81,18 @@ fun simulateLoan(scenario: Scenario): LoanResult {
             (!item.endsAtPayoff || !paidOff) && (item.endMonth == null || month <= item.endMonth)
         }
 
-        if (paidOff && activeInsurance.isEmpty() && insurance.isZero) {
+        if (paidOff && activeInsurance.isEmpty() && account.pendingInsurance.isZero) {
             continue
         }
 
-        val opening = balance
-        val currentInterest = Decimal.parse(money(opening * rate))
-        var currentInsurance = Decimal.ZERO
-        for (item in activeInsurance) {
-            val charge = if (item.kind == "fixed") {
-                Decimal.parse(item.value)
-            } else {
-                Decimal.parse(money(opening * Decimal.parse(item.value)))
-            }
-            currentInsurance = currentInsurance + charge
-        }
         if (activeInsurance.isNotEmpty()) {
             lastInsuranceMonth = month
         }
 
-        val wasCurrent = interest.isZero && insurance.isZero && overdue.isZero
-        interest = interest + currentInterest
-        insurance = insurance + currentInsurance
-
-        val schedCapitalDue = Decimal.min(Decimal.max(Decimal.ZERO, base - currentInterest), balance - overdue)
-        overdue = overdue + schedCapitalDue
-
-        val refInterest = Decimal.parse(money(referenceBalance * rate))
-        val referenceDue = referenceBalance + refInterest
-        referenceBalance = Decimal.max(Decimal.ZERO, referenceDue - base)
-
-        var scheduledOffer = if (paidOff) currentInsurance else Decimal.min(base + currentInsurance, debt())
-        if (scenario.payment == null && month == scenario.termMonths && wasCurrent && !paidOff &&
-            debt() <= (Decimal.max(base, referenceDue) + currentInsurance)
-        ) {
-            scheduledOffer = debt()
-        }
-
         val hasMissed = !paidOff && events.any { it is LoanEvent.Missed }
         if (hasMissed) {
-            FinsimLog.engine.w { "Month $month: cuota omitida por evento. Atraso acumulado: ${debt()}" }
+            FinsimLog.engine.w { "Month $month: cuota omitida por evento. Atraso acumulado: ${account.arrears()}" }
         }
-        val scheduled = allocate(if (hasMissed) Decimal.ZERO else scheduledOffer)
 
         var catchupOffer = Decimal.ZERO
         var extraOffer = Decimal.ZERO
@@ -162,39 +107,17 @@ fun simulateLoan(scenario: Scenario): LoanResult {
             }
         }
 
-        val catchup = allocate(catchupOffer)
-        val extra = allocate(extraOffer)
-        if (extraOffer.isPositive) {
-            FinsimLog.engine.d { "Month $month: abono extraordinario ofrecido $extraOffer, aplicado: capital=${extra.principal}, intereses=${extra.interest}, seguros=${extra.insurance}, excedente=${extra.unapplied}" }
-        }
-        if (catchupOffer.isPositive) {
-            FinsimLog.engine.d { "Month $month: puesta al día ofrecida $catchupOffer, aplicada: capital=${catchup.principal}, intereses=${catchup.interest}, seguros=${catchup.insurance}" }
-        }
+        val settlement = account.processMonth(
+            MonthPaymentInput(
+                month = month,
+                isMissed = hasMissed,
+                catchupOffer = catchupOffer,
+                extraOffer = extraOffer,
+                activeInsurance = activeInsurance
+            )
+        )
 
-        // Argentina prepayment commission and VAT calculation if profile is present
-        var commissionDec = Decimal.ZERO
-        var vatDec = Decimal.ZERO
-        val totalPrepaidCapital = Decimal.parse(extra.principal)
-        if (scenario.argentinaProfile != null && totalPrepaidCapital.isPositive) {
-            val argProfile = scenario.argentinaProfile
-            val origTerm = argProfile.originalTermMonths ?: scenario.termMonths
-            val freeThresholdMonth = (origTerm + 3) / 4 // 25% of term rounded up
-            val isFree = month >= freeThresholdMonth
-            if (!isFree) {
-                val commRate = Decimal.parse(argProfile.commissionRate)
-                val vRate = Decimal.parse(argProfile.vatRate)
-                commissionDec = Decimal.parse(money(totalPrepaidCapital * commRate))
-                vatDec = Decimal.parse(money(commissionDec * vRate))
-                FinsimLog.engine.i { "Month $month: precancelación antes del umbral (mes $freeThresholdMonth). Comisión: $commissionDec, IVA: $vatDec sobre capital prepagado $totalPrepaidCapital" }
-            } else {
-                FinsimLog.engine.d { "Month $month: precancelación gratuita argentina (mes $month >= umbral $freeThresholdMonth)" }
-            }
-        }
-
-        val payments = listOf(scheduled, catchup, extra)
-        val directCash = payments.fold(Decimal.ZERO) { sum, p -> sum + Decimal.parse(p.applied) }
-        val monthTotalCash = directCash + commissionDec + vatDec
-        val cashPaidStr = money(monthTotalCash)
+        val payments = listOf(settlement.scheduled, settlement.catchup, settlement.extra)
 
         val dateIndex = year * 12 + firstMonth - 1 + month - 1
         val dateYear = dateIndex / 12
@@ -205,21 +128,21 @@ fun simulateLoan(scenario: Scenario): LoanResult {
             MonthRow(
                 month = month,
                 date = dateStr,
-                openingBalance = money(opening),
-                interestCharged = money(currentInterest),
-                insuranceCharged = money(currentInsurance),
-                scheduled = scheduled,
-                catchup = catchup,
-                extra = extra,
-                closingBalance = money(balance),
-                overduePrincipal = money(overdue),
-                pendingInterest = money(interest),
-                pendingInsurance = money(insurance),
-                arrears = money(overdue + interest + insurance),
-                debt = money(debt()),
-                cashPaid = cashPaidStr,
-                commissionPaid = money(commissionDec),
-                vatPaid = money(vatDec)
+                openingBalance = settlement.openingBalance,
+                interestCharged = settlement.interestCharged,
+                insuranceCharged = settlement.insuranceCharged,
+                scheduled = settlement.scheduled,
+                catchup = settlement.catchup,
+                extra = settlement.extra,
+                closingBalance = settlement.closingBalance,
+                overduePrincipal = settlement.overduePrincipal,
+                pendingInterest = settlement.pendingInterest,
+                pendingInsurance = settlement.pendingInsurance,
+                arrears = settlement.arrears,
+                debt = settlement.debt,
+                cashPaid = settlement.cashPaid,
+                commissionPaid = settlement.commissionPaid,
+                vatPaid = settlement.vatPaid
             )
         )
 
@@ -227,32 +150,32 @@ fun simulateLoan(scenario: Scenario): LoanResult {
         totals.interest = money(Decimal.parse(totals.interest) + payments.fold(Decimal.ZERO) { s, p -> s + Decimal.parse(p.interest) })
         totals.insurance = money(Decimal.parse(totals.insurance) + payments.fold(Decimal.ZERO) { s, p -> s + Decimal.parse(p.insurance) })
         totals.unapplied = money(Decimal.parse(totals.unapplied) + payments.fold(Decimal.ZERO) { s, p -> s + Decimal.parse(p.unapplied) })
-        totals.commissionPaid = money(Decimal.parse(totals.commissionPaid) + commissionDec)
-        totals.vatPaid = money(Decimal.parse(totals.vatPaid) + vatDec)
-        totals.cashPaid = money(Decimal.parse(totals.cashPaid) + monthTotalCash)
+        totals.commissionPaid = money(Decimal.parse(totals.commissionPaid) + Decimal.parse(settlement.commissionPaid))
+        totals.vatPaid = money(Decimal.parse(totals.vatPaid) + Decimal.parse(settlement.vatPaid))
+        totals.cashPaid = money(Decimal.parse(totals.cashPaid) + Decimal.parse(settlement.cashPaid))
 
-        if (payoffMonth == null && debt().isZero) {
+        if (payoffMonth == null && account.isPaidOff()) {
             payoffMonth = month
             payoffDate = dateStr
             FinsimLog.engine.i { "Month $month: liquidación total del préstamo alcanzada (deuda = 0)" }
         }
     }
 
-    val complete = payoffMonth != null && debt().isZero
+    val complete = payoffMonth != null && account.isPaidOff()
     if (!complete) {
-        FinsimLog.engine.w { "Simulación concluida sin liquidar totalmente el préstamo. Meses simulados: ${resultRows.size}, deuda remanente: ${debt()}" }
+        FinsimLog.engine.w { "Simulación concluida sin liquidar totalmente el préstamo. Meses simulados: ${resultRows.size}, deuda remanente: ${account.totalDebt()}" }
     } else {
         FinsimLog.engine.i { "Simulación completada con éxito en mes $payoffMonth. Total intereses: ${totals.interest}, total seguros: ${totals.insurance}, total desembolsado: ${totals.cashPaid}" }
     }
     return LoanResult(
         rows = resultRows,
-        basePayment = money(base),
+        basePayment = account.basePayment.toFixed(2),
         payoffMonth = payoffMonth,
         payoffDate = payoffDate,
         lastInsuranceMonth = lastInsuranceMonth,
         complete = complete,
         totals = totals,
-        remainingDebt = money(debt()),
+        remainingDebt = account.totalDebt().toFixed(2),
         unappliedEvents = unappliedEvents
     )
 }
