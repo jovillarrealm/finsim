@@ -67,7 +67,7 @@ object DigitalPdfTextExtractor : PdfTextExtractor {
         val sb = StringBuilder()
 
         // 1. Extract strings from BT ... ET text blocks
-        val btBlocks = Regex("""BT\s+(.*?)\s+ET""", RegexOption.DOT_MATCHES_ALL).findAll(chunk)
+        val btBlocks = Regex("""(?s)BT\s+(.*?)\s+ET""").findAll(chunk)
         for (block in btBlocks) {
             val blockContent = block.groupValues[1]
 

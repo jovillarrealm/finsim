@@ -1,5 +1,6 @@
 package com.finsim.app.ui.ingestion
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -87,12 +88,20 @@ private val SAMPLE_ARGENTINA_STATEMENT = """
 
 /**
  * Main ingestion modal where users select their jurisdiction / regulatory framework,
- * provide the document text (paste, sample, or loaded document), and trigger Tier 1 parsing.
+ * provide the document text (paste, sample, or loaded document), and trigger Tier 1 parsing
+ * or on-demand Tier 2 deep local AI extraction with hardware capability gate and storage management.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DocumentImportDialog(
     targetMode: ImportTargetMode = ImportTargetMode.SCENARIO,
+    capabilityGate: DeviceCapabilityGate = remember { getDeviceCapabilityGate() },
+    downloadManager: ModelDownloadManager = remember(capabilityGate) {
+        ModelDownloadManager(
+            storage = InMemoryModelStorage(),
+            capabilityGate = capabilityGate
+        )
+    },
     onDismiss: () -> Unit,
     onScenarioImported: (Scenario) -> Unit = {},
     onStatementRowImported: (StatementRow) -> Unit = {}
@@ -101,6 +110,12 @@ fun DocumentImportDialog(
     var rawText by remember { mutableStateOf("") }
     var frameworkMenuExpanded by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    var noticeMessage by remember { mutableStateOf("") }
+
+    // Dialog & UI states for Tier 2 and Storage
+    var showHardwareWarningDialog by remember { mutableStateOf(false) }
+    var showStorageDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var showTier2Section by remember { mutableStateOf(false) }
 
     // State holding extracted document data for review sheet
     var reviewData by remember { mutableStateOf<ExtractedDocumentData?>(null) }
@@ -127,11 +142,76 @@ fun DocumentImportDialog(
         return
     }
 
+    if (showHardwareWarningDialog) {
+        HardwareGateWarningDialog(
+            gate = capabilityGate,
+            onDismiss = { showHardwareWarningDialog = false },
+            onContinueWithTier1 = { showHardwareWarningDialog = false }
+        )
+    }
+
+    if (showStorageDeleteConfirmDialog) {
+        Dialog(onDismissRequest = { showStorageDeleteConfirmDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = SurfaceWarm,
+                border = BorderStroke(1.dp, BorderSage),
+                shadowElevation = 8.dp,
+                modifier = Modifier.fillMaxWidth().padding(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        text = "Liberar espacio de almacenamiento",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = BrandDark
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "¿Confirmas la eliminación del modelo de IA local Gemma 4 E2B INT4 (~1.1 GB)? Esta acción eliminará físicamente los pesos del dispositivo.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextForestMuted,
+                        lineHeight = 18.sp
+                    )
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { showStorageDeleteConfirmDialog = false },
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, BorderSage),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Cancelar", color = TextForestMuted)
+                        }
+                        Button(
+                            onClick = {
+                                downloadManager.deleteModel()
+                                showStorageDeleteConfirmDialog = false
+                                noticeMessage = "Modelo local eliminado. Se liberaron ~1.1 GB de espacio."
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1.3f)
+                        ) {
+                            Text("Eliminar (~1.1 GB)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = SurfaceWarm,
-            border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
+            border = BorderStroke(1.dp, BorderSage),
             shadowElevation = 8.dp,
             modifier = Modifier
                 .fillMaxWidth()
@@ -157,7 +237,7 @@ fun DocumentImportDialog(
                         )
                         Text(
                             text = if (targetMode == ImportTargetMode.RECONCILIATION)
-                                "Lectura nativa de cobros del mes (Tier 1: 0 MB · 100% privado)."
+                                "Lectura nativa en edge (Tier 1: 0 MB · 100% privado)."
                             else
                                 "Lectura nativa en dispositivo (Tier 1: 0 MB · 100% privado).",
                             style = MaterialTheme.typography.bodySmall,
@@ -301,8 +381,8 @@ fun DocumentImportDialog(
                     },
                     label = { Text("Pega el texto del extracto o carga las páginas...") },
                     placeholder = { Text("Copia y pega el texto del PDF bancario aquí...") },
-                    minLines = 6,
-                    maxLines = 10,
+                    minLines = 5,
+                    maxLines = 8,
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -323,6 +403,124 @@ fun DocumentImportDialog(
                     }
                 }
 
+                if (noticeMessage.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Surface(
+                        color = BrandSageLight,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = noticeMessage,
+                            color = BrandSage,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+                }
+
+                // Storage Management banner if model is downloaded
+                if (downloadManager.isModelDownloaded()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Surface(
+                        color = SurfaceHighlight,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, BorderSage),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Modelo local instalado (Gemma 4 E2B)",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = BrandDark
+                                )
+                                Text(
+                                    text = "Almacenamiento ocupado: ~1.1 GB en este dispositivo",
+                                    fontSize = 11.sp,
+                                    color = TextForestMuted
+                                )
+                            }
+                            OutlinedButton(
+                                onClick = { showStorageDeleteConfirmDialog = true },
+                                shape = RoundedCornerShape(8.dp),
+                                border = BorderStroke(1.dp, BorderSage),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "Liberar espacio (~1.1 GB)",
+                                    color = BrandForest,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Tier 2 Deep Local AI option / expandable download card
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    color = if (showTier2Section) SurfaceHighlight else Color.Transparent,
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, BorderSage),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "¿PDF escaneado o sin texto seleccionable?",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = BrandDark
+                                )
+                                Text(
+                                    text = "Extracción por IA visual profunda local (Tier 2 · ~1.1 GB)",
+                                    fontSize = 11.sp,
+                                    color = TextForestMuted
+                                )
+                            }
+                            TextButton(
+                                onClick = {
+                                    if (!capabilityGate.isEligibleForVlm) {
+                                        showHardwareWarningDialog = true
+                                    } else {
+                                        showTier2Section = !showTier2Section
+                                    }
+                                }
+                            ) {
+                                Text(
+                                    text = if (showTier2Section) "Ocultar" else "IA visual (Tier 2)",
+                                    color = BrandForest,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+
+                        if (showTier2Section) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            ModelDownloadProgressCard(
+                                manager = downloadManager,
+                                onModelDeleted = {
+                                    noticeMessage = "Modelo eliminado exitosamente (~1.1 GB liberados)."
+                                }
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(18.dp))
 
                 // Actions: Cancel & Analyze
@@ -333,7 +531,7 @@ fun DocumentImportDialog(
                     OutlinedButton(
                         onClick = onDismiss,
                         shape = RoundedCornerShape(10.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
+                        border = BorderStroke(1.dp, BorderSage),
                         modifier = Modifier.weight(1f).height(46.dp)
                     ) {
                         Text("Cancelar", color = TextForestMuted, fontWeight = FontWeight.Medium)
@@ -342,14 +540,30 @@ fun DocumentImportDialog(
                     Button(
                         onClick = {
                             if (rawText.isBlank()) {
-                                errorMessage = "Pega o carga el texto del extracto para continuar."
+                                if (!capabilityGate.isEligibleForVlm) {
+                                    showHardwareWarningDialog = true
+                                    errorMessage = "Ingresa el texto del extracto. Para PDFs escaneados, la IA visual requiere >= 6.0 GB de RAM."
+                                } else if (!downloadManager.isModelDownloaded()) {
+                                    showTier2Section = true
+                                    errorMessage = "Texto vacío. Si tu extracto es escaneado, descarga el modelo local (~1.1 GB) o pega texto digital."
+                                } else {
+                                    errorMessage = "Pega o carga el texto del extracto para continuar."
+                                }
                                 return@Button
                             }
 
                             try {
                                 val pages = DigitalPdfTextExtractor.extractPages(rawText.encodeToByteArray())
-                                if (pages.isEmpty()) {
-                                    errorMessage = "No se detectó texto en el documento suministrado."
+                                if (pages.isEmpty() || pages.all { it.isBlank() }) {
+                                    if (!capabilityGate.isEligibleForVlm) {
+                                        showHardwareWarningDialog = true
+                                        errorMessage = "No se detectó texto digital y el hardware tiene < 6 GB de RAM para IA visual."
+                                    } else if (!downloadManager.isModelDownloaded()) {
+                                        showTier2Section = true
+                                        errorMessage = "No se detectó texto digital seleccionable. Descarga el modelo local Gemma 4 E2B (~1.1 GB) para extracción visual."
+                                    } else {
+                                        errorMessage = "No se detectó texto seleccionable en el documento."
+                                    }
                                     return@Button
                                 }
 
