@@ -21,41 +21,24 @@ import com.finsim.domain.*
 import com.finsim.engine.simulateLoan
 import com.finsim.persistence.*
 
-data class Workspace(
-    val scenario: Scenario,
-    val original: LoanResult,
-    val modified: LoanResult
-)
+import com.finsim.workspace.WorkspaceOutcome
+import com.finsim.workspace.WorkspaceState
+import com.finsim.workspace.WorkspaceStore
 
-fun createWorkspace(scenario: Scenario): Workspace {
-    FinsimLog.ui.i { "createWorkspace: '${scenario.name}', moneda=${scenario.currency}, eventos=${scenario.events.size}" }
-    val origScenario = scenario.copy(events = emptyList())
-    return Workspace(
-        scenario = scenario,
-        original = simulateLoan(origScenario),
-        modified = simulateLoan(scenario)
-    )
-}
+// Typealias preserving compatibility with any internal references
+typealias Workspace = WorkspaceState
 
 @Composable
 fun App(
     storage: ScenarioStorage = remember { InMemoryScenarioStorage() },
+    store: WorkspaceStore = remember(storage) { WorkspaceStore(storage) },
     onExportJson: ((String) -> Unit)? = null,
     onImportJsonRequest: (() -> Unit)? = null
 ) {
-    var workspace by remember {
-        val initial = try {
-            val saved = loadScenario(storage)
-            if (saved != null) createWorkspace(saved) else createWorkspace(exampleScenario)
-        } catch (_: Exception) {
-            createWorkspace(exampleScenario)
-        }
-        mutableStateOf(initial)
-    }
+    var workspace by remember(store) { mutableStateOf(store.state) }
 
     var selectedTab by remember { mutableStateOf(0) } // 0: loan, 1: rates, 2: reconcile
     var selectedMonth by remember { mutableStateOf(1) }
-    var pendingEvents by remember { mutableStateOf(false) }
     var tableMode by remember { mutableStateOf("modified") } // "modified" or "original"
 
     var noticeMessage by remember { mutableStateOf("") }
@@ -214,17 +197,19 @@ fun App(
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Button(
                                     onClick = {
-                                        try {
-                                            saveScenario(workspace.scenario, storage)
-                                            FinsimLog.ui.i { "Escenario '${workspace.scenario.name}' guardado exitosamente." }
-                                            noticeMessage = "Escenario guardado en este dispositivo."
-                                            errorMessage = ""
-                                        } catch (e: Exception) {
-                                            FinsimLog.ui.e(e) { "Error al guardar escenario '${workspace.scenario.name}'" }
-                                            errorMessage = e.message ?: "Error al guardar."
+                                        val outcome = store.save()
+                                        workspace = store.state
+                                        when (outcome) {
+                                            is WorkspaceOutcome.Success -> {
+                                                noticeMessage = outcome.message
+                                                errorMessage = ""
+                                            }
+                                            is WorkspaceOutcome.Failure -> {
+                                                errorMessage = outcome.error
+                                            }
                                         }
                                     },
-                                    enabled = !pendingEvents,
+                                    enabled = !workspace.hasPendingDraft,
                                     shape = RoundedCornerShape(8.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
@@ -234,12 +219,19 @@ fun App(
 
                                 OutlinedButton(
                                     onClick = {
-                                        val json = serializeScenario(workspace.scenario)
-                                        FinsimLog.ui.i { "Exportando copia JSON de '${workspace.scenario.name}' (${json.length} chars)" }
-                                        onExportJson?.invoke(json)
-                                        noticeMessage = "Copia JSON exportada."
+                                        store.exportJson().fold(
+                                            onSuccess = { json ->
+                                                FinsimLog.ui.i { "Exportando copia JSON de '${workspace.scenario.name}' (${json.length} chars)" }
+                                                onExportJson?.invoke(json)
+                                                noticeMessage = "Copia JSON exportada."
+                                                errorMessage = ""
+                                            },
+                                            onFailure = { err ->
+                                                errorMessage = err.message ?: "Error al exportar."
+                                            }
+                                        )
                                     },
-                                    enabled = !pendingEvents,
+                                    enabled = !workspace.hasPendingDraft,
                                     shape = RoundedCornerShape(8.dp),
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                 ) {
@@ -248,12 +240,12 @@ fun App(
 
                                 OutlinedButton(
                                     onClick = {
-                                        FinsimLog.ui.i { "Restableciendo a escenario de ejemplo predeterminado." }
-                                        workspace = createWorkspace(exampleScenario)
-                                        noticeMessage = "Ejemplo cargado."
+                                        val outcome = store.resetToExample()
+                                        workspace = store.state
+                                        noticeMessage = outcome.message
                                         errorMessage = ""
                                     },
-                                    enabled = !pendingEvents,
+                                    enabled = !workspace.hasPendingDraft,
                                     shape = RoundedCornerShape(8.dp),
                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                                 ) {
@@ -262,7 +254,7 @@ fun App(
                             }
                         }
 
-                        if (pendingEvents) {
+                        if (workspace.hasPendingDraft) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Surface(
                                 color = BrandOrange.copy(alpha = 0.1f),
@@ -339,32 +331,42 @@ fun App(
                             selectedMonth = selectedMonth,
                             currentEvents = workspace.scenario.events,
                             onApplyEvents = { newEvents ->
-                                try {
-                                    val updated = workspace.scenario.copy(events = newEvents)
-                                    workspace = createWorkspace(updated)
-                                    noticeMessage = "Eventos aplicados."
-                                    errorMessage = ""
-                                    true
-                                } catch (e: Exception) {
-                                    errorMessage = e.message ?: "Error al aplicar eventos."
-                                    false
+                                val outcome = store.applyEvents(newEvents)
+                                workspace = store.state
+                                when (outcome) {
+                                    is WorkspaceOutcome.Success -> {
+                                        noticeMessage = outcome.message
+                                        errorMessage = ""
+                                        true
+                                    }
+                                    is WorkspaceOutcome.Failure -> {
+                                        errorMessage = outcome.error
+                                        false
+                                    }
                                 }
                             },
-                            onPendingChange = { pendingEvents = it }
+                            onPendingChange = { pending ->
+                                store.setDraftPending(pending)
+                                workspace = store.state
+                            }
                         )
 
                         // Loan Conditions Form
                         LoanForm(
                             scenario = workspace.scenario,
                             onApplyScenario = { newScen ->
-                                try {
-                                    workspace = createWorkspace(newScen)
-                                    noticeMessage = "Condiciones actualizadas."
-                                    errorMessage = ""
-                                    true
-                                } catch (e: Exception) {
-                                    errorMessage = e.message ?: "No se pudo calcular."
-                                    false
+                                val outcome = store.updateConditions(newScen)
+                                workspace = store.state
+                                when (outcome) {
+                                    is WorkspaceOutcome.Success -> {
+                                        noticeMessage = outcome.message
+                                        errorMessage = ""
+                                        true
+                                    }
+                                    is WorkspaceOutcome.Failure -> {
+                                        errorMessage = outcome.error
+                                        false
+                                    }
                                 }
                             }
                         )
