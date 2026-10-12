@@ -5,6 +5,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,20 +35,20 @@ fun ReconciliationView(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceLight),
-        border = CardDefaults.outlinedCardBorder()
+        colors = CardDefaults.cardColors(containerColor = SurfaceWarm),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Text(
                 text = "Comparar extracto bancario",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = BrandNavy
+                color = BrandDark
             )
             Text(
                 text = "Compara los importes reales cobrados por tu banco contra la amortización simulada.",
                 style = MaterialTheme.typography.bodySmall,
-                color = TextMuted,
+                color = TextForestMuted,
                 modifier = Modifier.padding(top = 2.dp, bottom = 14.dp)
             )
 
@@ -135,7 +136,7 @@ fun ReconciliationView(
                 },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BrandBlue)
+                colors = ButtonDefaults.buttonColors(containerColor = BrandForest, contentColor = Color.White)
             ) {
                 Text("Comparar con cronograma simulado", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
@@ -146,7 +147,7 @@ fun ReconciliationView(
                     text = "Diferencias detectadas (Extracto − Simulado):",
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
-                    color = BrandNavy
+                    color = BrandDark
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -156,25 +157,26 @@ fun ReconciliationView(
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         shape = RoundedCornerShape(8.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAF7)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column {
-                                Text(text = diff.label, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = BrandNavy)
+                                Text(text = diff.label, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = BrandDark)
                                 Text(
                                     text = "Extracto: ${formatMoney(diff.actual, currency)} · Simulado: ${formatMoney(diff.simulated, currency)}",
                                     fontSize = 11.sp,
-                                    color = TextMuted
+                                    color = TextForestMuted
                                 )
                             }
                             Text(
                                 text = formattedDiff,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
-                                color = if (diff.difference == "0.00") BrandTeal else BrandOrange
+                                color = if (diff.difference == "0.00") BrandSage else BrandAmber
                             )
                         }
                     }

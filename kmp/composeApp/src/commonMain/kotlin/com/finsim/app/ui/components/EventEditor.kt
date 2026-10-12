@@ -48,8 +48,8 @@ fun EventEditor(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceLight),
-        border = CardDefaults.outlinedCardBorder()
+        colors = CardDefaults.cardColors(containerColor = SurfaceWarm),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -61,12 +61,13 @@ fun EventEditor(
                     Text(
                         text = "Editar meses · Lote de eventos",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = BrandDark
                     )
                     Text(
                         text = "Modifica varios meses antes de aplicar. Mes seleccionado: $selectedMonth.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted
+                        color = TextForestMuted
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
@@ -74,9 +75,9 @@ fun EventEditor(
                     onClick = {
                         batch = batch.add(month = selectedMonth)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = BrandTeal)
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandLime, contentColor = BrandForest)
                 ) {
-                    Text("Añadir mes")
+                    Text("Añadir mes", fontWeight = FontWeight.SemiBold)
                 }
             }
 
@@ -101,7 +102,7 @@ fun EventEditor(
             if (batch.isEmpty) {
                 Text(
                     text = "No hay eventos programados en este escenario.",
-                    color = TextMuted,
+                    color = TextForestMuted,
                     fontSize = 13.sp,
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
@@ -109,8 +110,8 @@ fun EventEditor(
                 batch.items.forEachIndexed { index, item ->
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                        border = CardDefaults.outlinedCardBorder()
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAF7)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Row(
@@ -121,7 +122,8 @@ fun EventEditor(
                                 Text(
                                     text = "Cambio ${index + 1} · Mes ${item.month}",
                                     fontWeight = FontWeight.SemiBold,
-                                    fontSize = 13.sp
+                                    fontSize = 13.sp,
+                                    color = BrandDark
                                 )
                                 TextButton(
                                     onClick = {
@@ -246,7 +248,7 @@ fun EventEditor(
                         }
                     },
                     enabled = hasPending,
-                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue)
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandForest, contentColor = Color.White)
                 ) {
                     Text("Aplicar cambios")
                 }
@@ -256,7 +258,9 @@ fun EventEditor(
                         batch = batch.discard()
                         errorMessage = ""
                     },
-                    enabled = hasPending
+                    enabled = hasPending,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandForest)
                 ) {
                     Text("Descartar cambios")
                 }

@@ -53,20 +53,20 @@ fun LoanForm(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceLight),
-        border = CardDefaults.outlinedCardBorder()
+        colors = CardDefaults.cardColors(containerColor = SurfaceWarm),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Text(
                 text = "Condiciones del préstamo",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = BrandNavy
+                color = BrandDark
             )
             Text(
                 text = "Configura el importe, plazo, tasas y amortización base.",
                 style = MaterialTheme.typography.bodySmall,
-                color = TextMuted,
+                color = TextForestMuted,
                 modifier = Modifier.padding(top = 2.dp, bottom = 14.dp)
             )
 
@@ -91,7 +91,7 @@ fun LoanForm(
                 text = "DATOS GENERALES",
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
-                color = BrandBlue,
+                color = BrandForest,
                 letterSpacing = 0.5.sp
             )
             Spacer(modifier = Modifier.height(6.dp))
@@ -178,7 +178,7 @@ fun LoanForm(
                 text = "CAPITAL Y PLAZO",
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
-                color = BrandBlue,
+                color = BrandForest,
                 letterSpacing = 0.5.sp
             )
             Spacer(modifier = Modifier.height(6.dp))
@@ -226,7 +226,7 @@ fun LoanForm(
                 text = "TIPO DE TASA Y CUOTA",
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
-                color = BrandBlue,
+                color = BrandForest,
                 letterSpacing = 0.5.sp
             )
             Spacer(modifier = Modifier.height(6.dp))
@@ -311,7 +311,7 @@ fun LoanForm(
                 },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BrandBlue)
+                colors = ButtonDefaults.buttonColors(containerColor = BrandForest, contentColor = Color.White)
             ) {
                 Text("Actualizar condiciones del préstamo", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }

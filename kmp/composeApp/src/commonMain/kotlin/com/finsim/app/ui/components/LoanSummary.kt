@@ -26,8 +26,8 @@ fun LoanSummary(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceLight),
-        border = CardDefaults.outlinedCardBorder()
+        colors = CardDefaults.cardColors(containerColor = SurfaceWarm),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Column {
@@ -39,15 +39,16 @@ fun LoanSummary(
                         text = "Resumen del préstamo",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = BrandNavy
+                        color = BrandDark
                     )
                     Surface(
-                        color = if (result.complete) BrandTeal.copy(alpha = 0.12f) else BrandOrange.copy(alpha = 0.12f),
-                        shape = RoundedCornerShape(8.dp)
+                        color = if (result.complete) BrandSageLight else BrandAmberLight,
+                        shape = RoundedCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(0.5.dp, if (result.complete) Color(0xFFC7D9BA) else Color(0xFFE8D4A2))
                     ) {
                         Text(
                             text = if (result.complete) "Liquidado" else "En curso",
-                            color = if (result.complete) BrandTeal else BrandOrange,
+                            color = if (result.complete) BrandSage else BrandAmberText,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -60,7 +61,7 @@ fun LoanSummary(
                 Text(
                     text = "Valores consolidados según las condiciones del escenario.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextMuted
+                    color = TextForestMuted
                 )
             }
 
@@ -130,12 +131,13 @@ fun LoanSummary(
                 ) {
                     if (result.totals.insurance != "0.00") {
                         Surface(
-                            color = BrandPurple.copy(alpha = 0.08f),
-                            shape = RoundedCornerShape(6.dp)
+                            color = BrandPlumLight,
+                            shape = RoundedCornerShape(6.dp),
+                            border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFE2D4EA))
                         ) {
                             Text(
                                 text = "Seguros totales: ${formatMoney(result.totals.insurance, currency)}",
-                                color = BrandPurple,
+                                color = BrandPlum,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -144,12 +146,13 @@ fun LoanSummary(
                     }
                     if (result.totals.unapplied != "0.00") {
                         Surface(
-                            color = BrandOrange.copy(alpha = 0.08f),
-                            shape = RoundedCornerShape(6.dp)
+                            color = BrandAmberLight,
+                            shape = RoundedCornerShape(6.dp),
+                            border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFE8D4A2))
                         ) {
                             Text(
                                 text = "Excedente no aplicado: ${formatMoney(result.totals.unapplied, currency)}",
-                                color = BrandOrange,
+                                color = BrandAmberText,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -172,29 +175,29 @@ private fun SummaryKpiCard(
 ) {
     Surface(
         modifier = modifier,
-        color = if (isHighlight) BrandBlue.copy(alpha = 0.06f) else Color(0xFFF8FAFC),
+        color = if (isHighlight) SurfaceHighlight else Color.White,
         shape = RoundedCornerShape(10.dp),
-        border = CardDefaults.outlinedCardBorder()
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (isHighlight) Color(0xFFBED1B8) else BorderSage)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
                 text = label,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = if (isHighlight) BrandBlue else TextMuted
+                color = if (isHighlight) BrandForest else TextForestMuted
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isHighlight) BrandBlue else BrandNavy
+                color = if (isHighlight) BrandForest else BrandDark
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = caption,
                 fontSize = 10.sp,
-                color = TextMuted
+                color = if (isHighlight) BrandSage else TextForestMuted
             )
         }
     }

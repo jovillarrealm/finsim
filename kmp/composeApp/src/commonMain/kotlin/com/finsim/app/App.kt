@@ -51,9 +51,9 @@ fun App(
             topBar = {
                 // Top App Bar with safe status bar padding for camera notches
                 Surface(
-                    color = SurfaceLight,
+                    color = SurfaceWarm,
                     shadowElevation = 1.dp,
-                    border = CardDefaults.outlinedCardBorder(),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
@@ -68,25 +68,25 @@ fun App(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = "finsim",
-                                    color = BrandNavy,
+                                    color = BrandForest,
                                     fontSize = 22.sp,
                                     fontWeight = FontWeight.Black,
                                     letterSpacing = (-0.5).sp
                                 )
                                 Text(
                                     text = ".",
-                                    color = BrandTeal,
+                                    color = BrandLimeDark,
                                     fontSize = 24.sp,
                                     fontWeight = FontWeight.Black
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Surface(
-                                    color = BrandBlue.copy(alpha = 0.08f),
+                                    color = BrandSageLight,
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Text(
                                         text = "Simulador",
-                                        color = BrandBlue,
+                                        color = BrandSage,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -96,12 +96,13 @@ fun App(
 
                             // Active currency and scenario badge
                             Surface(
-                                color = Color(0xFFF1F5F9),
-                                shape = RoundedCornerShape(8.dp)
+                                color = BrandSageLight.copy(alpha = 0.7f),
+                                shape = RoundedCornerShape(8.dp),
+                                border = androidx.compose.foundation.BorderStroke(0.5.dp, BorderSage)
                             ) {
                                 Text(
                                     text = "${workspace.scenario.currency.name} · ${workspace.scenario.termMonths}m",
-                                    color = BrandNavy,
+                                    color = BrandForest,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -116,15 +117,16 @@ fun App(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .background(BackgroundLight)
+                    .background(BackgroundWarm)
                     .verticalScroll(scrollState)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 // Navigation Segmented Pills
                 Surface(
-                    color = Color(0xFFF1F5F9),
+                    color = Color(0xFFEBEFE5),
                     shape = RoundedCornerShape(10.dp),
+                    border = androidx.compose.foundation.BorderStroke(0.5.dp, BorderSage),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -139,9 +141,9 @@ fun App(
                         tabs.forEachIndexed { index, title ->
                             val isSelected = selectedTab == index
                             Surface(
-                                color = if (isSelected) SurfaceLight else Color.Transparent,
+                                color = if (isSelected) SurfaceWarm else Color.Transparent,
                                 shape = RoundedCornerShape(8.dp),
-                                shadowElevation = if (isSelected) 2.dp else 0.dp,
+                                shadowElevation = if (isSelected) 1.dp else 0.dp,
                                 modifier = Modifier
                                     .weight(1f)
                                     .clickable {
@@ -157,7 +159,7 @@ fun App(
                                         text = title,
                                         fontSize = 12.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) BrandNavy else TextMuted
+                                        color = if (isSelected) BrandForest else TextForestMuted
                                     )
                                 }
                             }
@@ -169,8 +171,8 @@ fun App(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceLight),
-                    border = CardDefaults.outlinedCardBorder()
+                    colors = CardDefaults.cardColors(containerColor = SurfaceWarm),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Row(
@@ -182,7 +184,7 @@ fun App(
                                 Text(
                                     text = "ESCENARIO ACTIVO",
                                     fontSize = 10.sp,
-                                    color = TextMuted,
+                                    color = TextForestMuted,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.5.sp
                                 )
@@ -190,7 +192,7 @@ fun App(
                                     text = workspace.scenario.name,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = BrandNavy
+                                    color = BrandDark
                                 )
                             }
 
@@ -211,10 +213,10 @@ fun App(
                                     },
                                     enabled = !workspace.hasPendingDraft,
                                     shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                                    colors = ButtonDefaults.buttonColors(containerColor = BrandForest),
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                 ) {
-                                    Text("Guardar", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("Guardar", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                 }
 
                                 OutlinedButton(
@@ -233,12 +235,14 @@ fun App(
                                     },
                                     enabled = !workspace.hasPendingDraft,
                                     shape = RoundedCornerShape(8.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandForest),
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                 ) {
-                                    Text("Exportar", fontSize = 12.sp)
+                                    Text("Exportar", fontSize = 12.sp, color = BrandForest)
                                 }
 
-                                OutlinedButton(
+                                Button(
                                     onClick = {
                                         val outcome = store.resetToExample()
                                         workspace = store.state
@@ -247,9 +251,13 @@ fun App(
                                     },
                                     enabled = !workspace.hasPendingDraft,
                                     shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = BrandLime,
+                                        contentColor = BrandForest
+                                    ),
                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                                 ) {
-                                    Text("Ejemplo", fontSize = 12.sp)
+                                    Text("Ejemplo", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = BrandForest)
                                 }
                             }
                         }
@@ -257,13 +265,14 @@ fun App(
                         if (workspace.hasPendingDraft) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Surface(
-                                color = BrandOrange.copy(alpha = 0.1f),
+                                color = BrandAmberLight,
                                 shape = RoundedCornerShape(6.dp),
+                                border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFE8D4A2)),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
                                     text = "Hay cambios de eventos pendientes. Aplica o descarta el lote antes de guardar.",
-                                    color = BrandOrange,
+                                    color = BrandAmberText,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
@@ -274,13 +283,14 @@ fun App(
                         if (noticeMessage.isNotBlank()) {
                             Spacer(modifier = Modifier.height(6.dp))
                             Surface(
-                                color = BrandTeal.copy(alpha = 0.1f),
+                                color = BrandSageLight,
                                 shape = RoundedCornerShape(6.dp),
+                                border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFC7D9BA)),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
                                     text = noticeMessage,
-                                    color = BrandTeal,
+                                    color = BrandSage,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
@@ -375,8 +385,8 @@ fun App(
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = SurfaceLight),
-                            border = CardDefaults.outlinedCardBorder()
+                            colors = CardDefaults.cardColors(containerColor = SurfaceWarm),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
@@ -387,7 +397,7 @@ fun App(
                                     text = "Cronograma visible:",
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = BrandNavy
+                                    color = BrandDark
                                 )
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     FilterChip(
@@ -395,7 +405,7 @@ fun App(
                                         onClick = { tableMode = "modified" },
                                         label = { Text("Modificado con eventos", fontSize = 11.sp) },
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = BrandBlue,
+                                            selectedContainerColor = BrandForest,
                                             selectedLabelColor = Color.White
                                         ),
                                         border = null
@@ -405,7 +415,7 @@ fun App(
                                         onClick = { tableMode = "original" },
                                         label = { Text("Original base", fontSize = 11.sp) },
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = BrandBlue,
+                                            selectedContainerColor = BrandForest,
                                             selectedLabelColor = Color.White
                                         ),
                                         border = null
@@ -443,14 +453,14 @@ fun App(
                         Text(
                             text = "Un espacio para explorar, no una promesa bancaria. Modelo educativo mensual. Los abonos extraordinarios se aplican tras el pago habitual (seguros → intereses → capital).",
                             fontSize = 11.sp,
-                            color = TextMuted,
+                            color = TextForestMuted,
                             lineHeight = 15.sp
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Los escenarios se almacenan localmente en este dispositivo. Exporta copias JSON para archivarlos o transferirlos.",
                             fontSize = 11.sp,
-                            color = TextMuted
+                            color = TextForestMuted
                         )
                     }
                 }

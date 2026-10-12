@@ -103,8 +103,8 @@ fun HorizontalComparisonChart(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceLight),
-        border = CardDefaults.outlinedCardBorder()
+        colors = CardDefaults.cardColors(containerColor = SurfaceWarm),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Header with View Toggle
@@ -118,12 +118,12 @@ fun HorizontalComparisonChart(
                         text = "Original y modificado",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = BrandNavy
+                        color = BrandDark
                     )
                     Text(
                         text = "Diferencias = modificado − original. Los abonos reducen plazo conservando cuota.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted
+                        color = TextForestMuted
                     )
                 }
 
@@ -131,9 +131,9 @@ fun HorizontalComparisonChart(
 
                 // Toggle between Option 3 (Curva) and Option 1 (Doble pista)
                 Surface(
-                    color = Color(0xFFF1F5F9),
+                    color = Color(0xFFEBEFE5),
                     shape = RoundedCornerShape(8.dp),
-                    border = CardDefaults.outlinedCardBorder()
+                    border = androidx.compose.foundation.BorderStroke(0.5.dp, BorderSage)
                 ) {
                     Row(modifier = Modifier.padding(2.dp)) {
                         FilterChip(
@@ -141,7 +141,7 @@ fun HorizontalComparisonChart(
                             onClick = { viewMode = "curve" },
                             label = { Text("Curva de saldo", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = BrandBlue,
+                                selectedContainerColor = BrandForest,
                                 selectedLabelColor = Color.White
                             ),
                             border = null
@@ -152,7 +152,7 @@ fun HorizontalComparisonChart(
                             onClick = { viewMode = "dual_track" },
                             label = { Text("Doble pista", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = BrandBlue,
+                                selectedContainerColor = BrandForest,
                                 selectedLabelColor = Color.White
                             ),
                             border = null
@@ -203,7 +203,7 @@ fun HorizontalComparisonChart(
             Text(
                 text = "Liquidación original: ${original.payoffDate?.let { formatMonth(it) } ?: "No alcanzada"} · Modificado: ${modified.payoffDate?.let { formatMonth(it) } ?: "No alcanzada"}",
                 fontSize = 12.sp,
-                color = BrandNavy,
+                color = BrandDark,
                 fontWeight = FontWeight.Medium
             )
 
@@ -241,18 +241,18 @@ private fun DeltaMetricCard(
 ) {
     Surface(
         modifier = modifier,
-        color = Color(0xFFF8FAFC),
+        color = SurfaceHighlight,
         shape = RoundedCornerShape(8.dp),
-        border = CardDefaults.outlinedCardBorder()
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
-            Text(text = label, fontSize = 10.sp, color = TextMuted, fontWeight = FontWeight.SemiBold)
+            Text(text = label, fontSize = 10.sp, color = TextForestMuted, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = value,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isFavorable) BrandTeal else if (value.startsWith("+")) BrandOrange else BrandNavy
+                color = if (isFavorable) BrandSage else if (value.startsWith("+")) BrandAmber else BrandDark
             )
         }
     }
@@ -294,19 +294,19 @@ private fun AmortizationCurveView(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(12.dp, 3.dp).background(BrandBlue, RoundedCornerShape(2.dp)))
+                Box(modifier = Modifier.size(12.dp, 3.dp).background(BrandForest, RoundedCornerShape(2.dp)))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Saldo Original", fontSize = 11.sp, color = BrandNavy, fontWeight = FontWeight.Medium)
+                Text("Saldo Original", fontSize = 11.sp, color = BrandDark, fontWeight = FontWeight.Medium)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(12.dp, 3.dp).background(BrandTeal, RoundedCornerShape(2.dp)))
+                Box(modifier = Modifier.size(12.dp, 3.dp).background(BrandLimeDark, RoundedCornerShape(2.dp)))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Saldo Modificado", fontSize = 11.sp, color = BrandNavy, fontWeight = FontWeight.Medium)
+                Text("Saldo Modificado", fontSize = 11.sp, color = BrandDark, fontWeight = FontWeight.Medium)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(10.dp).background(BrandTeal.copy(alpha = 0.20f), RoundedCornerShape(2.dp)))
+                Box(modifier = Modifier.size(10.dp).background(BrandLime, RoundedCornerShape(2.dp)))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Capital Ahorrado", fontSize = 11.sp, color = TextMuted)
+                Text("Capital Ahorrado", fontSize = 11.sp, color = TextForestMuted)
             }
         }
 
@@ -315,8 +315,8 @@ private fun AmortizationCurveView(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(260.dp)
-                .background(Color(0xFFFAFAFA), RoundedCornerShape(8.dp))
-                .border(0.5.dp, BorderLight, RoundedCornerShape(8.dp))
+                .background(Color(0xFFFAFAF5), RoundedCornerShape(8.dp))
+                .border(0.5.dp, BorderSage, RoundedCornerShape(8.dp))
                 .pointerInput(totalMonths) {
                     detectTapGestures { offset ->
                         val fraction = (offset.x / size.width).coerceIn(0f, 1f)
@@ -337,7 +337,7 @@ private fun AmortizationCurveView(
                 val h = size.height
 
                 // Draw 4 horizontal grid lines (25%, 50%, 75%, 100%)
-                val gridColor = Color(0xFFE2E8F0)
+                val gridColor = Color(0xFFE5ECE0)
                 for (step in 1..3) {
                     val y = h * (step / 4f)
                     drawLine(
@@ -368,9 +368,9 @@ private fun AmortizationCurveView(
                     areaPath.lineTo(xForMonth(m), yForBalance(modBalances[m - 1]))
                 }
                 areaPath.close()
-                drawPath(areaPath, color = BrandTeal.copy(alpha = 0.15f))
+                drawPath(areaPath, color = BrandLime.copy(alpha = 0.35f))
 
-                // Original Curve (BrandBlue)
+                // Original Curve (BrandForest)
                 val origPath = Path()
                 origPath.moveTo(xForMonth(1), yForBalance(origBalances[0]))
                 for (m in 2..totalMonths) {
@@ -378,11 +378,11 @@ private fun AmortizationCurveView(
                 }
                 drawPath(
                     path = origPath,
-                    color = BrandBlue,
+                    color = BrandForest,
                     style = Stroke(width = 2.5f, cap = StrokeCap.Round)
                 )
 
-                // Modified Curve (BrandTeal)
+                // Modified Curve (BrandLimeDark)
                 val modPath = Path()
                 modPath.moveTo(xForMonth(1), yForBalance(modBalances[0]))
                 for (m in 2..totalMonths) {
@@ -390,7 +390,7 @@ private fun AmortizationCurveView(
                 }
                 drawPath(
                     path = modPath,
-                    color = BrandTeal,
+                    color = BrandLimeDark,
                     style = Stroke(width = 3.5f, cap = StrokeCap.Round)
                 )
 
@@ -399,20 +399,20 @@ private fun AmortizationCurveView(
                 if (modPayoff != null && modPayoff in 1..totalMonths) {
                     val px = xForMonth(modPayoff)
                     val py = yForBalance(0.0)
-                    drawCircle(color = BrandTeal, radius = 6f, center = Offset(px, py))
+                    drawCircle(color = BrandLimeDark, radius = 6f, center = Offset(px, py))
                     drawCircle(color = Color.White, radius = 3f, center = Offset(px, py))
                 }
 
                 // Selected month scrubber vertical line
                 val selX = xForMonth(selectedMonth.coerceIn(1, totalMonths))
                 drawLine(
-                    color = BrandNavy,
+                    color = BrandDark,
                     start = Offset(selX, 0f),
                     end = Offset(selX, h),
                     strokeWidth = 2f
                 )
                 val selModY = yForBalance(modBalances[(selectedMonth - 1).coerceIn(0, totalMonths - 1)])
-                drawCircle(color = BrandNavy, radius = 5f, center = Offset(selX, selModY))
+                drawCircle(color = BrandDark, radius = 5f, center = Offset(selX, selModY))
                 drawCircle(color = Color.White, radius = 2.5f, center = Offset(selX, selModY))
             }
         }
@@ -427,9 +427,9 @@ private fun AmortizationCurveView(
         val balSaved = (Decimal.parse(origBal) - Decimal.parse(modBal)).toFixed(2)
 
         Surface(
-            color = BrandBlue.copy(alpha = 0.05f),
+            color = SurfaceHighlight,
             shape = RoundedCornerShape(8.dp),
-            border = CardDefaults.outlinedCardBorder(),
+            border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
@@ -442,15 +442,16 @@ private fun AmortizationCurveView(
                         text = "Mes seleccionado: $selectedMonth ${selModRow?.date?.let { "(${formatMonth(it)})" } ?: ""}",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
-                        color = BrandNavy
+                        color = BrandDark
                     )
                     Surface(
-                        color = if (Decimal.parse(balSaved).isPositive) BrandTeal.copy(alpha = 0.15f) else Color(0xFFE2E8F0),
-                        shape = RoundedCornerShape(6.dp)
+                        color = if (Decimal.parse(balSaved).isPositive) BrandSageLight else Color(0xFFEBEFE5),
+                        shape = RoundedCornerShape(6.dp),
+                        border = androidx.compose.foundation.BorderStroke(0.5.dp, if (Decimal.parse(balSaved).isPositive) Color(0xFFC7D9BA) else BorderSage)
                     ) {
                         Text(
                             text = "Deuda evitada: ${formatMoney(balSaved, currency)}",
-                            color = if (Decimal.parse(balSaved).isPositive) BrandTeal else TextMuted,
+                            color = if (Decimal.parse(balSaved).isPositive) BrandSage else TextForestMuted,
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -463,7 +464,7 @@ private fun AmortizationCurveView(
                 Text(
                     text = "Saldo restante: Original ${formatMoney(origBal, currency)} · Modificado ${formatMoney(modBal, currency)}",
                     fontSize = 12.sp,
-                    color = TextMuted
+                    color = TextForestMuted
                 )
             }
         }
@@ -489,15 +490,15 @@ private fun DualTrackTimelineView(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            LegendItem(color = BrandBlue, label = "Capital")
-            LegendItem(color = BrandTeal, label = "Extra")
-            LegendItem(color = BrandOrange, label = "Interés")
-            LegendItem(color = BrandPurple, label = "Seguro")
+            LegendItem(color = BrandForest, label = "Capital")
+            LegendItem(color = BrandLimeDark, label = "Extra")
+            LegendItem(color = BrandAmber, label = "Interés")
+            LegendItem(color = BrandPlum, label = "Seguro")
         }
 
         // Table Header
         Surface(
-            color = Color(0xFFF1F5F9),
+            color = Color(0xFFEDF1E6),
             shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -509,14 +510,14 @@ private fun DualTrackTimelineView(
                     text = "Mes",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = BrandNavy,
+                    color = Color(0xFF4D5E4C),
                     modifier = Modifier.width(64.dp)
                 )
                 Text(
                     text = "Original (Habitual)",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = BrandBlue,
+                    color = BrandForest,
                     modifier = Modifier.weight(1f)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -524,7 +525,7 @@ private fun DualTrackTimelineView(
                     text = "Modificado (Con eventos)",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = BrandTeal,
+                    color = BrandLimeDark,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -535,7 +536,7 @@ private fun DualTrackTimelineView(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 440.dp)
-                .border(0.5.dp, BorderLight, RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
+                .border(0.5.dp, BorderSage, RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxWidth(),
@@ -572,7 +573,7 @@ private fun DualTrackRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .background(if (isSelected) BrandBlue.copy(alpha = 0.12f) else if (item.month % 2 == 0) Color(0xFFFAFAFA) else Color.White)
+            .background(if (isSelected) BrandSageLight else if (item.month % 2 == 0) Color(0xFFF7F9EF) else Color.White)
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -582,12 +583,12 @@ private fun DualTrackRow(
                 text = "M${item.month}",
                 fontSize = 12.sp,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = if (isSelected) BrandBlue else BrandNavy
+                color = if (isSelected) BrandForest else BrandDark
             )
             Text(
                 text = formatMonth(item.date).split(" ").firstOrNull() ?: "",
                 fontSize = 10.sp,
-                color = TextMuted
+                color = TextForestMuted
             )
         }
 
@@ -601,7 +602,7 @@ private fun DualTrackRow(
                     currency = currency
                 )
             } else {
-                Text("—", fontSize = 11.sp, color = TextMuted)
+                Text("—", fontSize = 11.sp, color = TextForestMuted)
             }
         }
 
@@ -618,12 +619,12 @@ private fun DualTrackRow(
                 )
             } else {
                 Surface(
-                    color = BrandTeal.copy(alpha = 0.12f),
+                    color = BrandSageLight,
                     shape = RoundedCornerShape(4.dp)
                 ) {
                     Text(
                         text = "Liquidado",
-                        color = BrandTeal,
+                        color = BrandSage,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -660,7 +661,7 @@ private fun MiniStackedBar(
                 .fillMaxWidth(barFraction)
                 .height(10.dp)
                 .clip(RoundedCornerShape(3.dp))
-                .background(Color(0xFFE2E8F0))
+                .background(Color(0xFFE5EAE1))
         ) {
             Row(modifier = Modifier.fillMaxSize()) {
                 val sum = totalCash.coerceAtLeast(0.001)
@@ -669,17 +670,17 @@ private fun MiniStackedBar(
                 val fInt = (interest / sum).toFloat()
                 val fIns = (insurance / sum).toFloat()
 
-                if (fP > 0f) Box(modifier = Modifier.fillMaxHeight().weight(fP).background(BrandBlue))
-                if (fE > 0f) Box(modifier = Modifier.fillMaxHeight().weight(fE).background(BrandTeal))
-                if (fInt > 0f) Box(modifier = Modifier.fillMaxHeight().weight(fInt).background(BrandOrange))
-                if (fIns > 0f) Box(modifier = Modifier.fillMaxHeight().weight(fIns).background(BrandPurple))
+                if (fP > 0f) Box(modifier = Modifier.fillMaxHeight().weight(fP).background(BrandForest))
+                if (fE > 0f) Box(modifier = Modifier.fillMaxHeight().weight(fE).background(BrandLimeDark))
+                if (fInt > 0f) Box(modifier = Modifier.fillMaxHeight().weight(fInt).background(BrandAmber))
+                if (fIns > 0f) Box(modifier = Modifier.fillMaxHeight().weight(fIns).background(BrandPlum))
             }
         }
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = formatMoney(cashStr, currency),
             fontSize = 9.sp,
-            color = TextMuted,
+            color = TextForestMuted,
             fontWeight = FontWeight.Medium
         )
     }
@@ -694,6 +695,6 @@ private fun LegendItem(color: Color, label: String) {
                 .background(color, CircleShape)
         )
         Spacer(modifier = Modifier.width(4.dp))
-        Text(text = label, fontSize = 11.sp, color = TextMuted)
+        Text(text = label, fontSize = 11.sp, color = TextForestMuted)
     }
 }

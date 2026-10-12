@@ -36,8 +36,8 @@ fun MonthlyTable(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceLight),
-        border = CardDefaults.outlinedCardBorder()
+        colors = CardDefaults.cardColors(containerColor = SurfaceWarm),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -50,23 +50,23 @@ fun MonthlyTable(
                         text = "Detalle mes a mes",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = BrandNavy
+                        color = BrandDark
                     )
                     Text(
                         text = "Toca cualquier fila para seleccionarla y editar sus eventos.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted
+                        color = TextForestMuted
                     )
                 }
                 Surface(
-                    color = Color(0xFFF1F5F9),
+                    color = BrandSageLight,
                     shape = RoundedCornerShape(6.dp)
                 ) {
                     Text(
                         text = "${result.rows.size} meses",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = BrandNavy,
+                        color = BrandSage,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
@@ -80,13 +80,13 @@ fun MonthlyTable(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 440.dp)
-                    .border(0.5.dp, BorderLight, RoundedCornerShape(8.dp))
+                    .border(0.5.dp, BorderSage, RoundedCornerShape(8.dp))
             ) {
                 Column(modifier = Modifier.horizontalScroll(scrollState)) {
                     // Header row
                     Row(
                         modifier = Modifier
-                            .background(Color(0xFFF1F5F9))
+                            .background(Color(0xFFEDF1E6))
                             .padding(vertical = 10.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -107,31 +107,30 @@ fun MonthlyTable(
                             val isSelected = row.month == selectedMonth
                             val schedP = row.scheduled.principal.toDoubleOrNull() ?: 0.0
                             val extraP = (row.extra.principal.toDoubleOrNull() ?: 0.0) + (row.catchup.principal.toDoubleOrNull() ?: 0.0)
-                            val totalPStr = (schedP + extraP).toString()
 
                             Row(
                                 modifier = Modifier
                                     .clickable { onSelectMonth(row.month) }
                                     .background(
-                                        if (isSelected) BrandBlue.copy(alpha = 0.12f)
-                                        else if (row.month % 2 == 0) Color(0xFFFAFAFA)
+                                        if (isSelected) BrandSageLight
+                                        else if (row.month % 2 == 0) Color(0xFFF7F9EF)
                                         else Color.White
                                     )
                                     .padding(vertical = 8.dp, horizontal = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                TableCell("M${row.month}", width = 54.dp, isBold = isSelected)
-                                TableCell(formatMonth(row.date), width = 84.dp)
+                                TableCell("M${row.month}", width = 54.dp, isBold = isSelected, color = if (isSelected) BrandForest else BrandDark)
+                                TableCell(formatMonth(row.date), width = 84.dp, color = TextForestMuted)
                                 TableCell(formatMoney(row.openingBalance, currency), width = 115.dp, alignRight = true)
-                                TableCell(formatMoney(row.scheduled.principal, currency), width = 100.dp, alignRight = true, color = BrandBlue)
+                                TableCell(formatMoney(row.scheduled.principal, currency), width = 100.dp, alignRight = true, color = BrandForest)
                                 TableCell(
                                     if (extraP > 0) formatMoney(row.extra.principal, currency) else "—",
                                     width = 110.dp,
                                     alignRight = true,
-                                    color = if (extraP > 0) BrandTeal else TextMuted
+                                    color = if (extraP > 0) BrandLimeDark else TextForestMuted
                                 )
-                                TableCell(formatMoney(row.interestCharged, currency), width = 95.dp, alignRight = true, color = BrandOrange)
-                                TableCell(formatMoney(row.insuranceCharged, currency), width = 85.dp, alignRight = true, color = BrandPurple)
+                                TableCell(formatMoney(row.interestCharged, currency), width = 95.dp, alignRight = true, color = BrandAmber)
+                                TableCell(formatMoney(row.insuranceCharged, currency), width = 85.dp, alignRight = true, color = BrandPlum)
                                 TableCell(formatMoney(row.cashPaid, currency), width = 115.dp, alignRight = true, isBold = true)
                                 TableCell(formatMoney(row.closingBalance, currency), width = 115.dp, alignRight = true, isBold = isSelected)
                             }
@@ -150,13 +149,13 @@ private fun TableCell(
     isHeader: Boolean = false,
     isBold: Boolean = false,
     alignRight: Boolean = false,
-    color: Color = BrandNavy
+    color: Color = BrandDark
 ) {
     Text(
         text = text,
         fontSize = if (isHeader) 11.sp else 12.sp,
         fontWeight = if (isHeader) FontWeight.Bold else if (isBold) FontWeight.Bold else FontWeight.Normal,
-        color = if (isHeader) TextMuted else color,
+        color = if (isHeader) Color(0xFF4D5E4C) else color,
         textAlign = if (alignRight) TextAlign.End else TextAlign.Start,
         modifier = Modifier.width(width).padding(horizontal = 4.dp)
     )

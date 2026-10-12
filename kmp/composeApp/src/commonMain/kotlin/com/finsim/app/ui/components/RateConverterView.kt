@@ -54,20 +54,20 @@ fun RateConverterView(modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceLight),
-        border = CardDefaults.outlinedCardBorder()
+        colors = CardDefaults.cardColors(containerColor = SurfaceWarm),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Text(
                 text = "Conversor de tasas de interés",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = BrandNavy
+                color = BrandDark
             )
             Text(
                 text = "Conversión de alta precisión entre Efectiva Mensual (EM), Efectiva Anual (EA) y Nominal.",
                 style = MaterialTheme.typography.bodySmall,
-                color = TextMuted,
+                color = TextForestMuted,
                 modifier = Modifier.padding(top = 2.dp, bottom = 14.dp)
             )
 
@@ -127,16 +127,16 @@ fun RateConverterView(modifier: Modifier = Modifier) {
                 text = "TASAS EQUIVALENTES CALCULADAS",
                 fontWeight = FontWeight.Bold,
                 fontSize = 10.sp,
-                color = BrandBlue,
+                color = BrandForest,
                 letterSpacing = 0.5.sp
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Surface(
-                color = Color(0xFFF8FAFC),
+                color = Color(0xFFF9FAF7),
                 shape = RoundedCornerShape(10.dp),
-                border = CardDefaults.outlinedCardBorder(),
+                border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
@@ -148,12 +148,12 @@ fun RateConverterView(modifier: Modifier = Modifier) {
                             text = "Efectiva Anual (EA):",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 13.sp,
-                            color = BrandNavy
+                            color = BrandDark
                         )
                         Text(
                             text = "$eaConverted %",
                             fontWeight = FontWeight.Bold,
-                            color = BrandBlue,
+                            color = BrandForest,
                             fontSize = 14.sp
                         )
                     }
@@ -168,12 +168,12 @@ fun RateConverterView(modifier: Modifier = Modifier) {
                             text = "Efectiva Mensual (EM):",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 13.sp,
-                            color = BrandNavy
+                            color = BrandDark
                         )
                         Text(
                             text = "$emConverted %",
                             fontWeight = FontWeight.Bold,
-                            color = BrandTeal,
+                            color = BrandLimeDark,
                             fontSize = 14.sp
                         )
                     }
@@ -184,7 +184,7 @@ fun RateConverterView(modifier: Modifier = Modifier) {
             Text(
                 text = "Referencia: 1% EM equivale exactamente a 12,6825030132% EA según la fórmula EA = (1 + EM)^12 − 1.",
                 fontSize = 11.sp,
-                color = TextMuted
+                color = TextForestMuted
             )
         }
     }
