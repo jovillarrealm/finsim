@@ -11,9 +11,9 @@
 **Blocked by:** None
 
 **Triage Label:** `ready-for-agent`
-**Status:** ready
+**Status:** completed
 
-- [ ] Pestañas sin emojis rotos en `App.kt`.
-- [ ] Pie de página sanitizado de caracteres Unicode incompatibles.
-- [ ] Barra de herramientas adaptable para pantallas móviles (< 600dp).
-- [ ] Compilación y verificación con `./gradlew :shared:jvmTest` y compilación de `composeApp`.
+- [x] Pestañas sin emojis rotos en `App.kt`.
+- [x] Pie de página sanitizado de caracteres Unicode incompatibles.
+- [x] Barra de herramientas adaptable para pantallas móviles (< 600dp).
+- [x] Compilación y verificación con `./gradlew :shared:jvmTest` y compilación de `composeApp`.

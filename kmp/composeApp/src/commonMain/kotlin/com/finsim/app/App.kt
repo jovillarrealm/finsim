@@ -2,6 +2,7 @@ package com.finsim.app
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -136,9 +137,9 @@ fun App(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         val tabs = listOf(
-                            "💳 Préstamo",
-                            "🔄 Conversor",
-                            "📑 Conciliación"
+                            "Préstamo",
+                            "Conversor",
+                            "Conciliación"
                         )
                         tabs.forEachIndexed { index, title ->
                             val isSelected = selectedTab == index
@@ -176,104 +177,137 @@ fun App(
                     colors = CardDefaults.cardColors(containerColor = SurfaceWarm),
                     border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "ESCENARIO ACTIVO",
-                                    fontSize = 10.sp,
-                                    color = TextForestMuted,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.5.sp
-                                )
-                                Text(
-                                    text = workspace.scenario.name,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = BrandDark
-                                )
+                    val handleSave = {
+                        val outcome = store.save()
+                        workspace = store.state
+                        when (outcome) {
+                            is WorkspaceOutcome.Success -> {
+                                noticeMessage = outcome.message
+                                errorMessage = ""
                             }
-
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Button(
-                                    onClick = {
-                                        val outcome = store.save()
-                                        workspace = store.state
-                                        when (outcome) {
-                                            is WorkspaceOutcome.Success -> {
-                                                noticeMessage = outcome.message
-                                                errorMessage = ""
-                                            }
-                                            is WorkspaceOutcome.Failure -> {
-                                                errorMessage = outcome.error
-                                            }
-                                        }
-                                    },
-                                    enabled = !workspace.hasPendingDraft,
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = BrandForest),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Text("Guardar", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                                }
-
-                                OutlinedButton(
-                                    onClick = {
-                                        store.exportJson().fold(
-                                            onSuccess = { json ->
-                                                FinsimLog.ui.i { "Exportando copia JSON de '${workspace.scenario.name}' (${json.length} chars)" }
-                                                onExportJson?.invoke(json)
-                                                noticeMessage = "Copia JSON exportada."
-                                                errorMessage = ""
-                                            },
-                                            onFailure = { err ->
-                                                errorMessage = err.message ?: "Error al exportar."
-                                            }
-                                        )
-                                    },
-                                    enabled = !workspace.hasPendingDraft,
-                                    shape = RoundedCornerShape(8.dp),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandForest),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Text("Exportar", fontSize = 12.sp, color = BrandForest)
-                                }
-
-                                OutlinedButton(
-                                    onClick = { showImportDialog = true },
-                                    enabled = !workspace.hasPendingDraft,
-                                    shape = RoundedCornerShape(8.dp),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandForest),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                                ) {
-                                    Text("Importar", fontSize = 12.sp, color = BrandForest)
-                                }
-
-                                Button(
-                                    onClick = {
-                                        val outcome = store.resetToExample()
-                                        workspace = store.state
-                                        noticeMessage = outcome.message
-                                        errorMessage = ""
-                                    },
-                                    enabled = !workspace.hasPendingDraft,
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = BrandLime,
-                                        contentColor = BrandForest
-                                    ),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                                ) {
-                                    Text("Ejemplo", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = BrandForest)
-                                }
+                            is WorkspaceOutcome.Failure -> {
+                                errorMessage = outcome.error
                             }
                         }
+                    }
+
+                    val handleExport = {
+                        store.exportJson().fold(
+                            onSuccess = { json ->
+                                FinsimLog.ui.i { "Exportando copia JSON de '${workspace.scenario.name}' (${json.length} chars)" }
+                                onExportJson?.invoke(json)
+                                noticeMessage = "Copia JSON exportada."
+                                errorMessage = ""
+                            },
+                            onFailure = { err ->
+                                errorMessage = err.message ?: "Error al exportar."
+                            }
+                        )
+                    }
+
+                    val handleResetExample = {
+                        val outcome = store.resetToExample()
+                        workspace = store.state
+                        noticeMessage = outcome.message
+                        errorMessage = ""
+                    }
+
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        val isCompact = maxWidth < 600.dp
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            if (isCompact) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "ESCENARIO ACTIVO",
+                                                fontSize = 10.sp,
+                                                color = TextForestMuted,
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = 0.5.sp
+                                            )
+                                            Text(
+                                                text = workspace.scenario.name,
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = BrandDark
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Surface(
+                                            color = BrandSageLight.copy(alpha = 0.7f),
+                                            shape = RoundedCornerShape(8.dp),
+                                            border = androidx.compose.foundation.BorderStroke(0.5.dp, BorderSage)
+                                        ) {
+                                            Text(
+                                                text = "${workspace.scenario.currency.name} · ${workspace.scenario.termMonths}m",
+                                                color = BrandForest,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        ScenarioActionButtons(
+                                            enabled = !workspace.hasPendingDraft,
+                                            onSave = handleSave,
+                                            onExport = handleExport,
+                                            onResetExample = handleResetExample,
+                                            onImport = { showImportDialog = true }
+                                        )
+                                    }
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "ESCENARIO ACTIVO",
+                                            fontSize = 10.sp,
+                                            color = TextForestMuted,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 0.5.sp
+                                        )
+                                        Text(
+                                            text = workspace.scenario.name,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = BrandDark
+                                        )
+                                    }
+
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        ScenarioActionButtons(
+                                            enabled = !workspace.hasPendingDraft,
+                                            onSave = handleSave,
+                                            onExport = handleExport,
+                                            onResetExample = handleResetExample,
+                                            onImport = { showImportDialog = true }
+                                        )
+                                    }
+                                }
+                            }
 
                         if (workspace.hasPendingDraft) {
                             Spacer(modifier = Modifier.height(8.dp))
@@ -329,6 +363,7 @@ fun App(
                         }
                     }
                 }
+            }
 
                 // Tab Content
                 when (selectedTab) {
@@ -464,7 +499,7 @@ fun App(
                 ) {
                     Column {
                         Text(
-                            text = "Un espacio para explorar, no una promesa bancaria. Modelo educativo mensual. Los abonos extraordinarios se aplican tras el pago habitual (seguros → intereses → capital).",
+                            text = "Un espacio para explorar, no una promesa bancaria. Modelo educativo mensual. Los abonos extraordinarios se aplican tras el pago habitual (seguros · intereses · capital).",
                             fontSize = 11.sp,
                             color = TextForestMuted,
                             lineHeight = 15.sp
@@ -502,5 +537,59 @@ fun App(
                 }
             )
         }
+    }
+}
+
+@Composable
+private fun ScenarioActionButtons(
+    enabled: Boolean,
+    onSave: () -> Unit,
+    onExport: () -> Unit,
+    onResetExample: () -> Unit,
+    onImport: () -> Unit
+) {
+    Button(
+        onClick = onSave,
+        enabled = enabled,
+        shape = RoundedCornerShape(8.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = BrandForest),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Text("Guardar", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+    }
+
+    OutlinedButton(
+        onClick = onExport,
+        enabled = enabled,
+        shape = RoundedCornerShape(8.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandForest),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Text("Exportar", fontSize = 12.sp, color = BrandForest, maxLines = 1)
+    }
+
+    Button(
+        onClick = onResetExample,
+        enabled = enabled,
+        shape = RoundedCornerShape(8.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = BrandLime,
+            contentColor = BrandForest
+        ),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        Text("Ejemplo", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = BrandForest, maxLines = 1)
+    }
+
+    OutlinedButton(
+        onClick = onImport,
+        enabled = enabled,
+        shape = RoundedCornerShape(8.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandForest),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        Text("Importar", fontSize = 12.sp, color = BrandForest, maxLines = 1)
     }
 }
