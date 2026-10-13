@@ -15,8 +15,8 @@
 **Blocked by:** 04-fluid-kpis-and-chart-markers.md
 
 **Triage Label:** `ready-for-agent`
-**Status:** ready
+**Status:** completed
 
-- [ ] Verificación de pruebas unitarias y compilación de APK.
-- [ ] Ejecución y captura en emulador `medium_phone`.
-- [ ] Actualización de documentación y registro en `docs/tracking.md`.
+- [x] Verificación de pruebas unitarias y compilación de APK.
+- [x] Ejecución y captura en emulador `medium_phone` / preview móvil Skiko.
+- [x] Actualización de documentación y registro en `docs/tracking.md`.
