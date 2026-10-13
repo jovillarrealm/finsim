@@ -13,8 +13,8 @@
 **Blocked by:** 03-collapsible-monthly-table-accordion.md
 
 **Triage Label:** `ready-for-agent`
-**Status:** ready
+**Status:** completed
 
-- [ ] Tipografía y paddings fluidos en `LoanSummary.kt` para importes largos.
-- [ ] Ticks de meses y marcas de escala en `HorizontalComparisonChart.kt`.
-- [ ] Pruebas y verificación con `./gradlew :shared:jvmTest`.
+- [x] Tipografía y paddings fluidos en `LoanSummary.kt` para importes largos.
+- [x] Ticks de meses y marcas de escala en `HorizontalComparisonChart.kt`.
+- [x] Pruebas y verificación con `./gradlew :shared:jvmTest`.

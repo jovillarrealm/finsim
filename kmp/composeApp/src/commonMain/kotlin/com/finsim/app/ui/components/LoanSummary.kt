@@ -86,7 +86,7 @@ fun LoanSummary(
             // 2x2 Modern KPI Grid
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 SummaryKpiCard(
                     modifier = Modifier.weight(1f),
@@ -102,11 +102,11 @@ fun LoanSummary(
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 SummaryKpiCard(
                     modifier = Modifier.weight(1f),
@@ -124,10 +124,12 @@ fun LoanSummary(
             }
 
             if (result.totals.unapplied != "0.00" || result.totals.insurance != "0.00") {
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
+                Spacer(modifier = Modifier.height(10.dp))
+                @OptIn(ExperimentalLayoutApi::class)
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     if (result.totals.insurance != "0.00") {
                         Surface(
@@ -173,31 +175,51 @@ private fun SummaryKpiCard(
     isHighlight: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    // Dynamic typography scaling for longer values (e.g., COP 25.750.306,00)
+    val valueFontSize = when {
+        value.length > 15 -> 13.sp
+        value.length > 11 -> 14.sp
+        else -> 15.sp
+    }
+
     Surface(
         modifier = modifier,
         color = if (isHighlight) SurfaceHighlight else Color.White,
         shape = RoundedCornerShape(10.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, if (isHighlight) Color(0xFFBED1B8) else BorderSage)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = label,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (isHighlight) BrandForest else TextForestMuted
-            )
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = label,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isHighlight) BrandForest else Color(0xFF435845),
+                    maxLines = 1,
+                    softWrap = true
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = value,
+                    fontSize = valueFontSize,
+                    lineHeight = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isHighlight) BrandForest else BrandDark,
+                    maxLines = 2,
+                    softWrap = true
+                )
+            }
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = value,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isHighlight) BrandForest else BrandDark
-            )
-            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = caption,
                 fontSize = 10.sp,
-                color = if (isHighlight) BrandSage else TextForestMuted
+                lineHeight = 13.sp,
+                color = if (isHighlight) BrandSage else Color(0xFF5A6E59),
+                maxLines = 2,
+                softWrap = true
             )
         }
     }

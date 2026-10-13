@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -166,7 +167,7 @@ fun HorizontalComparisonChart(
             // Macro Delta Cards
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 DeltaMetricCard(
                     modifier = Modifier.weight(1f),
@@ -239,23 +240,70 @@ private fun DeltaMetricCard(
     isFavorable: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val valueFontSize = if (value.length > 11) 10.sp else 11.sp
+
     Surface(
         modifier = modifier,
         color = SurfaceHighlight,
         shape = RoundedCornerShape(8.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
     ) {
-        Column(modifier = Modifier.padding(8.dp)) {
-            Text(text = label, fontSize = 10.sp, color = TextForestMuted, fontWeight = FontWeight.SemiBold)
+        Column(modifier = Modifier.padding(horizontal = 6.dp, vertical = 7.dp)) {
+            Text(
+                text = label,
+                fontSize = 10.sp,
+                color = TextForestMuted,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                softWrap = false
+            )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = value,
-                fontSize = 12.sp,
+                fontSize = valueFontSize,
+                lineHeight = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isFavorable) BrandSage else if (value.startsWith("+")) BrandAmber else BrandDark
+                color = if (isFavorable) BrandSage else if (value.startsWith("+")) BrandAmber else BrandDark,
+                maxLines = 2,
+                softWrap = true
             )
         }
     }
+}
+
+/**
+ * Calculates milestone tick months along the loan timeline (e.g. M1, M12, M24...).
+ * Produces 4 to 7 evenly spaced markers suitable for mobile viewports without crowding.
+ */
+internal fun calculateMonthTicks(totalMonths: Int): List<Int> {
+    if (totalMonths <= 1) return listOf(1)
+    if (totalMonths <= 5) return (1..totalMonths).toList()
+
+    val step = when {
+        totalMonths <= 12 -> 3
+        totalMonths <= 24 -> 6
+        totalMonths <= 48 -> 12
+        totalMonths <= 96 -> 18
+        totalMonths <= 144 -> 24
+        totalMonths <= 240 -> 48
+        totalMonths <= 360 -> 60
+        else -> ((totalMonths / 5) / 12).coerceAtLeast(1) * 12
+    }
+
+    val ticks = mutableListOf(1)
+    var current = step
+    while (current < totalMonths) {
+        ticks.add(current)
+        current += step
+    }
+    if (ticks.last() != totalMonths) {
+        if (totalMonths - ticks.last() < (step * 0.4).roundToInt() && ticks.size > 1) {
+            ticks[ticks.lastIndex] = totalMonths
+        } else {
+            ticks.add(totalMonths)
+        }
+    }
+    return ticks.distinct()
 }
 
 /**
@@ -286,134 +334,261 @@ private fun AmortizationCurveView(
         (1..totalMonths).map { map[it] ?: 0.0 }
     }
 
+    val monthTicks = remember(totalMonths) { calculateMonthTicks(totalMonths) }
+
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Legend
-        Row(
+        // Accessible, neatly spaced legend with wrapping for mobile
+        @OptIn(ExperimentalLayoutApi::class)
+        FlowRow(
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.size(12.dp, 3.dp).background(BrandForest, RoundedCornerShape(2.dp)))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Saldo Original", fontSize = 11.sp, color = BrandDark, fontWeight = FontWeight.Medium)
+                Spacer(modifier = Modifier.width(5.dp))
+                Text("Saldo Original", fontSize = 11.sp, color = BrandDark, fontWeight = FontWeight.SemiBold)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.size(12.dp, 3.dp).background(BrandLimeDark, RoundedCornerShape(2.dp)))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Saldo Modificado", fontSize = 11.sp, color = BrandDark, fontWeight = FontWeight.Medium)
+                Spacer(modifier = Modifier.width(5.dp))
+                Text("Saldo Modificado", fontSize = 11.sp, color = BrandDark, fontWeight = FontWeight.SemiBold)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(10.dp).background(BrandLime, RoundedCornerShape(2.dp)))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Capital Ahorrado", fontSize = 11.sp, color = TextForestMuted)
+                Box(
+                    modifier = Modifier
+                        .size(10.dp, 10.dp)
+                        .background(BrandLime.copy(alpha = 0.5f), RoundedCornerShape(2.dp))
+                        .border(0.5.dp, BrandLimeDark, RoundedCornerShape(2.dp))
+                )
+                Spacer(modifier = Modifier.width(5.dp))
+                Text("Capital Ahorrado", fontSize = 11.sp, color = TextForestMuted, fontWeight = FontWeight.Medium)
             }
         }
 
-        // Canvas for curves
-        Box(
+        // Unified chart container with Y-axis scale badges, canvas curves, and X-axis month ticks
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(260.dp)
                 .background(Color(0xFFFAFAF5), RoundedCornerShape(8.dp))
                 .border(0.5.dp, BorderSage, RoundedCornerShape(8.dp))
-                .pointerInput(totalMonths) {
-                    detectTapGestures { offset ->
-                        val fraction = (offset.x / size.width).coerceIn(0f, 1f)
-                        val m = 1 + (fraction * (totalMonths - 1)).roundToInt()
-                        onSelectMonth(m.coerceIn(1, totalMonths))
-                    }
-                }
-                .pointerInput(totalMonths) {
-                    detectDragGestures { change, _ ->
-                        val fraction = (change.position.x / size.width).coerceIn(0f, 1f)
-                        val m = 1 + (fraction * (totalMonths - 1)).roundToInt()
-                        onSelectMonth(m.coerceIn(1, totalMonths))
-                    }
-                }
+                .padding(vertical = 10.dp)
         ) {
-            Canvas(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                val w = size.width
-                val h = size.height
+            // Y-axis Balance Scale Header (clear opening balance & payoff bounds)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp)
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    color = Color.White,
+                    shape = RoundedCornerShape(6.dp),
+                    border = androidx.compose.foundation.BorderStroke(0.5.dp, BorderSage)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Box(modifier = Modifier.size(6.dp).background(BrandDark, CircleShape))
+                        Text(
+                            text = "Saldo inicial: ${formatMoney(maxPrincipal.toString(), currency)}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = BrandDark
+                        )
+                    }
+                }
 
-                // Draw 4 horizontal grid lines (25%, 50%, 75%, 100%)
-                val gridColor = Color(0xFFE5ECE0)
-                for (step in 1..3) {
-                    val y = h * (step / 4f)
-                    drawLine(
-                        color = gridColor,
-                        start = Offset(0f, y),
-                        end = Offset(w, y),
-                        strokeWidth = 1f
+                Surface(
+                    color = BrandSageLight,
+                    shape = RoundedCornerShape(6.dp),
+                    border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFC7D9BA))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Box(modifier = Modifier.size(6.dp).background(BrandSage, CircleShape))
+                        Text(
+                            text = "Meta: ${formatMoney("0.00", currency)}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = BrandSage
+                        )
+                    }
+                }
+            }
+
+            // Canvas for curves
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(210.dp)
+                    .padding(horizontal = 14.dp)
+                    .pointerInput(totalMonths) {
+                        detectTapGestures { offset ->
+                            val fraction = (offset.x / size.width).coerceIn(0f, 1f)
+                            val m = 1 + (fraction * (totalMonths - 1)).roundToInt()
+                            onSelectMonth(m.coerceIn(1, totalMonths))
+                        }
+                    }
+                    .pointerInput(totalMonths) {
+                        detectDragGestures { change, _ ->
+                            val fraction = (change.position.x / size.width).coerceIn(0f, 1f)
+                            val m = 1 + (fraction * (totalMonths - 1)).roundToInt()
+                            onSelectMonth(m.coerceIn(1, totalMonths))
+                        }
+                    }
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val w = size.width
+                    val h = size.height
+
+                    // Draw 4 horizontal grid lines (25%, 50%, 75%, 100%)
+                    val gridColor = Color(0xFFE5ECE0)
+                    for (step in 1..3) {
+                        val y = h * (step / 4f)
+                        drawLine(
+                            color = gridColor,
+                            start = Offset(0f, y),
+                            end = Offset(w, y),
+                            strokeWidth = 1f
+                        )
+                    }
+
+                    if (totalMonths <= 1) return@Canvas
+
+                    val xForMonth = { m: Int ->
+                        ((m - 1).toFloat() / (totalMonths - 1).toFloat()) * w
+                    }
+                    val yForBalance = { bal: Double ->
+                        val frac = (bal / maxPrincipal).coerceIn(0.0, 1.0).toFloat()
+                        h * (1f - frac)
+                    }
+
+                    // Vertical milestone guide lines and bottom tick marks
+                    for (tick in monthTicks) {
+                        val tx = xForMonth(tick)
+                        // Faint vertical guide line
+                        drawLine(
+                            color = Color(0xFFEFF3EB),
+                            start = Offset(tx, 0f),
+                            end = Offset(tx, h - 5f),
+                            strokeWidth = 1f
+                        )
+                        // Bottom tick mark
+                        drawLine(
+                            color = if (tick == selectedMonth) BrandDark else Color(0xFFBACDB1),
+                            start = Offset(tx, h - 6f),
+                            end = Offset(tx, h),
+                            strokeWidth = if (tick == selectedMonth) 2.5f else 1.5f
+                        )
+                    }
+
+                    // Shaded Area between Original and Modified (Debt reduction visual)
+                    val areaPath = Path()
+                    areaPath.moveTo(xForMonth(1), yForBalance(origBalances[0]))
+                    for (m in 2..totalMonths) {
+                        areaPath.lineTo(xForMonth(m), yForBalance(origBalances[m - 1]))
+                    }
+                    for (m in totalMonths downTo 1) {
+                        areaPath.lineTo(xForMonth(m), yForBalance(modBalances[m - 1]))
+                    }
+                    areaPath.close()
+                    drawPath(areaPath, color = BrandLime.copy(alpha = 0.35f))
+
+                    // Original Curve (BrandForest)
+                    val origPath = Path()
+                    origPath.moveTo(xForMonth(1), yForBalance(origBalances[0]))
+                    for (m in 2..totalMonths) {
+                        origPath.lineTo(xForMonth(m), yForBalance(origBalances[m - 1]))
+                    }
+                    drawPath(
+                        path = origPath,
+                        color = BrandForest,
+                        style = Stroke(width = 2.5f, cap = StrokeCap.Round)
                     )
-                }
 
-                if (totalMonths <= 1) return@Canvas
+                    // Modified Curve (BrandLimeDark)
+                    val modPath = Path()
+                    modPath.moveTo(xForMonth(1), yForBalance(modBalances[0]))
+                    for (m in 2..totalMonths) {
+                        modPath.lineTo(xForMonth(m), yForBalance(modBalances[m - 1]))
+                    }
+                    drawPath(
+                        path = modPath,
+                        color = BrandLimeDark,
+                        style = Stroke(width = 3.5f, cap = StrokeCap.Round)
+                    )
 
-                val xForMonth = { m: Int ->
-                    ((m - 1).toFloat() / (totalMonths - 1).toFloat()) * w
-                }
-                val yForBalance = { bal: Double ->
-                    val frac = (bal / maxPrincipal).coerceIn(0.0, 1.0).toFloat()
-                    h * (1f - frac)
-                }
+                    // Payoff dot on modified curve if reached
+                    val modPayoff = modified.payoffMonth
+                    if (modPayoff != null && modPayoff in 1..totalMonths) {
+                        val px = xForMonth(modPayoff)
+                        val py = yForBalance(0.0)
+                        drawCircle(color = BrandLimeDark, radius = 6f, center = Offset(px, py))
+                        drawCircle(color = Color.White, radius = 3f, center = Offset(px, py))
+                    }
 
-                // Shaded Area between Original and Modified (Debt reduction visual)
-                val areaPath = Path()
-                areaPath.moveTo(xForMonth(1), yForBalance(origBalances[0]))
-                for (m in 2..totalMonths) {
-                    areaPath.lineTo(xForMonth(m), yForBalance(origBalances[m - 1]))
+                    // Selected month scrubber vertical line
+                    val selX = xForMonth(selectedMonth.coerceIn(1, totalMonths))
+                    drawLine(
+                        color = BrandDark,
+                        start = Offset(selX, 0f),
+                        end = Offset(selX, h),
+                        strokeWidth = 2f
+                    )
+                    val selModY = yForBalance(modBalances[(selectedMonth - 1).coerceIn(0, totalMonths - 1)])
+                    drawCircle(color = BrandDark, radius = 5f, center = Offset(selX, selModY))
+                    drawCircle(color = Color.White, radius = 2.5f, center = Offset(selX, selModY))
                 }
-                for (m in totalMonths downTo 1) {
-                    areaPath.lineTo(xForMonth(m), yForBalance(modBalances[m - 1]))
-                }
-                areaPath.close()
-                drawPath(areaPath, color = BrandLime.copy(alpha = 0.35f))
+            }
 
-                // Original Curve (BrandForest)
-                val origPath = Path()
-                origPath.moveTo(xForMonth(1), yForBalance(origBalances[0]))
-                for (m in 2..totalMonths) {
-                    origPath.lineTo(xForMonth(m), yForBalance(origBalances[m - 1]))
-                }
-                drawPath(
-                    path = origPath,
-                    color = BrandForest,
-                    style = Stroke(width = 2.5f, cap = StrokeCap.Round)
-                )
+            // X-axis Month Ticks Bar (aligned with Canvas width via matching horizontal padding)
+            Layout(
+                content = {
+                    monthTicks.forEach { tick ->
+                        val isSelected = tick == selectedMonth
+                        Text(
+                            text = "M$tick",
+                            fontSize = 10.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isSelected) BrandForest else TextForestMuted,
+                            modifier = Modifier
+                                .clickable { onSelectMonth(tick) }
+                                .padding(horizontal = 2.dp, vertical = 2.dp)
+                        )
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp)
+                    .padding(top = 4.dp)
+            ) { measurables, constraints ->
+                val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
+                val height = placeables.maxOfOrNull { it.height } ?: 0
+                val width = constraints.maxWidth
 
-                // Modified Curve (BrandLimeDark)
-                val modPath = Path()
-                modPath.moveTo(xForMonth(1), yForBalance(modBalances[0]))
-                for (m in 2..totalMonths) {
-                    modPath.lineTo(xForMonth(m), yForBalance(modBalances[m - 1]))
+                layout(width, height) {
+                    placeables.forEachIndexed { index, placeable ->
+                        val tick = monthTicks[index]
+                        val fraction = if (totalMonths > 1) {
+                            (tick - 1).toFloat() / (totalMonths - 1).toFloat()
+                        } else 0f
+                        val centerX = fraction * width
+                        val x = when (index) {
+                            0 -> 0
+                            placeables.lastIndex -> width - placeable.width
+                            else -> (centerX - placeable.width / 2f).roundToInt().coerceIn(0, width - placeable.width)
+                        }
+                        placeable.placeRelative(x, 0)
+                    }
                 }
-                drawPath(
-                    path = modPath,
-                    color = BrandLimeDark,
-                    style = Stroke(width = 3.5f, cap = StrokeCap.Round)
-                )
-
-                // Payoff dot on modified curve if reached
-                val modPayoff = modified.payoffMonth
-                if (modPayoff != null && modPayoff in 1..totalMonths) {
-                    val px = xForMonth(modPayoff)
-                    val py = yForBalance(0.0)
-                    drawCircle(color = BrandLimeDark, radius = 6f, center = Offset(px, py))
-                    drawCircle(color = Color.White, radius = 3f, center = Offset(px, py))
-                }
-
-                // Selected month scrubber vertical line
-                val selX = xForMonth(selectedMonth.coerceIn(1, totalMonths))
-                drawLine(
-                    color = BrandDark,
-                    start = Offset(selX, 0f),
-                    end = Offset(selX, h),
-                    strokeWidth = 2f
-                )
-                val selModY = yForBalance(modBalances[(selectedMonth - 1).coerceIn(0, totalMonths - 1)])
-                drawCircle(color = BrandDark, radius = 5f, center = Offset(selX, selModY))
-                drawCircle(color = Color.White, radius = 2.5f, center = Offset(selX, selModY))
             }
         }
 
@@ -432,18 +607,20 @@ private fun AmortizationCurveView(
             border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+            Column(modifier = Modifier.padding(10.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Mes seleccionado: $selectedMonth ${selModRow?.date?.let { "(${formatMonth(it)})" } ?: ""}",
+                        text = "Mes $selectedMonth ${selModRow?.date?.let { "(${formatMonth(it)})" } ?: ""}",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
-                        color = BrandDark
+                        color = BrandDark,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Surface(
                         color = if (Decimal.parse(balSaved).isPositive) BrandSageLight else Color(0xFFEBEFE5),
                         shape = RoundedCornerShape(6.dp),
@@ -463,8 +640,11 @@ private fun AmortizationCurveView(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Saldo restante: Original ${formatMoney(origBal, currency)} · Modificado ${formatMoney(modBal, currency)}",
-                    fontSize = 12.sp,
-                    color = TextForestMuted
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    color = TextForestMuted,
+                    maxLines = 2,
+                    softWrap = true
                 )
             }
         }
@@ -485,10 +665,11 @@ private fun DualTrackTimelineView(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         // Legend
-        Row(
+        @OptIn(ExperimentalLayoutApi::class)
+        FlowRow(
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             LegendItem(color = BrandForest, label = "Capital")
             LegendItem(color = BrandLimeDark, label = "Extra")
