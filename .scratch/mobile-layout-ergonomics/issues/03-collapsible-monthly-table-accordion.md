@@ -14,10 +14,10 @@
 **Blocked by:** 02-single-column-loan-form-keyboards.md
 
 **Triage Label:** `ready-for-agent`
-**Status:** ready
+**Status:** completed
 
-- [ ] Acordeón colapsable cerrado por defecto con botón `[Ver cronograma completo ▾]`.
-- [ ] Transición fluida con `AnimatedVisibility`.
-- [ ] Eliminación de conflictos de scroll anidado.
-- [ ] Desplazamiento horizontal claro para las 9 columnas.
-- [ ] Compilación y verificación con `./gradlew :shared:jvmTest`.
+- [x] Acordeón colapsable cerrado por defecto con botón `[Ver cronograma completo ▾]`.
+- [x] Transición fluida con `AnimatedVisibility`.
+- [x] Eliminación de conflictos de scroll anidado.
+- [x] Desplazamiento horizontal claro para las 9 columnas.
+- [x] Compilación y verificación con `./gradlew :shared:jvmTest`.
