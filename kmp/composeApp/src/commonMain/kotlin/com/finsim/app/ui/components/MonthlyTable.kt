@@ -77,6 +77,8 @@ fun MonthlyTable(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = BrandSage,
+                            maxLines = 1,
+                            softWrap = false,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
@@ -93,10 +95,12 @@ fun MonthlyTable(
                     )
                 ) {
                     Text(
-                        text = if (isExpanded) "Ocultar cronograma ▴" else "Ver cronograma completo ▾",
+                        text = if (isExpanded) "Ocultar tabla" else "Ver tabla",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isExpanded) Color.White else BrandForest,
+                        maxLines = 1,
+                        softWrap = false,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                     )
                 }

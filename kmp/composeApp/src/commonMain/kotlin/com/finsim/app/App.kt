@@ -436,22 +436,21 @@ fun App(
                             colors = CardDefaults.cardColors(containerColor = SurfaceWarm),
                             border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
                         ) {
-                            Row(
+                            Column(
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "Cronograma visible:",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = BrandDark
+                                    text = "Cronograma a consultar:",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextForestMuted
                                 )
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     FilterChip(
                                         selected = tableMode == "modified",
                                         onClick = { tableMode = "modified" },
-                                        label = { Text("Modificado con eventos", fontSize = 11.sp) },
+                                        label = { Text("Modificado", fontSize = 12.sp, fontWeight = FontWeight.Medium) },
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = BrandForest,
                                             selectedLabelColor = Color.White
@@ -461,7 +460,7 @@ fun App(
                                     FilterChip(
                                         selected = tableMode == "original",
                                         onClick = { tableMode = "original" },
-                                        label = { Text("Original base", fontSize = 11.sp) },
+                                        label = { Text("Original (base)", fontSize = 12.sp, fontWeight = FontWeight.Medium) },
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = BrandForest,
                                             selectedLabelColor = Color.White
