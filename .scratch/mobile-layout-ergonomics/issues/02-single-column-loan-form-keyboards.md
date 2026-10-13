@@ -12,9 +12,9 @@
 **Blocked by:** 01-tabs-and-scenario-toolbar.md
 
 **Triage Label:** `ready-for-agent`
-**Status:** ready
+**Status:** completed
 
-- [ ] Formulario adaptativo: 1 columna en móvil (< 600dp), 2 columnas en pantallas anchas.
-- [ ] `KeyboardOptions` configurado para `Decimal` y `Number`.
-- [ ] Pruebas unitarias de `LoanConditionsDraft` pasando al 100%.
-- [ ] Compilación limpia en Android y WasmJs.
+- [x] Formulario adaptativo: 1 columna en móvil (< 600dp), 2 columnas en pantallas anchas.
+- [x] `KeyboardOptions` configurado para `Decimal` y `Number`.
+- [x] Pruebas unitarias de `LoanConditionsDraft` pasando al 100%.
+- [x] Compilación limpia en Android y WasmJs.
