@@ -112,4 +112,7 @@ Para coordinar: «Revisa entregas en revisión, integra una por vez, verifica y 
 
 ## FS-17 — Comparador de ofertas de financiación
 
-2026-10-14 · en curso · coordinadora /root · task/fs-17-offer-comparison · C:/Users/Lenovo/Documents/finsim-fs17. Diez tickets aprobados en .scratch/financing-offer-comparison/issues. Reserva desde main ac7b763; el worktree incorporará feat/kmp-migration 6b57c04 como dependencia canónica KMP todavía en revisión. No se cierran KMP ni criterios de aceptación anteriores. Solo esta sesión escribe el worktree.
+2026-10-14 · pausada por handoff solicitado por el usuario · coordinadora /root · task/fs-17-offer-comparison · C:/Users/Lenovo/Documents/finsim-fs17. Diez tickets aprobados en .scratch/financing-offer-comparison/issues. Reserva desde main ac7b763; el worktree incorporará feat/kmp-migration 6b57c04 como dependencia canónica KMP todavía en revisión. No se cierran KMP ni criterios de aceptación anteriores. Solo esta sesión escribe el worktree.
+
+
+Continuidad FS-17: código inicial e93692e; correcciones/actualización incompleta2063906; ficha40456a0 en rama de tarea. Build bloqueado por DSL Gradle antiguo tras Kotlin2.2.20/Compose1.9.3; 18 pruebas enfocadas pasaron antes del cambio. Pendiente reconstruir y verificar con Chrome DevTools MCP después de recargar sesión. Handoff: C:/Users/Lenovo/AppData/Local/Temp/finsim-FS17-chrome-devtools-handoff.md. Reserva conservada; sin integración ni despliegue.
