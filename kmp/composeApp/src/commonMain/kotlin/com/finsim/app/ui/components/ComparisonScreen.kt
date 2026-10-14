@@ -10,6 +10,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import kotlin.math.roundToInt
 import androidx.compose.foundation.background
@@ -182,10 +185,16 @@ fun ComparisonScreen(store: ComparisonWorkspace) {
 @Composable
 internal fun ComparisonChoice(label: String, choices: List<String>, selected: String?, onSelect: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
+    val focus = remember { FocusRequester() }
     Column {
-        OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) { Text(label + ": " + (selected?.let(::comparisonLabel) ?: "Sin completar")) }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            choices.forEach { value -> DropdownMenuItem(text = { Text(comparisonLabel(value)) }, onClick = { onSelect(value); open = false }) }
+        OutlinedButton(onClick = { open = !open }, modifier = Modifier.fillMaxWidth().focusRequester(focus).semantics {
+            stateDescription = if (open) "Opciones visibles" else "Opciones ocultas"
+        }) { Text(label + ": " + (selected?.let(::comparisonLabel) ?: "Sin completar")) }
+        // shortcut: inline choices avoid frozen Web popup semantics; restore menus after CMP-10623 is fixed and verified.
+        if (open) choices.forEach { value ->
+            TextButton(onClick = { onSelect(value); open = false; focus.requestFocus() }, modifier = Modifier.fillMaxWidth()) {
+                Text(comparisonLabel(value))
+            }
         }
     }
 }
@@ -202,7 +211,7 @@ private fun comparisonLabel(value: String): String = when (value) {
 internal fun ComparisonField(label: String, text: String, error: String? = null, numeric: Boolean = false, onChange: (String) -> Unit) {
     OutlinedTextField(value = text, onValueChange = onChange, label = { Text(label) },
         isError = error != null, supportingText = { if (error != null) Text(error) },
-        singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = if (numeric) KeyboardType.Decimal else KeyboardType.Text), modifier = Modifier.fillMaxWidth())
+        singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = if (numeric) KeyboardType.Decimal else KeyboardType.Text), modifier = Modifier.fillMaxWidth().semantics { contentDescription = label })
 }
 @Composable
 internal fun ComparisonDatum(label: String, value: Datum, error: String? = null, onChange: (Datum) -> Unit) {
