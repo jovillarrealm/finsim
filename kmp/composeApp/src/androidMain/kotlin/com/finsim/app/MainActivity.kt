@@ -14,7 +14,7 @@ class AndroidScenarioStorage(context: Context) : ScenarioStorage {
     override fun getItem(key: String): String? = prefs.getString(key, null)
 
     override fun setItem(key: String, value: String) {
-        prefs.edit().putString(key, value).apply()
+        check(prefs.edit().putString(key, value).commit()) { "No se pudo guardar en el dispositivo." }
     }
 }
 

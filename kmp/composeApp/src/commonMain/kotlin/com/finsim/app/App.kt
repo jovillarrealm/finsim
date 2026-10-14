@@ -2,6 +2,8 @@ package com.finsim.app
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -37,6 +39,7 @@ fun App(
     onExportJson: ((String) -> Unit)? = null,
     onImportJsonRequest: (() -> Unit)? = null
 ) {
+    val comparisonStore = remember(storage) { com.finsim.comparison.ComparisonWorkspace(storage) }
     var workspace by remember(store) { mutableStateOf(store.state) }
 
     var selectedTab by remember { mutableStateOf(0) } // 0: loan, 1: rates, 2: reconcile
@@ -104,7 +107,7 @@ fun App(
                                 border = androidx.compose.foundation.BorderStroke(0.5.dp, BorderSage)
                             ) {
                                 Text(
-                                    text = "${workspace.scenario.currency.name} · ${workspace.scenario.termMonths}m",
+                                    text = if (selectedTab == 3) "Comparador" else "${workspace.scenario.currency.name} · ${workspace.scenario.termMonths}m",
                                     color = BrandForest,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
@@ -139,7 +142,8 @@ fun App(
                         val tabs = listOf(
                             "Préstamo",
                             "Conversor",
-                            "Conciliación"
+                            "Conciliación",
+                            "Ofertas"
                         )
                         tabs.forEachIndexed { index, title ->
                             val isSelected = selectedTab == index
@@ -149,7 +153,7 @@ fun App(
                                 shadowElevation = if (isSelected) 1.dp else 0.dp,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clickable {
+                                    .selectable(selected = isSelected, role = Role.Tab) {
                                         FinsimLog.ui.d { "Navegación de pestaña: $selectedTab -> $index" }
                                         selectedTab = index
                                     }
@@ -170,6 +174,7 @@ fun App(
                     }
                 }
 
+                if (selectedTab != 3) {
                 // Scenario Toolbar
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -365,6 +370,7 @@ fun App(
                 }
             }
 
+                }
                 // Tab Content
                 when (selectedTab) {
                     0 -> {
@@ -483,6 +489,7 @@ fun App(
                         RateConverterView()
                     }
 
+                    3 -> { ComparisonScreen(comparisonStore) }
                     2 -> {
                         ReconciliationView(
                             currency = workspace.scenario.currency,
