@@ -112,7 +112,10 @@ Para coordinar: «Revisa entregas en revisión, integra una por vez, verifica y 
 
 ## FS-17 — Comparador de ofertas de financiación
 
-2026-10-14 · pausada por handoff solicitado por el usuario · coordinadora /root · task/fs-17-offer-comparison · C:/Users/Lenovo/Documents/finsim-fs17. Diez tickets aprobados en .scratch/financing-offer-comparison/issues. Reserva desde main ac7b763; el worktree incorporará feat/kmp-migration 6b57c04 como dependencia canónica KMP todavía en revisión. No se cierran KMP ni criterios de aceptación anteriores. Solo esta sesión escribe el worktree.
+2026-10-14 · en revisión · coordinadora /root · task/fs-17-offer-comparison · C:/Users/Lenovo/Documents/finsim-fs17. Reserva vigente desde main ac7b763; dependencia KMP incorporada en la rama de tarea. Sin integración ni despliegue de FS-17; no se cierran KMP ni aceptación anterior.
 
+Entrega en rama: f8551b4 corrige nombres accesibles y árbol Web bloqueado tras selección; 66a78a0 resuelve el bloqueo Gradle. Android/Web reconstruidos, 7 pruebas UI y 5 de navegador actuales pasan. Las 115 pruebas shared anteriores corresponden al mismo módulo sin cambios. Transferencia real JSON Web verificada mediante Playwright autorizado; DevTools conserva su restricción de rutas. APK instalado -r: dos cotizaciones y recuperación A1200/B1120 tras reinicio verificadas.
 
-Continuidad FS-17: código inicial e93692e; correcciones/actualización incompleta2063906; ficha40456a0 en rama de tarea. Build bloqueado por DSL Gradle antiguo tras Kotlin2.2.20/Compose1.9.3; 18 pruebas enfocadas pasaron antes del cambio. Pendiente reconstruir y verificar con Chrome DevTools MCP después de recargar sesión. Handoff: C:/Users/Lenovo/AppData/Local/Temp/finsim-FS17-chrome-devtools-handoff.md. Reserva conservada; sin integración ni despliegue.
+Pendientes: recorrido compacto completo y lector real; simulación/contexto/transferencia Android; documentos antiguos E2E y audiencia. La ventana amplia y los clicks force:true de las pruebas no acreditan todo el flujo móvil. La deuda anterior de KMP sigue abierta.
+
+Continuidad vigente en el worktree asignado: docs/tasks/FS-17.md y docs/reviews/FS-17-browser-verification.md. La ficha y el handoff conservados en main antes de esta entrega describen un estado anterior; consultar la rama de tarea para retomar. Solo la coordinadora modifica este tablero.
