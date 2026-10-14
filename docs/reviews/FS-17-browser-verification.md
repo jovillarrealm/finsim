@@ -2,6 +2,8 @@
 
 Fecha: 2026-10-14. Rama: task/fs-17-offer-comparison. Código comprobado: 66a78a0 (incluye las correcciones 2063906). Sin integración ni despliegue. Se retomó el handoff de C:/Users/Lenovo/AppData/Local/Temp/finsim-FS17-chrome-devtools-handoff.md.
 
+**Estado posterior:** f8551b4 corrige los dos defectos específicos de accesibilidad. Pasan cinco pruebas de navegador; transferencia real y recuperación Android verificadas. Los apartados iniciales son históricos; véase la continuación al final.
+
 ## Compilación y pruebas — PASA
 
 Se completó la actualización pendiente del DSL: Android usa compilerOptions/JvmTarget.JVM_21 en ambos módulos y Wasm usa outputModuleName. No se cambiaron fórmulas ni código de producto en esta sesión. Referencia: [opciones oficiales de Kotlin](https://kotlinlang.org/docs/gradle-compiler-options.html).
@@ -72,3 +74,53 @@ Dos revisores de lectura independiente, git diff e93692e -- kmp, incluyendo el D
 ## Pendientes y siguiente paso
 
 Corregir nombres/foco y restauración del árbol al cerrar desplegables; repetir flujo de teclado y lector real, tabla y desplazamiento a 360 px. Habilitar una ruta permitida de archivo para DevTools y comprobar importación/cancelación/rechazo e ida y vuelta. Instalar el APK reconstruido conservando datos y completar los flujos Android. La aceptación de una persona de la audiencia sigue pendiente. No se cierra FS-17/KMP ni los diez tickets.
+
+## Continuación: accesibilidad y transferencia — f8551b4
+
+Los dos defectos concretos del P1 anterior están corregidos: nombres ausentes y árbol bloqueado tras seleccionar una opción. La aceptación completa de accesibilidad sigue pendiente.
+
+### Cambio y causa
+
+ComparisonField añade contentDescription con la etiqueta visible. ComparisonChoice despliega opciones dentro del formulario, anuncia estado y devuelve el foco al selector. No modifica dinero, validación, cálculos, persistencia ni versiones. Todos sus consumidores usan la misma costura.
+
+El síntoma coincide con [CMP-10623](https://youtrack.jetbrains.com/issue/CMP-10623). Un comentario shortcut conserva el criterio para volver a menús: corrección de plataforma verificada. No se parcheó el DOM ni se cambió la política de DevTools.
+
+### Comprobaciones actuales — PASAN
+
+- gradle :composeApp:assembleDebug :composeApp:testDebugUnitTest :composeApp:wasmJsBrowserDistribution --console=plain: correcto, 4 min 2 s; 7 pruebas UI, APK y Web reconstruidos con la corrección.
+- node --test --test-concurrency=1 kmp/composeApp/browser-tests/comparison-accessibility.test.cjs kmp/composeApp/browser-tests/comparison-transfer.test.cjs: **5 pruebas, 5 pasan, 0 fallos**; última ejecución conjunta 19,24 s.
+- Las cuatro regresiones de accesibilidad fallaron contra 66a78a0 por los nombres ausentes y la desaparición del formulario tras selección. Con el parche pasan en 1280 y 360 px: nombre del campo, entrada de teclado, país/moneda, árbol conservado y reapertura/cierre con Espacio tras devolver foco.
+- Chrome DevTools confirma nombres y formulario conservado después de Colombia; Espacio reabre/cierra el selector. Se capturó también el formulario en 360x800 con mobile/touch.
+- La quinta prueba usa Chrome aislado mediante Playwright ya instalado, con permiso explícito del comando. Introduce dos cotizaciones por UI y lee la descarga real, incluido nombre, tipo y entradas. Edita A a 160, aplica/guarda 1280, rechaza JSON inválido conservándolo e importa el archivo descargado para recuperar 1200. El guardado 1280 permanece hasta Guardar. Tras recarga muestra A1200/B1120; guardar el préstamo anterior después de una recarga no cambia la clave de comparación.
+- DevTools upload_file mantiene su restricción de rutas. El ciclo real de archivos se comprobó mediante el comando Playwright autorizado, sin modificar permisos globales de DevTools.
+- No se repitió shared:jvmTest: el módulo shared no cambió. Sus 115 pruebas de 66a78a0 siguen siendo evidencia vigente del mismo código, distinta de las 7 UI y 5 de navegador ejecutadas ahora.
+
+Reproducción: dependencias raíz instaladas y Vite sirviendo el Wasm actual en 4174. En este equipo NODE_PATH se fijó solo para el comando a C:/Users/Lenovo/Documents/finsim/node_modules para reutilizar dependencias; no hay nueva dependencia ni cambio global.
+
+### Android — cotización y recuperación PASAN
+
+APK instalado mediante adb install -r en emulator-5554, sin borrar datos. UIAutomator confirma los nombres en nodos padre android.view.View y su hijo EditText. Se introdujeron por controles reales país CO, moneda COP, objetivo 1000, A8x150 y B8x140; se aplicó, guardó, hizo force-stop/start de Finsim y abrió Ofertas. Captura y XML fresco confirman A1200/B1120 recuperados. Los campos inicialmente vacíos se comprobaron antes de escribir.
+
+UIAutomator no entregó raíz durante algunos arranques/transiciones. Esos intentos no acreditan el producto; no se utilizó un XML antiguo para declararlos correctos. Después se tomó captura y dump fresco con ambos resultados. No se observó un fallo visible de Finsim en esa comprobación.
+
+### Alcance y pendientes
+
+Los clics de navegador usan force:true porque Compose expone nodos semánticos transparentes sobre canvas. La transferencia usa 1280x5000 para aislarla del desplazamiento: NO demuestra visibilidad ni acceso físico a todos los controles en teléfono compacto.
+
+Los intentos de automatizar el flujo completo con viewport normal no alcanzaron campos fuera de pantalla cuyos bounds accesibles eran 0x0. Esto no demuestra un nuevo defecto de cálculo/importación, ni permite declarar resuelto el desplazamiento accesible. Los scripts esperan el foco del input nativo y verifican el valor en el campo esperado antes de aplicar.
+
+Pendientes: lector real y recorrido completo de teclado/scroll a 360 px, simulación/contexto y transferencia Android, documentos antiguos E2E y audiencia. Sin integración ni despliegue; deuda anterior KMP abierta.
+
+### Revisión final
+
+Standards: 0 incumplimientos documentados nuevos. Spec: 0 hallazgos nuevos en parche y scripts; reconoce corregidos los dos defectos específicos y mantiene límites de móvil/lector. Dos revisores independientes leyeron el diff desde 2b04554 y ambos scripts; no sustituyen las ejecuciones coordinadas.
+
+### Evidencia añadida
+
+En ../../.scratch/financing-offer-comparison/verification/:
+- browser-fields-fixed.txt: nombres y árbol conservado después de Colombia.
+- browser-mobile-fields-fixed.txt y browser-fields-fixed-mobile.jpg: formulario en 360x800.
+- android-accessibility-fixed.xml: etiquetas antes del ingreso.
+- android-quotes-restored.xml y android-current-screen.png: ofertas recuperadas tras reinicio.
+
+Los apartados iniciales pertenecen a 66a78a0 y quedan como historial. Esta continuación describe el comparador en f8551b4.
