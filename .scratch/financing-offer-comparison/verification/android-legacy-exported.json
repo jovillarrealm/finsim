@@ -1,0 +1,24 @@
+{
+    "version": 1,
+    "currency": "COP",
+    "name": "Monedas",
+    "source": "original",
+    "principal": "1000",
+    "startDate": "2026-01",
+    "termMonths": 2,
+    "rate": {
+        "kind": "monthly",
+        "value": "0.01"
+    },
+    "payment": null,
+    "insurance": [],
+    "events": [
+        {
+            "kind": "extra",
+            "id": "e",
+            "month": 1,
+            "amount": "100"
+        }
+    ],
+    "argentinaProfile": null
+}

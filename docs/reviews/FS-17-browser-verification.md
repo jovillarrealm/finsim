@@ -2,7 +2,7 @@
 
 Fecha: 2026-10-14. Rama: task/fs-17-offer-comparison. Código comprobado: 66a78a0 (incluye las correcciones 2063906). Sin integración ni despliegue. Se retomó el handoff de C:/Users/Lenovo/AppData/Local/Temp/finsim-FS17-chrome-devtools-handoff.md.
 
-**Estado posterior:** f8551b4 corrige los dos defectos específicos de accesibilidad. Pasan cinco pruebas de navegador; transferencia real y recuperación Android verificadas. Los apartados iniciales son históricos; véase la continuación al final.
+**Estado posterior:** 49b13fe conserva las correcciones de f8551b4, recupera foco Web y conecta JSON de préstamos. Nueve pruebas de navegador y siete UI pasan; transferencia, simulación y recuperación Android verificadas. Los apartados iniciales son históricos; véanse las continuaciones finales y sus límites de lector/audiencia.
 
 ## Compilación y pruebas — PASA
 
@@ -124,3 +124,68 @@ En ../../.scratch/financing-offer-comparison/verification/:
 - android-quotes-restored.xml y android-current-screen.png: ofertas recuperadas tras reinicio.
 
 Los apartados iniciales pertenecen a 66a78a0 y quedan como historial. Esta continuación describe el comparador en f8551b4.
+
+## Continuación desde el handoff de pendientes — 49b13fe
+
+2026-10-14 · /root, misma reserva y worktree. Sin integración ni despliegue.
+
+### Correcciones y diagnóstico
+
+1. Tab desde un campo retiraba su input HTML; el foco nativo quedaba en body y la siguiente tecla no llegaba a Compose. Se reprodujo en 360x800 y escritorio, con eventos de teclado y foco observados. Coincide con [la corrección upstream CMP-9388 / PR 3246](https://github.com/JetBrains/compose-multiplatform-core/pull/3246). main.kt Wasm espera el shadow root y devuelve foco al canvas únicamente al retirar el input enfocado, sin otro elemento enfocado y con ventana activa. El comentario shortcut fija cuándo retirar el arreglo. No se modifica el árbol semántico ni se actualiza el stack.
+2. La transferencia de préstamos anterior no estaba conectada en KMP: App anunciaba exportación con callback nulo y su importador solo ofrecía extractos. App reutiliza ComparisonFileActions para importar/exportar JSON validado por WorkspaceStore; el nombre de archivo se pasa por llamada. Se conserva Importar extracto como acción separada y se rechaza importación con eventos pendientes. Sin cambios de contrato, motor, persistencia shared ni cálculo.
+
+### Verificación final del código — PASA
+
+- Desde kmp: gradle :composeApp:wasmJsBrowserDistribution :composeApp:assembleDebug :composeApp:testDebugUnitTest --console=plain — correcto, 5 min 2 s. XML: 7 pruebas UI, 0 fallos. Warnings deprecados/bundle conocidos; no errores de compilación.
+- Con NODE_PATH=C:/Users/Lenovo/Documents/finsim/node_modules: node --test --test-concurrency=1 kmp/composeApp/browser-tests/comparison-accessibility.test.cjs kmp/composeApp/browser-tests/comparison-transfer.test.cjs kmp/composeApp/browser-tests/comparison-compact.test.cjs kmp/composeApp/browser-tests/legacy-transfer.test.cjs — **8 pruebas, 8 pasan**, 122,55 s.
+- Las nuevas regresiones de teclado y documento antiguo fallaron antes de la corrección. El script de transferencia existente ahora espera geometría visible y comprueba el borrado completo del campo antes de escribir, para no aceptar 160.001 como 160.
+- shared no cambió respecto a 66a78a0: se conservan sus 115 pruebas previas, sin ejecutarlas de nuevo. git diff --check correcto.
+- DevTools recargó el Wasm actual sin mensajes de error de consola. SHA256 de composeApp.js: C3CB57FC779C6354E24EC8479659BFB922BB6833E44E3F68EFCACB86D3F8FA8D.
+
+### Alcance Web acreditado
+
+La nueva prueba compacta usa 360x800 con mobile/touch, clics físicos dentro de bounds visibles y rueda dentro del contenido; no usa force:true ni modifica localStorage para crear el caso. Completa dos cotizaciones A8x150/B8x140, confirma cargos, añade contexto 600/400/100, aplica y rechaza 150.001 conservando 1200. Corrige a 160, obtiene 1280, guarda 170 pendiente, recarga y recupera aplicado 160/borrador 170, descarta y conserva indicador sin guardar. Desplaza la lista mensual anidada, selecciona mes 1 y comprueba márgenes -60/-40 y ancho360 sin desbordamiento.
+
+La regresión de teclado comprueba salida del campo con Tab, activación/repetición con Espacio, entrada en el siguiente campo y retorno con Shift+Tab. No acredita por sí sola todo el recorrido solo con teclado.
+
+El documento antiguo reproduce el fixture Monedas de tests/acceptance.spec.ts: moneda omitida, capital 1000, EM 1 %, 2 meses y abono 100 en mes 1. Importación real recalcula caja 1014.02; descarga escenario-finsim.json conserva el evento, moneda COP y entradas sin cronogramas derivados. Versión 99 se rechaza conservando datos/guardado y recarga. Esta prueba acredita el schema histórico sintético, no un extracto bancario real.
+
+### Android acreditado hasta aquí
+
+Datos sintéticos originales respaldados antes de alterar. La primera ronda de transferencia/rechazos se ejecutó con el APK f8551b4; el lector de archivos no cambió en 49b13fe. Después se instaló el APK 49b13fe con -r para F06, contexto, redondeo y documento antiguo. Se exportó mediante CreateDocument a Downloads, se leyó el archivo real y se importó mediante OpenDocument. Contiene A8x150/B8x140. JSON inválido, versión99 y archivo de 2.000.001 bytes fueron rechazados; XML fresco confirma A1200/B1120 conservados. Cancelar el selector retorna a las mismas vistas. No se usaron dumps antiguos cuando UIAutomator informó raíz nula.
+
+F06 se introdujo por archivo JSON real desde el selector, seguido de acciones UI: resumen A1015.02/B1000; tabla, desplazamiento y selección común del mes 1. XML fresco acredita A cuota507.51, capital497.51, interés10.00 y saldo502.49; B cuota500/capital500/saldo500; márgenes -407.51 y -400.00. Luego se editó ingreso600→650 por UI, se guardó pendiente y se reinició. La UI recuperó aplicado F06/borrador 650; descartar restauró 600. No se afirma introducción manual completa de todos los campos de la simulación a partir de esta importación.
+
+UIAutomator ocasionalmente devolvió raíz nula tras arranques/transiciones. Se eliminaron dumps de prueba antes de generarlos, se descartaron esos intentos y se obtuvieron captura/XML nuevos. Capturas mostraron la app; logcat AndroidRuntime no mostró excepción en la comprobación realizada. No se atribuye una causa a la plataforma ni se presenta eso como una prueba exhaustiva de estabilidad.
+
+### Límites y siguiente paso
+
+No se ejecutó lector real: no había NVDA en las rutas comprobadas, proceso de lector activo ni TalkBack instalado/activado en el emulador; no se instaló ni se simuló un lector. Narrador de Windows no se probó. Sigue pendiente el recorrido íntegro solo con teclado, el teclado virtual/hardware Web y la observación de una persona destinataria. Se solicitó disponibilidad de audiencia, sin sesión observada ni aprobación inferida.
+
+La revisión local del parche conserva el módulo shared, la validación existente y los límites de alcance. No sustituye una revisión independiente de toda la migración. La deuda anterior de KMP enumerada en FS-17.md sigue abierta. No marcar FS-17, KMP o los diez tickets hechos; revisión/integración y aceptación siguen separadas.
+
+### Redondeo y recuperación Android añadidos
+
+La variante importada de F06 usa capital 100, tasa cero y 3 cuotas. La UI muestra rango 33.33–33.34, total 100 y último mes 3; seleccionar el extremo final del control mensual muestra mes 3, cuota 33.34 y saldo 0.00. Evidencia: android-rounding-summary.xml y android-rounding-month3.xml. El ingreso pendiente 650/restauración 600 tiene XML propio: android-pending-context-restored.xml. Son fixtures sintéticas importadas por el selector y acciones reales de edición/selección; no una referencia contractual.
+
+### Compatibilidad de préstamos en Android — PASA
+
+Con el APK 49b13fe se importó el mismo documento histórico Monedas por OpenDocument. XML fresco muestra cuota COP507,51, intereses COP14,02 y caja COP1.014,02. CreateDocument propone escenario-finsim.json; se eligió el nombre de prueba fs17-legacy-export.json para evitar colisiones. La descarga local del archivo escrito contiene457 bytes y conserva moneda COP y abono extra100. Una lectura anterior al fin del callback encontró el archivo todavía vacío y no se contó como evidencia; la relectura completa validó su contenido.
+
+Evidencia: android-legacy-imported.xml y android-legacy-exported.json. El flujo no guardó el préstamo importado encima del préstamo anterior.
+
+JSON inválido fue rechazado también en la herramienta de préstamos Android, conservando Monedas y caja1014.02 (android-legacy-rejected.xml). Al terminar se cerró/reabrió la app y se compararon todas las claves y valores de SharedPreferences contra el respaldo inicial: coincidencia exacta, sin guardar el préstamo de prueba sobre el anterior. La comparación inicial quedó restaurada explícitamente por importación/guardado antes de ese cierre.
+
+### Recorrido representativo solo con teclado
+
+comparison-keyboard.test.cjs cubre entrada a Ofertas por Tab/Espacio, país/moneda, dos cotizaciones y confirmación de cargos, contexto600/400/100, guardado del borrador y aplicación. Con Shift+Tab abreA, rechaza150.001 sin reemplazar1200, corrige160 y aplica1280. Con flechas selecciona el mes2; con Tab/Espacio abre la tabla, selecciona0 y después1 y lee márgenes -60/-40. Los campos editados y el botón mensual deben estar enteramente dentro del viewport. No se usa clic para el caso final ni se alteran DOM/almacenamiento para completar datos.
+
+La ejecución conjunta de cinco archivos produjo9/9 pruebas correctas en150,55 s. Después se sustituyó la activación inicial por clic del caso de teclado por entrada con Tab/Espacio y se repitió ese caso completo de forma enfocada. No cambió código de producto desde49b13fe y no se repitieron las ocho pruebas sin cambios. La prueba solo reproduce comportamiento observable de teclado en Chrome de escritorio a360x800; no es lector de pantalla ni hardware móvil.
+
+El recorrido representativo de teclado queda acreditado; las menciones anteriores de ese pendiente son históricas. Siguen pendientes lector real, teclado virtual/hardware Web, audiencia y revisión/integración. Los criterios técnicos demostrados de ticket10 están marcados, conservando el ticket abierto y sin cierre de FS-17/KMP.
+
+### Cierre de esta continuación
+
+Caso de teclado final sin clic inicial:1/1 correcto,34,60 s. Las otras ocho pruebas sin cambios conservan la ejecución conjunta9/9 anterior; no hubo modificaciones de producto posteriores a49b13fe. Test de teclado entregado en46531a1. Revisión independiente final de ambos ejes: [informe](FS-17-continuation-review.md), sin defectos nuevos; heurística menor de nombre conservada sin refactor. Lector y audiencia siguen pendientes.
+
+Se retiraron únicamente temporales propios del diagnóstico, el fixture de2MB y el respaldo local de preferencias después de comprobar restauración exacta. Se conservan fixtures sintéticas y evidencia útil en el worktree. El checkout original finsim y sus temporales no se tocaron.
