@@ -13,6 +13,8 @@ Hacer copiables los campos, por ejemplo Cuota base del resumen. Mostrar composic
 - Saldo es una existencia al cierre; capital/intereses pagados son movimientos del periodo. No deben sumarse en una misma pila.
 - Intereses generados y pagados pueden diferir con omisiones/recuperaciones. Un extra puede cubrir primero seguros e intereses; solo su porción destinada a capital es abono a capital.
 - La interfaz permite seleccionar mes y editar eventos; retirar una vista requiere conservar ese recorrido y la alternativa de tabla.
+- El resumen recibe el escenario modificado. La curva empieza en el saldo posterior a M1; sus etiquetas Capital Ahorrado/Deuda evitada nombran una diferencia de saldos, no ahorro financiero. Revisar lenguaje y punto inicial al diseñar.
+- Doble pista agrupa capital de extra y recuperación bajo Extra; comisiones/IVA pueden estar en caja sin segmento actual. El reemplazo debe decidir su representación y mantener seguros posteriores a liquidación visibles.
 
 ## Árbol de decisiones
 
