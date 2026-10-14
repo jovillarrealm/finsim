@@ -90,27 +90,12 @@ private val SAMPLE_ARGENTINA_STATEMENT = """
 /**
  * Main ingestion modal where users select their jurisdiction / regulatory framework,
  * provide the document text (paste, sample, or loaded document), and trigger Tier 1 parsing
- * or on-demand Tier 2 deep local AI extraction with hardware capability gate and storage management.
+ * and review digital statement text before importing. Image inference is unavailable.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DocumentImportDialog(
     targetMode: ImportTargetMode = ImportTargetMode.SCENARIO,
-    capabilityGate: DeviceCapabilityGate = remember { getDeviceCapabilityGate() },
-    downloadManager: ModelDownloadManager = remember(capabilityGate) {
-        ModelDownloadManager(
-            storage = InMemoryModelStorage(),
-            capabilityGate = capabilityGate
-        )
-    },
-    orchestrator: HybridDocumentOrchestrator = remember(capabilityGate, downloadManager) {
-        HybridDocumentOrchestrator(
-            rasterizer = getDefaultPageRasterizer(),
-            vlmRunner = FakeVlmVisionRunner(),
-            capabilityGate = capabilityGate,
-            modelStorage = downloadManager.storage
-        )
-    },
     onDismiss: () -> Unit,
     onScenarioImported: (Scenario) -> Unit = {},
     onStatementRowImported: (StatementRow) -> Unit = {}
@@ -120,18 +105,10 @@ fun DocumentImportDialog(
     var frameworkMenuExpanded by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
     var noticeMessage by remember { mutableStateOf("") }
-    var enableVlmCascade by remember { mutableStateOf(true) }
     var isAnalyzing by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
-    // Dialog & UI states for Tier 2 and Storage
-    var showHardwareWarningDialog by remember { mutableStateOf(false) }
-    var showStorageDeleteConfirmDialog by remember { mutableStateOf(false) }
-    var showTier2Section by remember { mutableStateOf(false) }
-
-    // State holding extracted document data for review sheet
     var reviewData by remember { mutableStateOf<ExtractedDocumentData?>(null) }
-
     val scrollState = rememberScrollState()
 
     if (reviewData != null) {
@@ -152,71 +129,6 @@ fun DocumentImportDialog(
             }
         )
         return
-    }
-
-    if (showHardwareWarningDialog) {
-        HardwareGateWarningDialog(
-            gate = capabilityGate,
-            onDismiss = { showHardwareWarningDialog = false },
-            onContinueWithTier1 = { showHardwareWarningDialog = false }
-        )
-    }
-
-    if (showStorageDeleteConfirmDialog) {
-        Dialog(onDismissRequest = { showStorageDeleteConfirmDialog = false }) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = SurfaceWarm,
-                border = BorderStroke(1.dp, BorderSage),
-                shadowElevation = 8.dp,
-                modifier = Modifier.fillMaxWidth().padding(16.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "Liberar espacio de almacenamiento",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = BrandDark
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "¿Confirmas la eliminación del modelo de IA local Gemma 4 E2B INT4 (~1.1 GB)? Esta acción eliminará físicamente los pesos del dispositivo.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextForestMuted,
-                        lineHeight = 18.sp
-                    )
-                    Spacer(modifier = Modifier.height(18.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = { showStorageDeleteConfirmDialog = false },
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, BorderSage),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Cancelar", color = TextForestMuted)
-                        }
-                        Button(
-                            onClick = {
-                                downloadManager.deleteModel()
-                                showStorageDeleteConfirmDialog = false
-                                noticeMessage = "Modelo local eliminado. Se liberaron ~1.1 GB de espacio."
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = Color.White
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.weight(1.3f)
-                        ) {
-                            Text("Eliminar (~1.1 GB)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
-                    }
-                }
-            }
-        }
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -399,31 +311,6 @@ fun DocumentImportDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // VLM Cascade Toggle
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { enableVlmCascade = !enableVlmCascade },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = enableVlmCascade,
-                        onCheckedChange = { enableVlmCascade = it },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = BrandForest,
-                            checkmarkColor = BrandLime
-                        )
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Si el PDF es escaneado o faltan datos, activar visión local Gemma 4",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = BrandDark
-                    )
-                }
-
                 if (errorMessage.isNotBlank()) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Surface(
@@ -457,108 +344,7 @@ fun DocumentImportDialog(
                     }
                 }
 
-                // Storage Management banner if model is downloaded
-                if (downloadManager.isModelDownloaded()) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Surface(
-                        color = SurfaceHighlight,
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, BorderSage),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Modelo local instalado (Gemma 4 E2B)",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = BrandDark
-                                )
-                                Text(
-                                    text = "Almacenamiento ocupado: ~1.1 GB en este dispositivo",
-                                    fontSize = 11.sp,
-                                    color = TextForestMuted
-                                )
-                            }
-                            OutlinedButton(
-                                onClick = { showStorageDeleteConfirmDialog = true },
-                                shape = RoundedCornerShape(8.dp),
-                                border = BorderStroke(1.dp, BorderSage),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                Text(
-                                    text = "Liberar espacio (~1.1 GB)",
-                                    color = BrandForest,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Tier 2 Deep Local AI option / expandable download card
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    color = if (showTier2Section) SurfaceHighlight else Color.Transparent,
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, BorderSage),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "¿PDF escaneado o sin texto seleccionable?",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = BrandDark
-                                )
-                                Text(
-                                    text = "Extracción por IA visual profunda local (Tier 2 · ~1.1 GB)",
-                                    fontSize = 11.sp,
-                                    color = TextForestMuted
-                                )
-                            }
-                            TextButton(
-                                onClick = {
-                                    if (!capabilityGate.isEligibleForVlm) {
-                                        showHardwareWarningDialog = true
-                                    } else {
-                                        showTier2Section = !showTier2Section
-                                    }
-                                }
-                            ) {
-                                Text(
-                                    text = if (showTier2Section) "Ocultar" else "IA visual (Tier 2)",
-                                    color = BrandForest,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp
-                                )
-                            }
-                        }
-
-                        if (showTier2Section) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            ModelDownloadProgressCard(
-                                manager = downloadManager,
-                                onModelDeleted = {
-                                    noticeMessage = "Modelo eliminado exitosamente (~1.1 GB liberados)."
-                                }
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
+                Text("El análisis visual de imágenes no está disponible. Pega texto seleccionable y revisa los datos antes de importar.")
 
                 // Actions: Cancel & Analyze
                 Row(
@@ -580,7 +366,7 @@ fun DocumentImportDialog(
                                 isAnalyzing = true
                                 errorMessage = ""
                                 try {
-                                    if (!enableVlmCascade) {
+
                                         if (rawText.isBlank()) {
                                             errorMessage = "Pega o carga el texto del extracto para continuar."
                                             return@launch
@@ -594,33 +380,6 @@ fun DocumentImportDialog(
                                         val bestPageText = pages[bestPageIndex - 1]
                                         reviewData = DocumentTextParser.parse(bestPageText, selectedFramework, bestPageIndex)
                                         return@launch
-                                    }
-
-                                    val pdfBytes = rawText.encodeToByteArray()
-                                    val result = orchestrator.processDocument(
-                                        pdfBytes = pdfBytes,
-                                        rawText = rawText,
-                                        framework = selectedFramework,
-                                        targetMode = targetMode,
-                                        forceTier2 = rawText.isBlank()
-                                    )
-
-                                    when (result) {
-                                        is OrchestrationResult.Success -> {
-                                            reviewData = result.data
-                                        }
-                                        is OrchestrationResult.RequiresModelDownload -> {
-                                            showTier2Section = true
-                                            errorMessage = result.message
-                                        }
-                                        is OrchestrationResult.HardwareRestricted -> {
-                                            showHardwareWarningDialog = true
-                                            errorMessage = result.reason
-                                        }
-                                        is OrchestrationResult.Error -> {
-                                            errorMessage = result.message
-                                        }
-                                    }
                                 } catch (e: Exception) {
                                     errorMessage = "Error al procesar el extracto: ${e.message}"
                                 } finally {

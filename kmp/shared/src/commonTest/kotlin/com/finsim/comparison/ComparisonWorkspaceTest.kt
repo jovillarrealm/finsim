@@ -311,4 +311,41 @@ class ComparisonWorkspaceTest {
         assertEquals("0.00", w.state.result!!.offers[0].rows.first { it.month == 1 }.extra)
     }
 
+
+    @Test fun unknownInstallmentDoesNotBecomeANegativeSubtotalWhenExistingFeeIsIncluded() {
+        val w = ComparisonWorkspace(InMemoryScenarioStorage())
+        w.edit(ComparisonDraft(country = Country.CO, currency = com.finsim.domain.Currency.COP, cashGoal = Datum("100"),
+            offers = listOf(Offer("A", count = "1", chargesConfirmed = true,
+                fees = listOf(Fee("existing", existing = true, amount = Datum("20"), treatment = FeeTreatment.INCLUDED))), Offer("B"))))
+        assertTrue(w.apply())
+        assertEquals("0.00", w.state.result!!.offers[0].knownTotal)
+        assertEquals("0.00", w.state.result!!.offers[0].rows.first { it.month == 1 }.cash)
+        assertNull(w.state.result!!.offers[0].financeCost)
+    }
+
+    @Test fun discardingSavedPendingEditsMarksTheChangedDocumentUnsaved() {
+        val storage = InMemoryScenarioStorage()
+        val w = ComparisonWorkspace(storage)
+        w.edit(ComparisonDraft(cashGoal = Datum("100")))
+        assertTrue(w.apply())
+        w.edit(w.state.draft.copy(cashGoal = Datum("200")))
+        assertTrue(w.save())
+        assertFalse(w.state.isDirty)
+        w.discard()
+        assertTrue(w.state.isDirty)
+        assertEquals("100", w.state.draft.cashGoal.text)
+        assertTrue(w.save())
+        assertEquals("100", ComparisonWorkspace(storage).state.draft.cashGoal.text)
+    }
+
+    @Test fun knownCompatiblePaymentAbsorbsOnlyRoundingResidueAtMaturity() {
+        val w = ComparisonWorkspace(InMemoryScenarioStorage())
+        w.edit(ComparisonDraft(country = Country.CO, currency = com.finsim.domain.Currency.COP, cashGoal = Datum("100"),
+            offers = listOf(Offer("A", mode = OfferMode.SIMULATION, principal = Datum("100"), rate = Datum("0"), count = "3",
+                payment = Datum("33.33"), chargesConfirmed = true), Offer("B"))))
+        assertTrue(w.apply())
+        assertEquals(listOf("33.33", "33.33", "33.34"), w.state.result!!.offers[0].rows.filter { it.installment }.map { it.payment })
+        assertEquals(3, w.state.result!!.offers[0].lastMonth)
+    }
+
 }

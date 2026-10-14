@@ -174,7 +174,7 @@ class AmortizationAccount private constructor(
 
         // 4. Calculate scheduled payment offer
         var scheduledOffer = if (paidOff) currentInsurance else Decimal.min(basePayment + currentInsurance, totalDebt())
-        if (!terms.isPaymentExplicit && input.month == terms.termMonths && wasCurrent && !paidOff &&
+        if ((!terms.isPaymentExplicit || basePayment == calculateAnnuityBase(terms.principal, terms.monthlyRate, terms.termMonths)) && input.month == terms.termMonths && wasCurrent && !paidOff &&
             totalDebt() <= (Decimal.max(basePayment, referenceDue) + currentInsurance)
         ) {
             scheduledOffer = totalDebt()

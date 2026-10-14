@@ -266,6 +266,11 @@ private fun calculateAtHorizon(d: ComparisonDraft, minimumHorizon: Int): Compari
         var accounting = if (d.need == Need.PURCHASE)
             expectedPrincipal != null && expectedPrincipal.isPositive && (principal == null || principal.compareTo(expectedPrincipal) == 0)
             else net != null && net.isPositive && (derivedNet == null || amount(o.net) == null || derivedNet.compareTo(amount(o.net)!!) == 0)
+        if (simulation != null && !simulation.complete) warnings.add("Modelo incompleto. Deuda remanente: " + simulation.remainingDebt)
+        if (simulation?.payoffMonth != null && o.payment.text.isNotEmpty() && simulation.payoffMonth != n) {
+            accounting = false
+            warnings.add("La cuota conocida no coincide con el plazo declarado; el modelo liquida en el mes " + simulation.payoffMonth + ". Revisa cuota y plazo.")
+        }
         if (!accounting) warnings.add("Revisa capital, cargos y efectivo neto; no se ajustaron tus datos.")
         val allFeesKnown = o.fees.filter { !it.existing || it.treatment == FeeTreatment.INCLUDED }.all { !it.needsReview && amount(it.amount) != null && (!it.recurring || it.end.isNotEmpty()) }
         val ownHorizon = maxOf(paymentRows.maxOfOrNull { it.month } ?: 0,
@@ -292,7 +297,7 @@ private fun calculateAtHorizon(d: ComparisonDraft, minimumHorizon: Int): Compari
             if (excluded != null && payment != null) require(excluded <= Decimal.parse(payment)) { "El cargo preexistente incluido supera la cuota en el mes " + month }
             val uncertain = !o.chargesConfirmed || o.requiresPaymentReview || fees.filter { !it.existing || it.treatment == FeeTreatment.INCLUDED }
                 .any { it.needsReview || amount(it.amount) == null || (it.recurring && it.end.isEmpty()) }
-            val cash = (if (excluded != null) Decimal.parse(payment ?: "0") - excluded else Decimal.ZERO) + initial + extra
+            val cash = (if (excluded != null && payment != null) Decimal.parse(payment) - excluded else Decimal.ZERO) + initial + extra
             val context = d.context
             val common = commonExisting.filter { feeActive(it, month) }
             val margin = if (context != null && payment != null && excluded != null && !uncertain &&
@@ -303,7 +308,7 @@ private fun calculateAtHorizon(d: ComparisonDraft, minimumHorizon: Int): Compari
                     cash).toFixed()
             } else null
             (p ?: CashRow(month, payment)).copy(payment = payment, initial = initial.toFixed(), extra = extra.toFixed(),
-                uncertain = uncertain, excludedPreexisting = excluded?.toFixed(), cash = cash.toFixed(), installment = p != null, margin = margin)
+                uncertain = uncertain, excludedPreexisting = excluded?.toFixed(), cash = cash.toFixed(), installment = p != null && (o.mode == OfferMode.QUOTE || simulation?.payoffMonth == null || month <= simulation.payoffMonth + first - 1), margin = margin)
 
         }
         val total = rows.fold(Decimal.ZERO) { a, r -> a + Decimal.parse(r.cash) }
@@ -418,5 +423,8 @@ class ComparisonWorkspace(private val storage: ScenarioStorage) {
             true
         } catch (e: Exception) { state = state.copy(message = e.message ?: "No se pudo calcular."); false }
     }
-    fun discard() { state = state.copy(draft = state.applied ?: ComparisonDraft(), errors = emptyMap()) }
+    fun discard() {
+        val restored = state.applied ?: ComparisonDraft()
+        state = state.copy(draft = restored, errors = emptyMap(), isDirty = state.isDirty || state.draft != restored)
+    }
 }

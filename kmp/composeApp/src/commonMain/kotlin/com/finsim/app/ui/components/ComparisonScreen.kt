@@ -253,16 +253,18 @@ internal fun ComparisonResults(result: ComparisonResult, applied: ComparisonDraf
     Canvas(Modifier.fillMaxWidth().height(180.dp).semantics { contentDescription = "Salidas mensuales de A y B con la misma escala. Consulta el detalle textual debajo." }
         .pointerInput(result) { detectTapGestures { selected = ((it.x / size.width) * (result.horizon + 1)).toInt().coerceIn(0, result.horizon) } }) {
         val column = size.width / (result.horizon + 1)
-        if (max.isPositive) result.offers.forEachIndexed { offer, resultOffer ->
+        result.offers.forEachIndexed { offer, resultOffer ->
             resultOffer.rows.forEach { row ->
-                val height = ((Decimal.parse(row.cash) / max).toString().toFloat()).coerceIn(0f, 1f) * size.height
+                val height = if (max.isPositive) ((Decimal.parse(row.cash) / max).toString().toFloat()).coerceIn(0f, 1f) * (size.height - 12f) else 0f
                 drawRect(if (offer == 0) Color(0xFF315D43) else Color(0xFF8D630C),
                     topLeft = Offset(column * (row.month + offer * 0.45f), size.height - height),
                     size = Size(column * 0.4f, height))
+                if (row.uncertain || row.payment == null) drawCircle(Color(0xFF9A4200), radius = 3f,
+                    center = Offset(column * (row.month + offer * 0.45f + 0.2f), size.height - height - 6f))
             }
         }
     }
-    Text("Mes 0 (inicial) → mes " + result.horizon + " · verde A / ocre B; valores accesibles debajo.")
+    Text("Mes 0 (inicial) → mes " + result.horizon + " · verde A / ocre B; barras = salidas nuevas conocidas, círculo = información incompleta. Detalle accesible debajo.")
     Text("Mes seleccionado: " + selectedMonth)
     Slider(value = selectedMonth.toFloat(), onValueChange = { selected = it.roundToInt() },
         steps = maxOf(0, result.horizon - 1), valueRange = 0f..maxOf(1, result.horizon).toFloat(),
