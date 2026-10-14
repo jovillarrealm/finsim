@@ -8,16 +8,21 @@ before(async () => { browser = await chromium.launch({ channel: 'chrome', headle
 after(async () => { await browser?.close(); });
 
 async function click(page, name) {
-  await page.getByRole('button', { name, exact: true }).click({ force: true });
-  await page.waitForTimeout(100); // Allow the Compose accessibility geometry to follow the rendered frame.
+  const button = page.getByRole('button', { name, exact: true });
+  await expect(button).toBeVisible();
+  await button.click({ force: true });
+  await page.waitForTimeout(300); // Allow the Compose accessibility geometry to follow the rendered frame.
 }
 async function enter(page, name, value) {
   const field = page.getByRole('textbox', { name, exact: true });
   await field.click({ force: true });
   await page.waitForTimeout(100); // Wait for Compose to focus its backing input.
   await page.keyboard.press('Control+A');
+  await page.waitForTimeout(150);
+  await page.keyboard.press('Backspace');
+  await expect(field).toHaveText('');
   await page.keyboard.insertText(value);
-  await expect(field).toContainText(value);
+  await expect(field).toHaveText(value);
 }
 async function importFile(page, file) {
   const chooser = page.waitForEvent('filechooser');

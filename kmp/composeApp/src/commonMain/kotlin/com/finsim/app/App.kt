@@ -35,9 +35,7 @@ typealias Workspace = WorkspaceState
 @Composable
 fun App(
     storage: ScenarioStorage = remember { InMemoryScenarioStorage() },
-    store: WorkspaceStore = remember(storage) { WorkspaceStore(storage) },
-    onExportJson: ((String) -> Unit)? = null,
-    onImportJsonRequest: (() -> Unit)? = null
+    store: WorkspaceStore = remember(storage) { WorkspaceStore(storage) }
 ) {
     val comparisonStore = remember(storage) { com.finsim.comparison.ComparisonWorkspace(storage) }
     var workspace by remember(store) { mutableStateOf(store.state) }
@@ -196,20 +194,6 @@ fun App(
                         }
                     }
 
-                    val handleExport = {
-                        store.exportJson().fold(
-                            onSuccess = { json ->
-                                FinsimLog.ui.i { "Exportando copia JSON de '${workspace.scenario.name}' (${json.length} chars)" }
-                                onExportJson?.invoke(json)
-                                noticeMessage = "Copia JSON exportada."
-                                errorMessage = ""
-                            },
-                            onFailure = { err ->
-                                errorMessage = err.message ?: "Error al exportar."
-                            }
-                        )
-                    }
-
                     val handleResetExample = {
                         val outcome = store.resetToExample()
                         workspace = store.state
@@ -271,7 +255,6 @@ fun App(
                                         ScenarioActionButtons(
                                             enabled = !workspace.hasPendingDraft,
                                             onSave = handleSave,
-                                            onExport = handleExport,
                                             onResetExample = handleResetExample,
                                             onImport = { showImportDialog = true }
                                         )
@@ -306,13 +289,32 @@ fun App(
                                         ScenarioActionButtons(
                                             enabled = !workspace.hasPendingDraft,
                                             onSave = handleSave,
-                                            onExport = handleExport,
                                             onResetExample = handleResetExample,
                                             onImport = { showImportDialog = true }
                                         )
                                     }
                                 }
                             }
+
+                        ComparisonFileActions(
+                            fileName = "escenario-finsim.json",
+                            exportJson = { store.exportJson() },
+                            importJson = { text ->
+                                val outcome = if (workspace.hasPendingDraft) {
+                                    WorkspaceOutcome.Failure("Aplica o descarta los eventos pendientes antes de importar.")
+                                } else store.importJson(text)
+                                workspace = store.state
+                                when (outcome) {
+                                    is WorkspaceOutcome.Success -> {
+                                        selectedMonth = 1
+                                        errorMessage = ""
+                                    }
+                                    is WorkspaceOutcome.Failure -> errorMessage = outcome.error
+                                }
+                                outcome.isSuccess
+                            },
+                            onMessage = { noticeMessage = it }
+                        )
 
                         if (workspace.hasPendingDraft) {
                             Spacer(modifier = Modifier.height(8.dp))
@@ -550,7 +552,6 @@ fun App(
 private fun ScenarioActionButtons(
     enabled: Boolean,
     onSave: () -> Unit,
-    onExport: () -> Unit,
     onResetExample: () -> Unit,
     onImport: () -> Unit
 ) {
@@ -562,17 +563,6 @@ private fun ScenarioActionButtons(
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Text("Guardar", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
-    }
-
-    OutlinedButton(
-        onClick = onExport,
-        enabled = enabled,
-        shape = RoundedCornerShape(8.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandForest),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-    ) {
-        Text("Exportar", fontSize = 12.sp, color = BrandForest, maxLines = 1)
     }
 
     Button(
@@ -596,6 +586,6 @@ private fun ScenarioActionButtons(
         colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandForest),
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
     ) {
-        Text("Importar", fontSize = 12.sp, color = BrandForest, maxLines = 1)
+        Text("Importar extracto", fontSize = 12.sp, color = BrandForest, maxLines = 1)
     }
 }

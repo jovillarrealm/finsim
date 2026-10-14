@@ -10,6 +10,7 @@ import java.io.ByteArrayOutputStream
 
 @Composable
 actual fun ComparisonFileActions(
+    fileName: String,
     exportJson: () -> Result<String>,
     importJson: (String) -> Boolean,
     onMessage: (String) -> Unit
@@ -50,7 +51,7 @@ actual fun ComparisonFileActions(
         }
     }
     OutlinedButton(onClick = {
-        exportJson().fold(onSuccess = { pendingExport = it; create.launch("comparacion-finsim.json") },
+        exportJson().fold(onSuccess = { pendingExport = it; create.launch(fileName) },
             onFailure = { currentMessage(it.message ?: "Corrige el borrador antes de exportar.") })
     }) { Text("Exportar archivo JSON") }
     OutlinedButton(onClick = { open.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) { Text("Importar archivo JSON") }

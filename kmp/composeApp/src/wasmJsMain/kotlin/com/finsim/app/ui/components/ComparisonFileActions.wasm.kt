@@ -5,12 +5,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import kotlin.js.js
 
-private fun downloadComparison(text: String, onError: (String) -> Unit): Unit = js("""{
+private fun downloadComparison(text: String, fileName: String, onError: (String) -> Unit): Unit = js("""{
     try {
         const link = document.createElement('a');
         const url = URL.createObjectURL(new Blob([text], {type: 'application/json'}));
         link.href = url;
-        link.download = 'comparacion-finsim.json';
+        link.download = fileName;
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -40,6 +40,7 @@ private fun openComparison(consume: (String) -> Unit, onError: (String) -> Unit)
 
 @Composable
 actual fun ComparisonFileActions(
+    fileName: String,
     exportJson: () -> Result<String>,
     importJson: (String) -> Boolean,
     onMessage: (String) -> Unit
@@ -47,7 +48,7 @@ actual fun ComparisonFileActions(
     val currentImport by rememberUpdatedState(importJson)
     val currentMessage by rememberUpdatedState(onMessage)
     OutlinedButton(onClick = {
-        exportJson().fold(onSuccess = { downloadComparison(it, currentMessage) },
+        exportJson().fold(onSuccess = { downloadComparison(it, fileName, currentMessage) },
             onFailure = { currentMessage(it.message ?: "Corrige el borrador antes de exportar.") })
     }) { Text("Exportar archivo JSON") }
     OutlinedButton(onClick = {
