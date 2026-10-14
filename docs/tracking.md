@@ -109,3 +109,7 @@ Para coordinar: «Revisa entregas en revisión, integra una por vez, verifica y 
 ## FS-15 · Gráficos verticales
 
 2026-09-21 · hecha · /root · codex/fs-15-charts · worktree hermano finsim-fs15. Original encima de modificado, ambos a ancho completo.
+
+## FS-17 — Comparador de ofertas de financiación
+
+2026-10-14 · en curso · coordinadora /root · task/fs-17-offer-comparison · C:/Users/Lenovo/Documents/finsim-fs17. Diez tickets aprobados en .scratch/financing-offer-comparison/issues. Reserva desde main ac7b763; el worktree incorporará feat/kmp-migration 6b57c04 como dependencia canónica KMP todavía en revisión. No se cierran KMP ni criterios de aceptación anteriores. Solo esta sesión escribe el worktree.
