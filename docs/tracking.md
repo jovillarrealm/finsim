@@ -119,3 +119,5 @@ Entrega en rama: f8551b4 corrige nombres accesibles y árbol Web bloqueado tras 
 Pendientes: recorrido compacto completo y lector real; simulación/contexto/transferencia Android; documentos antiguos E2E y audiencia. La ventana amplia y los clicks force:true de las pruebas no acreditan todo el flujo móvil. La deuda anterior de KMP sigue abierta.
 
 Continuidad vigente en el worktree asignado: docs/tasks/FS-17.md y docs/reviews/FS-17-browser-verification.md. La ficha y el handoff conservados en main antes de esta entrega describen un estado anterior; consultar la rama de tarea para retomar. Solo la coordinadora modifica este tablero.
+
+2026-10-14 · /root · pendientes consolidados en [handoff vigente](C:/Users/Lenovo/AppData/Local/Temp/finsim-FS17-pendientes-handoff.md), que sustituye el handoff anterior de Chrome DevTools. Reserva y estado en revisión conservados; sin nuevas pruebas, integración ni publicación. El documento reside en TEMP; la ficha viva conserva el enlace y el siguiente paso.
