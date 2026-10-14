@@ -4,7 +4,7 @@
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] La necesidad de compra identifica una misma adquisición y permite precio, descuento conocido y aporte propio por oferta. Se admiten préstamo personal y compra aislada con tarjeta; no saldo rotativo, mínimos ni nuevas compras.
 - [ ] Se comprueba capital igual a precio menos aporte más cargos financiados/descontados que deba cubrir. Una discrepancia conserva el borrador y explica qué revisar; no corrige silenciosamente el precio.

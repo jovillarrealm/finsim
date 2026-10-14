@@ -4,7 +4,7 @@
 
 **Blocked by:** 07, 08, 09
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] En Android y Web se ejecutan flujos representativos de cotización y simulación: dos ofertas, edición/aplicación, gráfico y tabla, contexto opcional, guardado de pendientes y recuperación.
 - [ ] En teléfono compacto se puede introducir y revisar información sin recortes ni controles amontonados. Las ofertas pueden apilarse conservando escala, meses y selección común.
