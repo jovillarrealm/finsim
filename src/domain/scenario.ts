@@ -1,3 +1,17 @@
+/**
+ * @deprecated LEGACY MODULE — Frozen for web prototype baseline verification.
+ *
+ * CANONICAL SEAM DOCUMENTATION:
+ * The canonical module for scenario definitions, domain types, and financial schemas is
+ * `:shared` (`kmp/shared/src/commonMain/kotlin/com/finsim/domain/Scenario.kt`).
+ *
+ * Architecture rationale (see docs/adr/0001-canonical-kmp-shared-engine.md):
+ * Maintaining parallel calculation modules caused divergence (e.g. Argentine prepayment rules,
+ * document ingestion, and lot drafting exist solely in `:shared`).
+ * To ensure locality and leverage across targets (Android DEX and Web WasmJs/JS), all new
+ * domain capabilities must target the canonical `:shared` module interface at the canonical seam.
+ */
+
 import Decimal from 'decimal.js';
 import { z } from 'zod';
 

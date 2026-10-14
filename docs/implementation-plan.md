@@ -112,6 +112,21 @@ Preparación paralela permitida desde FS-01 usando el contrato `MonthRow` y refe
 
 Descomponer entonces la entrega: mismo capital/aportes/horizonte, costos, retiros, liquidez, reinversión o efectivo del CDT y cambio editable para ETF. Mantener los rendimientos como supuestos; sin datos en vivo ni replay histórico. La primera versión no depende de esta tarea.
 
+### Extensión: Ingesta de Documentos en Edge
+
+**FS-15 · Ingesta y análisis de extractos bancarios en edge (Pipeline Híbrido).** Depende de KMP y persistencia local.
+
+Especificación completa en [docs/specs/HYBRID-DOCUMENT-INGESTION.md](specs/HYBRID-DOCUMENT-INGESTION.md).
+
+- Implementar pipeline híbrido en cascada:
+  1. Selector previo de país/marco regulatorio.
+  2. Rasterizado de páginas a 150 DPI y escaneo rápido de texto plano (Tier 1: 0 MB).
+  3. Puerta de hardware (bloqueo estricto si RAM < 6 GB para evitar LMKD).
+  4. Descarga bajo demanda de motor de visión local (Gemma 4 E2B en INT4, ~1.1 GB) vía LiteRT-LM en Android / WebLLM en Web, con opción explícita de liberación de espacio.
+  5. Decodificación restringida mediante esquema JSON y hoja de revisión editable antes de mutar el escenario o conciliación.
+- Responsabilidad: `kmp/shared/src/commonMain/kotlin/com/finsim/ingestion/` y componentes de interfaz en `kmp/composeApp/`.
+- Cierre: extracción verificada de extractos bancarios sin plantillas fijas, 100% en edge sin servicios de terceros, preservación del APK base en ~25 MB y pruebas unitarias de contratos.
+
 ## Paralelismo permitido
 
 1. FS-00 y FS-01 se integran secuencialmente antes de abrir consumidores.
