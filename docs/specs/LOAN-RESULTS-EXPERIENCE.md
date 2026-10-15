@@ -1,6 +1,6 @@
 # FS-18 — Resultados copiables y gráfico unificado del préstamo
 
-Estado: entrevista abierta, 2026-10-14. Ninguna propuesta de esta nota está aprobada todavía. Referencia: UI KMP de FS-17 en f49a64f; convenciones financieras vigentes. No se modifica código durante el grill.
+Estado: entrevista abierta, 2026-10-14. Primera ronda respondida; acuerdos parciales y decisiones pendientes distinguidos abajo. Referencia: UI KMP de FS-17 en f49a64f; convenciones financieras vigentes. No se modifica código durante el grill.
 
 ## Solicitud
 
@@ -18,11 +18,17 @@ Hacer copiables los campos, por ejemplo Cuota base del resumen. Mostrar composic
 
 ## Árbol de decisiones
 
-Primera frontera (sin respuestas todavía):
+Primera frontera (respondida):
 
-1. Copia: selección de texto, acción de copiar el valor completo o ambas; alcance de los resultados copiables.
-2. Composición: pagos mensuales o acumulados; su relación visual con saldo de capital.
-3. Comparación: escenario modificado como foco con original opcional, o ambos siempre visibles.
+1. Copia: el usuario confirma utilidad de acción de copia en varias partes. Ubicaciones y formato pendientes; selección libre no confirmada.
+2. Composición: confirma pagos mensuales, no acumulados.
+3. Presentación: solicita segundo gráfico debajo del saldo, con barras verticales que desglosen interés/capital por cuota; propone sustituir también la línea de saldo por barras verticales. Visibilidad de escenarios aún pendiente.
+
+Segunda frontera:
+
+1. Comparación y filtros: cómo representar original/modificado en ambos gráficos y qué se puede ocultar.
+2. Alcance del pago: cuota habitual frente a todo lo pagado en el mes, incluyendo abonos y recuperaciones; conservar su distinción.
+3. Copia: lugares concretos y formato del importe pegado.
 
 Después de resolver la frontera:
 
@@ -34,7 +40,12 @@ Después de resolver la frontera:
 
 ## Decisiones acordadas
 
-Ninguna aún. Incorporar respuestas aquí conforme se resuelvan. Actualizar glosario solo al fijar términos; no requiere ADR por ahora.
+- Acción de copia disponible en varias partes; no limitarla a Cuota base. Lugares concretos pendientes.
+- Composición de pagos de cada mes, no de acumulados.
+- Dos gráficos uno debajo del otro: saldo de capital arriba; composición mensual abajo mediante barras verticales apiladas.
+- Cambiar también saldo a barras verticales, conforme a la propuesta del usuario. Mostrar cierres mensuales discretos; no interpolar un saldo diario que el motor no calcula.
+- Todavía no está acordado cómo mostrar original/modificado, cuáles capas estarán activas, si los abonos integran la barra ni el formato de copia. La alineación temporal entre gráficos es una recomendación pendiente de concretar.
+- Retirada de doble pista sigue condicionada a conservar inspección/edición y representación financiera, con criterios de aceptación por acordar. No requiere ADR por ahora.
 
 ## Límites
 
