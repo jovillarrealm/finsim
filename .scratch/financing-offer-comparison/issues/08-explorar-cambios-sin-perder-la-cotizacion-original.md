@@ -4,7 +4,7 @@
 
 **Blocked by:** 02, 04
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] La cotización original sigue identificable y separada de las entradas hipotéticas. Se pueden modificar monto, plazo, tasa y cargos en ambos modos y en los productos disponibles.
 - [ ] Aplicar actualiza conjuntamente todas las vistas desde una instantánea; descartar recupera las entradas aplicadas. Una edición inválida conserva el trabajo y muestra error junto al campo.

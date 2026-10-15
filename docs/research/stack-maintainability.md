@@ -50,3 +50,29 @@ GitHub Pages can host either the TypeScript build or Leptos Wasm files. Configur
 Keep loan and investment calculations separate, sharing only meaningful primitives such as rates and cash-flow records. Defer a generic simulation framework, global state library, monorepo, backend, and native packaging until a concrete need appears. A browser-independent TypeScript engine still allows other interfaces; Tauri supports existing static web frontends, although native packaging brings its own toolchain later. [Tauri frontend configuration](https://v2.tauri.app/start/frontend/).
 
 Choose Leptos if Rust learning or Rust-only maintenance is an explicit project objective and a chart prototype succeeds. Choose the hybrid only after a measured computational bottleneck, an existing Rust engine worth reusing, or a concrete independent native consumer justifies its boundary. Choose Svelte if its authoring model is materially preferred. None of those conditions is currently established.
+
+## Addendum: Kotlin Multiplatform Migration and Canonical `:shared` Consolidation
+
+Date: 2026-10-12.
+
+### Retrospective on the Initial Stack Assessment
+The initial assessment (2026-09-13) recommended TypeScript + React + Vite for a single-target, browser-only simulation tool. That decision provided low friction during initial prototyping. However, as the product expanded to native mobile (Android APK with offline operation and edge document ingestion) alongside the web, maintaining parallel stacks introduced architectural divergence.
+
+Specifically, financial calculation logic evolved in two directions:
+1. The TypeScript calculation module in `src/engine/` and `src/domain/`.
+2. The Kotlin Multiplatform module in `kmp/shared/`.
+
+Because regulatory extensions (such as the Argentine Prepayment Profile), structured edge document ingestion pipelines (Tier 1 text parsing and Tier 2 VLM inference), and multiplatform structured logging were implemented in Kotlin Multiplatform, maintaining the parallel TypeScript implementation required duplicate verification and risked subtle divergence across financial conventions.
+
+### Consolidation of `:shared` as the Canonical Seam
+To restore locality and maximize caller leverage, Kotlin Multiplatform `:shared` is formally designated as the sole canonical calculation module for all deployment targets:
+- **Android Target**: Compiled directly to JVM bytecode / DEX and rendered via Compose Multiplatform.
+- **Web Target**: Compiled to WebAssembly (`wasmJs`) and JavaScript (`js`) and rendered via Compose Multiplatform with Skiko and Binaryen, providing a uniform runtime without requiring a duplicated TypeScript engine.
+- **Legacy TypeScript Modules**: `src/engine/` and `src/domain/` are marked `@deprecated` and frozen. They are retained strictly as a baseline regression test harness for legacy web prototype comparisons.
+
+### Architectural Evaluation
+- **Depth**: The `:shared` module presents a compact interface (`simulateLoan`, `toMonthlyRate`, `convertRate`, `AmortizationAccount`) while hiding deep implementations: 40-digit arbitrary-precision arithmetic (`com.finsim.core.Decimal`), multi-tier regulatory prepayment policies, in-process ledger accounting, and on-device document extraction.
+- **Leverage**: Multiplatform callers across Android and Web share the exact same calculation implementation without code duplication, ensuring identical decimal precision and identical schedule generation across platforms.
+- **Locality**: All financial conventions, imputation orderings, insurance stopping rules, and regulatory adapters reside in a single place (`kmp/shared/src/commonMain/kotlin/com/finsim/`). Maintenance and auditing occur in one module rather than across disconnected languages.
+- **Test Surface**: Multiplatform tests (`:shared:jvmTest`, `commonTest`) serve as the primary invariant test surface, validating parity corpuses, loan simulation invariants, and rate conversion precision.
+

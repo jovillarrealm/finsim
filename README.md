@@ -1,6 +1,6 @@
 # Finsim
 
-Simulador educativo de préstamos. React y TypeScript con cálculos independientes de la interfaz.
+Simulador educativo de préstamos y comparación de ofertas. La versión para pruebas con audiencia usa Kotlin Multiplatform (Web y Android); la aplicación React anterior se conserva en `src/`.
 
 ## Desarrollo
 
@@ -40,6 +40,8 @@ Los datos se guardan solo en el navegador. Exportar genera una copia portátil; 
 
 Sitio: https://jovillarrealm.github.io/finsim/
 
-`.github/workflows/pages.yml` se ejecuta manualmente desde Actions en https://github.com/jovillarrealm/finsim. No publica por cada commit. Instala dependencias, ejecuta las pruebas y construye antes de desplegar.
+`.github/workflows/pages.yml` se ejecuta manualmente desde Actions en https://github.com/jovillarrealm/finsim. No publica por cada commit. Construye la aplicación KMP con Java 21 y Gradle 8.11.1, ejecuta las pruebas shared/UI y los nueve recorridos de navegador bajo `/finsim/` antes de desplegar. `version.json` identifica el commit publicado. No requiere claves de firma Android para publicar Web; las compilaciones Android release conservan la validación de firma.
+
+La publicación para pruebas conserva pendientes la observación de audiencia y el lector real; no acredita aceptación completa ni fidelidad bancaria. Los comandos de desarrollo React anteriores siguen sirviendo a la aplicación anterior. Para construir KMP: `gradle -p kmp :composeApp:wasmJsBrowserDistribution`; para verificar: `gradle -p kmp :shared:jvmTest :composeApp:testDebugUnitTest` (Java 21, Gradle 8.11.1 y Android SDK 36).
 
 Consulta [el plan](docs/implementation-plan.md), [el tracking](docs/tracking.md) y [las convenciones financieras](docs/financial-conventions.md) antes de modificar cálculos.

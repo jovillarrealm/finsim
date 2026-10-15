@@ -1,0 +1,7 @@
+Emulating viewport: {"deviceScaleFactor":1,"isMobile":false,"hasTouch":false,"isLandscape":false,"width":1280,"height":900}
+## Latest page snapshot
+uid=60_0 RootWebArea "finsim · Tu laboratorio financiero" url="http://127.0.0.1:4174/"
+  uid=60_1 generic focusable focused
+  uid=60_2 generic live="polite" relevant="additions text"
+    uid=65_0 button "Colombia"
+    uid=65_1 button "Argentina"

@@ -4,7 +4,7 @@
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] La interfaz distingue cotización transcrita, simulación bajo supuestos y perfil contrastado; fuente y fecha pueden completarse progresivamente, sin bloquear la aritmética disponible.
 - [ ] CFT/VTUA publicados se guardan con nombre, unidad, base de impuestos y procedencia cuando se conocen. No se usan como interés, no alteran cuotas transcritas ni se recalculan sumando pagos.

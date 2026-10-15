@@ -1,0 +1,57 @@
+Emulating viewport: {"deviceScaleFactor":1,"isMobile":true,"hasTouch":true,"isLandscape":false,"width":360,"height":800}
+## Latest page snapshot
+uid=76_0 RootWebArea "finsim · Tu laboratorio financiero" url="http://127.0.0.1:4174/"
+  uid=76_1 generic focusable focused
+  uid=76_2 generic live="polite" relevant="additions text"
+    uid=77_0 button "Préstamo"
+    uid=77_1 button "Conversor"
+    uid=77_2 button "Conciliación"
+    uid=77_3 button "Ofertas"
+    uid=78_0 StaticText "Compara ofertas con tu dinero"
+    uid=78_1 StaticText "Añade la información que tienes. Vacío significa desconocido; escribe 0 para confirmar cero. Importes con punto decimal."
+    uid=78_2 button "País de la operación: Sin completar"
+    uid=78_3 button "Moneda común: Sin completar"
+    uid=78_4 button "Necesidad: Efectivo neto"
+    uid=78_5 textbox "Efectivo neto que necesitas" multiline
+    uid=78_6 button "Estimación y fuente: Efectivo neto que necesitas"
+    uid=78_7 textbox "Mes inicial (AAAA-MM, opcional)" multiline
+    uid=78_8 button "Cerrar editor de oferta A"
+    uid=78_9 StaticText "Oferta A · ? cuotas · importe por completar/calcular"
+    uid=78_10 button "Modo A: Cotización"
+    uid=78_11 textbox "Capital contractual A (opcional en cotización)" multiline
+    uid=78_12 button "Estimación y fuente: Capital contractual A (opcional en cotización)"
+    uid=78_13 textbox "Nombre A" multiline
+    uid=78_14 textbox "Fuente de la oferta A (opcional)" multiline
+    uid=78_15 textbox "Fecha de la oferta A (AAAA-MM-DD)" multiline
+    uid=78_16 StaticText "Cotización transcrita; reproduce los pagos ingresados."
+    uid=78_17 StaticText "Sin perfiles contractuales contrastados. Elegir país no acredita reproducir un contrato."
+    uid=78_18 button "Añadir indicador publicado CFT"
+    uid=78_19 button "Añadir indicador publicado VTUA"
+    uid=78_20 textbox "Neto recibido A (vacío: objetivo común)" multiline
+    uid=78_21 button "Estimación y fuente: Neto recibido A (vacío: objetivo común)"
+    uid=78_22 textbox "Cantidad de cuotas A" multiline
+    uid=78_23 textbox "Importe por cuota A" multiline
+    uid=78_24 button "Estimación y fuente: Importe por cuota A"
+    uid=78_25 textbox "Mes de primera cuota A (vacío: mes 1 estimado)" multiline
+    uid=78_26 button "Añadir cuota diferente A"
+    uid=78_27 StaticText "Cargos: importes por mes; para porcentajes con base no modelada, indica un importe estimado."
+    uid=78_28 button "Añadir cargo A"
+    uid=78_29 button "Confirmar todos los cargos de la oferta A"
+    uid=78_30 StaticText "Confirmo todos los cargos; los no indicados son cero"
+    uid=78_31 button "Editar oferta B"
+    uid=78_32 StaticText "Oferta B · ? cuotas · importe por completar/calcular"
+    uid=78_33 button "Añadir contexto personal opcional"
+    uid=78_34 StaticText "Sin cambios desde el último guardado."
+    uid=78_35 button "Guardar borrador local"
+    uid=78_36 button "Exportar archivo JSON"
+    uid=78_37 button "Importar archivo JSON"
+    uid=78_38 StaticText "Cambios pendientes: las vistas muestran la última aplicación."
+    uid=78_39 button "Aplicar comparación"
+    uid=78_40 button "Descartar cambios"
+    uid=78_41 button "Registrar como cotización de referencia"
+    uid=78_42 StaticText "Un espacio para explorar, no una promesa bancaria. Modelo educativo mensual. Los abonos extraordinarios se aplican tras el pago habitual (seguros · intereses · capital)."
+    uid=78_43 StaticText "Los escenarios se almacenan localmente en este dispositivo. Exporta copias JSON para archivarlos o transferirlos."
+    uid=78_44 StaticText "finsim"
+    uid=78_45 StaticText "."
+    uid=78_46 StaticText "Simulador"
+    uid=78_47 StaticText "Comparador"

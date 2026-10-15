@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#F6F5EE" rx="64"/>
+  <text x="256" y="285" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" letter-spacing="-0.04em">
+    <tspan fill="#173F32" font-size="116">finsim</tspan><tspan fill="#839954" font-size="132">.</tspan>
+  </text>
+</svg>

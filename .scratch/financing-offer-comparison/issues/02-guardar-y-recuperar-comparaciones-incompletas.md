@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Guardado y exportación explícitos conservan entradas aplicadas, borrador pendiente, ausencias, estimaciones y procedencia disponibles; la interfaz identifica trabajo sin guardar.
 - [ ] Al retomar se recalculan resultados solo desde las entradas aplicadas. Los pendientes siguen pendientes; un borrador sin aplicación previa no produce resultados inventados. Una entrada temporal inválida no reemplaza datos válidos guardados.

@@ -4,7 +4,7 @@
 
 **Blocked by:** None — can start immediately
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Se accede al comparador desde la app y se conserva el flujo de préstamos existente. Se eligen país, moneda, necesidad neta y ofertas A/B; una oferta incompleta puede consultarse sin exigir contexto personal.
 - [ ] Se introducen cantidad e importe de cuotas, excepciones por mes y comienzo del calendario. Una fecha ausente produce alineación relativa estimada desde mes 1; el mes inicial y las cuotas en ese mismo mes conservan sus conceptos separados.

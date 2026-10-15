@@ -4,7 +4,7 @@
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] El contexto personal puede añadirse progresivamente u omitirse sin bloquear las ofertas. Ingresos, gastos y cuotas vigentes se identifican como referencia mensual constante bajo un supuesto visible.
 - [ ] El margen resta gastos, cuotas vigentes y salidas nuevas por mes; en mes 0 incorpora aporte y cargos iniciales conocidos. Usa las mismas entradas aplicadas que gráficos y totales.

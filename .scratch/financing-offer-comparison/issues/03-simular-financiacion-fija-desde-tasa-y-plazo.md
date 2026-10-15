@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Cada oferta permite modo cotización o simulación. La simulación pide capital, tasa fija con convención/frecuencia, plazo y comienzo; permite cuota base conocida compatible y tasa cero explícita.
 - [ ] Se reutiliza el motor canónico Kotlin Multiplatform y sus conversiones, precisión y redondeos; no se añade otro motor ni se amplía el motor TypeScript congelado.

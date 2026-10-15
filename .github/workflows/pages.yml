@@ -11,18 +11,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
       - uses: actions/setup-node@v4
         with:
           node-version: '26'
           cache: npm
       - run: npm ci
-      - run: npm test
-      - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - run: gradle -p kmp :shared:jvmTest :composeApp:testDebugUnitTest :composeApp:wasmJsBrowserDistribution --no-daemon --console=plain
+      - run: npx playwright install --with-deps chrome
+      - name: Verify KMP under the Pages subpath
+        env:
+          FINSIM_WEB_URL: http://127.0.0.1:4174/finsim/
+        run: |
+          npm run preview -- --port 4174 --strictPort --outDir kmp/composeApp/build/dist/wasmJs/productionExecutable --base /finsim/ &
+          preview_pid=$!
+          trap 'kill "$preview_pid"' EXIT
+          curl --retry 20 --retry-delay 1 --retry-connrefused --fail "$FINSIM_WEB_URL" > /dev/null
+          node --test --test-concurrency=1 kmp/composeApp/browser-tests/*.test.cjs
+      - name: Record deployed source version
+        run: printf '{"commit":"%s"}\n' "$GITHUB_SHA" > kmp/composeApp/build/dist/wasmJs/productionExecutable/version.json
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: kmp/composeApp/build/dist/wasmJs/productionExecutable
   deploy:
     needs: build
     runs-on: ubuntu-latest

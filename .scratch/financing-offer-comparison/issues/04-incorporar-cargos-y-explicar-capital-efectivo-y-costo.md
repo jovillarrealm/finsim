@@ -4,7 +4,7 @@
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Cada cargo tiene identidad y tratamiento único: propio inicial, descontado, financiado, posterior separado o incluido en cuota. La interfaz permite importe conocido, estimado o desconocido y calendario cuando corresponda.
 - [ ] El neto utilizable descuenta del capital los cargos financiados/descontados que no se aplican a la necesidad. Un cargo financiado o incluido en cuota no se vuelve a cobrar como salida independiente.

@@ -4,7 +4,7 @@
 
 **Blocked by:** 05
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Cada oferta de tarjeta declara existente o nueva; sus cargos identifican si nacen con la operación o ya existían, junto con importe, inclusión en pago y calendario.
 - [ ] Un cargo preexistente no se atribuye al costo incremental de la compra. Un cargo nuevo se cuenta una vez, aunque aparezca también como componente explicativo de una cuota.
