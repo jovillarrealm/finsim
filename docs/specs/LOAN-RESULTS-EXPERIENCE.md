@@ -1,6 +1,6 @@
 # FS-18 — Resultados copiables y gráfico unificado del préstamo
 
-Estado: entrevista abierta, 2026-10-14. Dos rondas respondidas; acuerdos parciales y decisiones pendientes distinguidos abajo. Referencia: UI KMP de FS-17 en f49a64f; convenciones financieras vigentes. No se modifica código durante el grill.
+Estado: entrevista abierta, 2026-10-14. Tres rondas respondidas; acuerdos y propuesta de cierre distinguidos abajo. Referencia: UI KMP de FS-17 en f49a64f; convenciones financieras vigentes. No se modifica código durante el grill.
 
 ## Solicitud
 
@@ -30,28 +30,38 @@ Segunda frontera (respondida):
 2. Acepta recomendación: representar todo lo efectivamente pagado durante el mes; distinguir capital habitual y adicional, intereses, seguros y otros cargos cuando existan.
 3. Acepta recomendación: acciones de copia en resumen, detalle mensual y valores de tabla; importes con dos decimales y coma decimal, sin moneda ni separadores de miles.
 
-Tercera frontera:
+Tercera frontera (respondida):
 
-1. Gráfico inferior: un escenario seleccionado o dos barras apiladas contiguas por mes.
-2. Filtros de componentes: ocultar frente a atenuar, con lectura inequívoca de importe visible frente a total pagado.
-3. Horizonte largo en teléfono: meses comprimidos en pantalla frente a tramo mensual navegable.
+1. Ambos escenarios también abajo, mediante líneas. El usuario especifica «ya no habrá barcharts»: se descarta completamente la propuesta de barras.
+2. Acepta recomendación Q8: filtros ocultan componentes; el detalle conserva total real y distingue importe de componentes visibles. Toggles Original/Modificado para saldo.
+3. Acepta recomendación Q9: tramo navegable en teléfono, mismos meses en ambos gráficos; selección en cualquiera muestra detalle y permite editar eventos.
 
-Después de resolver la frontera:
+Frontera de cierre:
 
-- Copia: feedback, teclado y móvil; convivencia con campos editables.
-- Composición: representación de recuperación, pagos omitidos e intereses pendientes; ejes, escala y colores.
-- Visibilidad: toggles por escenario/componente, valores iniciales, comportamiento al ocultar todo, duración de preferencias.
-- Interacción: selección mensual, detalle, edición y navegación accesible en teléfono/escritorio.
-- Sustitución: criterios concretos para retirar doble pista y confirmar entendimiento compartido.
+- Confirmar codificación de escenario/componente, capas iniciales y comportamiento de filtros.
+- Confirmar propuesta completa documentada abajo, incluidos estados límite, copia y condiciones de sustitución.
 
 ## Decisiones acordadas
 
 - Acción de copia en resumen, detalle del mes y valores de tabla. Importes pegados con dos decimales y coma decimal, sin moneda ni separadores de miles (ejemplo: 507,51). Selección libre no exigida.
 - Composición de pagos de cada mes, no de acumulados.
-- Dos gráficos uno debajo del otro: saldo de capital arriba mediante líneas original/modificado; composición mensual abajo mediante barras verticales apiladas. El retorno a líneas sustituye la propuesta anterior de barras para saldo. Las conexiones muestran tendencia entre cierres; no representan cálculo diario.
+- Dos gráficos de líneas uno debajo del otro, ambos con original/modificado: saldo de capital arriba y componentes pagados por mes abajo. No habrá barras. Las conexiones entre puntos mensuales no representan cálculo diario; los componentes inferiores son importes individuales, no acumulados ni apilados.
 - El gráfico inferior representa todo lo efectivamente pagado: capital habitual, capital adicional de abonos/recuperación, intereses, seguros y otros cargos cuando existan. Conservar distribución real; un extra no equivale íntegramente a capital. El excedente no aplicado no integra el pago.
-- Todavía no están acordados escenarios del gráfico inferior, capas activas ni navegación del horizonte. La alineación temporal y selección común entre gráficos siguen como recomendación por concretar.
+- Toggles ocultan componentes en vez de atenuarlos. El filtro no modifica ni aparenta modificar total realmente pagado; detalle distingue componentes visibles y total real. Saldo permite ocultar Original/Modificado.
+- Teléfono con tramo navegable; ambos gráficos comparten meses visibles y mes seleccionado. Seleccionar un mes en cualquiera muestra su detalle y permite editar eventos del modificado.
 - Retirada de doble pista sigue condicionada a conservar inspección/edición y representación financiera, con criterios de aceptación por acordar. No requiere ADR por ahora.
+
+## Propuesta de cierre pendiente de confirmación
+
+- Una línea inferior por componente y escenario: capital habitual, capital adicional, intereses, seguros y otros cargos. Mismo color por componente; original discontinuo y modificado continuo, con etiquetas además del color. Puntos mensuales y segmentos rectos; sin áreas apiladas.
+- Activar ambos escenarios y todos los componentes que tengan algún pago distinto de cero en el horizonte. No mostrar controles de categorías inexistentes. Con préstamo simple: cuatro líneas inferiores (capital/interés de cada escenario). Un componente no desaparece solo porque sea cero en el tramo visible.
+- Toggles de escenario compartidos por ambos gráficos y toggles de componente solo abajo. Al ocultar una línea, las restantes mantienen sus importes. Escala monetaria inferior ajustada a series visibles, misma escala para ambos escenarios; ejes siempre etiquetados. Filtrar no recalcula el préstamo. Si no quedan series, estado Sin series visibles y acción Restablecer; nunca fingir pagos/saldo cero.
+- Navegación por tramos de hasta 12 meses en teléfono, botones anterior/siguiente y selección de mes accesible, sincronizados. Inicio del saldo incluye el capital antes del primer pago como mes 0, identificado; mes 0 sin pago ni edición de eventos. Horizonte conserva meses de seguros posteriores a liquidación. Sin un control de zoom adicional en esta entrega.
+- Detalle común del mes con original/modificado, distribución completa, total real y total de componentes visibles cuando se filtre. Identificar intereses/seguros pendientes por separado del dinero pagado. Usar Diferencia de saldo para diferencias entre saldos, sin llamarlas Capital Ahorrado/Deuda evitada.
+- Omitir cuota puede generar cargos con pagos cero. Recuperación y extras mantienen asignación real a cada categoría; comisión/IVA se muestran como otros cargos, sin omitirlos ni duplicarlos. Resultado incompleto identificado; no extender artificialmente una línea a cero ni prometer ahorro definitivo.
+- Mantener editor y tabla como alternativa accesible; gráficos y detalle reflejan último escenario aplicado mientras existan borradores de eventos. Ocultar una serie no borra selección, eventos ni resultados. Visibilidad es estado de la sesión y no cambia el documento guardado.
+- Copiar con acción accesible por valor (también teclado), feedback breve de éxito y error explícito si falla, sin alterar el dato. Importes: coma decimal y exactamente dos decimales, sin signo monetario ni miles; otros valores se copian como texto mostrado. Sin introducir edición al tocar un resultado.
+- Retirar doble pista y selector de tipo de gráfico una vez verificados: selección/edición mensual desde ambos gráficos y tabla, filtros no destructivos, copia real Android/Web, horizonte largo/móvil/teclado, y casos de cuota ordinaria, abono, omisión/recuperación, seguros posteriores y resultado incompleto. Conservar pendientes de aceptación generales de FS-17/KMP; este cambio no los cierra.
 
 ## Límites
 
