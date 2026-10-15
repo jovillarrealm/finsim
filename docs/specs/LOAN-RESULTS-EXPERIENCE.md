@@ -1,6 +1,6 @@
 # FS-18 — Resultados copiables y gráfico unificado del préstamo
 
-Estado: entrevista abierta, 2026-10-14. Primera ronda respondida; acuerdos parciales y decisiones pendientes distinguidos abajo. Referencia: UI KMP de FS-17 en f49a64f; convenciones financieras vigentes. No se modifica código durante el grill.
+Estado: entrevista abierta, 2026-10-14. Dos rondas respondidas; acuerdos parciales y decisiones pendientes distinguidos abajo. Referencia: UI KMP de FS-17 en f49a64f; convenciones financieras vigentes. No se modifica código durante el grill.
 
 ## Solicitud
 
@@ -24,27 +24,33 @@ Primera frontera (respondida):
 2. Composición: confirma pagos mensuales, no acumulados.
 3. Presentación: solicita segundo gráfico debajo del saldo, con barras verticales que desglosen interés/capital por cuota; propone sustituir también la línea de saldo por barras verticales. Visibilidad de escenarios aún pendiente.
 
-Segunda frontera:
+Segunda frontera (respondida):
 
-1. Comparación y filtros: cómo representar original/modificado en ambos gráficos y qué se puede ocultar.
-2. Alcance del pago: cuota habitual frente a todo lo pagado en el mes, incluyendo abonos y recuperaciones; conservar su distinción.
-3. Copia: lugares concretos y formato del importe pegado.
+1. El usuario reconsidera barras contiguas: «volvamos a las lineas». Saldo vuelve a dos líneas original/modificado; no se asume aceptación de barras contiguas en el gráfico inferior.
+2. Acepta recomendación: representar todo lo efectivamente pagado durante el mes; distinguir capital habitual y adicional, intereses, seguros y otros cargos cuando existan.
+3. Acepta recomendación: acciones de copia en resumen, detalle mensual y valores de tabla; importes con dos decimales y coma decimal, sin moneda ni separadores de miles.
+
+Tercera frontera:
+
+1. Gráfico inferior: un escenario seleccionado o dos barras apiladas contiguas por mes.
+2. Filtros de componentes: ocultar frente a atenuar, con lectura inequívoca de importe visible frente a total pagado.
+3. Horizonte largo en teléfono: meses comprimidos en pantalla frente a tramo mensual navegable.
 
 Después de resolver la frontera:
 
-- Copia: formato pegado, moneda, precisión, feedback, teclado y móvil; convivencia con campos editables.
-- Composición: seguros, extras, recuperación, pagos omitidos e intereses pendientes; ejes, escala y colores.
+- Copia: feedback, teclado y móvil; convivencia con campos editables.
+- Composición: representación de recuperación, pagos omitidos e intereses pendientes; ejes, escala y colores.
 - Visibilidad: toggles por escenario/componente, valores iniciales, comportamiento al ocultar todo, duración de preferencias.
 - Interacción: selección mensual, detalle, edición y navegación accesible en teléfono/escritorio.
 - Sustitución: criterios concretos para retirar doble pista y confirmar entendimiento compartido.
 
 ## Decisiones acordadas
 
-- Acción de copia disponible en varias partes; no limitarla a Cuota base. Lugares concretos pendientes.
+- Acción de copia en resumen, detalle del mes y valores de tabla. Importes pegados con dos decimales y coma decimal, sin moneda ni separadores de miles (ejemplo: 507,51). Selección libre no exigida.
 - Composición de pagos de cada mes, no de acumulados.
-- Dos gráficos uno debajo del otro: saldo de capital arriba; composición mensual abajo mediante barras verticales apiladas.
-- Cambiar también saldo a barras verticales, conforme a la propuesta del usuario. Mostrar cierres mensuales discretos; no interpolar un saldo diario que el motor no calcula.
-- Todavía no está acordado cómo mostrar original/modificado, cuáles capas estarán activas, si los abonos integran la barra ni el formato de copia. La alineación temporal entre gráficos es una recomendación pendiente de concretar.
+- Dos gráficos uno debajo del otro: saldo de capital arriba mediante líneas original/modificado; composición mensual abajo mediante barras verticales apiladas. El retorno a líneas sustituye la propuesta anterior de barras para saldo. Las conexiones muestran tendencia entre cierres; no representan cálculo diario.
+- El gráfico inferior representa todo lo efectivamente pagado: capital habitual, capital adicional de abonos/recuperación, intereses, seguros y otros cargos cuando existan. Conservar distribución real; un extra no equivale íntegramente a capital. El excedente no aplicado no integra el pago.
+- Todavía no están acordados escenarios del gráfico inferior, capas activas ni navegación del horizonte. La alineación temporal y selección común entre gráficos siguen como recomendación por concretar.
 - Retirada de doble pista sigue condicionada a conservar inspección/edición y representación financiera, con criterios de aceptación por acordar. No requiere ADR por ahora.
 
 ## Límites
