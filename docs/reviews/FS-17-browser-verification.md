@@ -189,3 +189,26 @@ El recorrido representativo de teclado queda acreditado; las menciones anteriore
 Caso de teclado final sin clic inicial:1/1 correcto,34,60 s. Las otras ocho pruebas sin cambios conservan la ejecución conjunta9/9 anterior; no hubo modificaciones de producto posteriores a49b13fe. Test de teclado entregado en46531a1. Revisión independiente final de ambos ejes: [informe](FS-17-continuation-review.md), sin defectos nuevos; heurística menor de nombre conservada sin refactor. Lector y audiencia siguen pendientes.
 
 Se retiraron únicamente temporales propios del diagnóstico, el fixture de2MB y el respaldo local de preferencias después de comprobar restauración exacta. Se conservan fixtures sintéticas y evidencia útil en el worktree. El checkout original finsim y sus temporales no se tocaron.
+
+## Verificación retomada por solicitud del usuario — 2026-10-15
+
+/root conserva la reserva de FS-17. El usuario confirma «primero la verificacion» después de aclarar las dos continuidades FS-17/FS-18. HEAD de entrada 6e7606c; código de producto sin cambios desde 49b13fe. Worktree limpio antes y después de la ejecución.
+
+Se sirvió el artefacto KMP existente con `node C:/Users/Lenovo/Documents/finsim/node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 4174 --strictPort --outDir .`, desde `kmp/composeApp/build/dist/wasmJs/productionExecutable`. Vite advierte que outDir coincide con root; se ejecutó solo preview, sin build ni escritura del bundle. El intento previo con python no inició servidor: ese alias no tiene Python disponible. SHA256 de composeApp.js conserva C3CB57FC779C6354E24EC8479659BFB922BB6833E44E3F68EFCACB86D3F8FA8D.
+
+Comando desde el worktree asignado, PowerShell:
+
+```powershell
+$env:NODE_PATH='C:/Users/Lenovo/Documents/finsim/node_modules'
+node --test --test-concurrency=1 kmp/composeApp/browser-tests/comparison-accessibility.test.cjs kmp/composeApp/browser-tests/comparison-transfer.test.cjs kmp/composeApp/browser-tests/comparison-compact.test.cjs kmp/composeApp/browser-tests/legacy-transfer.test.cjs kmp/composeApp/browser-tests/comparison-keyboard.test.cjs
+```
+
+Resultado actual: **9 pruebas, 9 pasan, 0 fallos, 0 omitidas**, 154,32 s. Ahora las nueve, incluido el caso final sin clic inicial, corresponden a una misma ejecución. Acreditan las mismas superficies y límites descritos arriba: nombres/foco en 1280/360 px, teclado, controles visibles y scroll compacto, validación/contexto/pendientes/recuperación, transferencia JSON real y documento histórico. Los casos amplios con force:true no se usan como prueba de lector o uso móvil físico. No se repiten builds ni shared/UI sin cambios; se conserva su evidencia anterior, sin presentarla como ejecución nueva.
+
+DevTools abrió una página aislada en `http://127.0.0.1:4174/` y entró a Ofertas a 360x800/mobile/touch. El árbol semántico conserva campos nombrados. Consola: sin errores; warning WebGL de getParameter/WEBGL_debug_renderer_info. El guardado de snapshot en el worktree FS-17 fue rechazado por las raíces configuradas de DevTools; no se cambió esa configuración ni se afirma un archivo de evidencia creado.
+
+### Lector real y aceptación — pendientes
+
+Se consultó el [procedimiento oficial de Microsoft](https://learn.microsoft.com/en-us/windows/apps/design/accessibility/accessibility-testing#verify-main-app-scenarios-by-using-narrator), que permite observar objetos/texto mediante modo desarrollador además de probar lectura y acciones. Se intentó iniciar el Narrador ya instalado mediante Computer Use (`sky.launch_app`); la revisión automática respondió **Computer Use was not approved to use Narrador**. No dio un motivo adicional. No se inició ni controló por otra vía; tampoco se ejecutó modo desarrollador ni se observó salida de lectura. Se solicitó autorización explícita, sin respuesta al guardar este registro.
+
+No hubo observación de audiencia ni dispositivo Android conectado en la comprobación de disponibilidad de esta fecha. El lector, audiencia y límites de hardware/teclado virtual siguen abiertos. La suite automatizada y el árbol semántico no sustituyen esos criterios. Sin correcciones de producto, integración o publicación; FS-17/KMP siguen en revisión y FS-18 no se implementó.
