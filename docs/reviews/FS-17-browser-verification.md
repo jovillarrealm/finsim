@@ -212,3 +212,35 @@ DevTools abrió una página aislada en `http://127.0.0.1:4174/` y entró a Ofert
 Se consultó el [procedimiento oficial de Microsoft](https://learn.microsoft.com/en-us/windows/apps/design/accessibility/accessibility-testing#verify-main-app-scenarios-by-using-narrator), que permite observar objetos/texto mediante modo desarrollador además de probar lectura y acciones. Se intentó iniciar el Narrador ya instalado mediante Computer Use (`sky.launch_app`); la revisión automática respondió **Computer Use was not approved to use Narrador**. No dio un motivo adicional. No se inició ni controló por otra vía; tampoco se ejecutó modo desarrollador ni se observó salida de lectura. Se solicitó autorización explícita, sin respuesta al guardar este registro.
 
 No hubo observación de audiencia ni dispositivo Android conectado en la comprobación de disponibilidad de esta fecha. El lector, audiencia y límites de hardware/teclado virtual siguen abiertos. La suite automatizada y el árbol semántico no sustituyen esos criterios. Sin correcciones de producto, integración o publicación; FS-17/KMP siguen en revisión y FS-18 no se implementó.
+
+## Preparación de publicación para audiencia — 2026-10-15
+
+El usuario autoriza publicar una versión nueva para pruebas. Integración técnica en main 542c9f2, conservando la ficha vigente FS-17 y el tablero/reserva FS-18. El conflicto era documental: main retenía el handoff antiguo; se conserva la ficha posterior. El diff agregado frente al main anterior contiene espacios finales preexistentes; no se altera formato ajeno para publicar. El diff de los cambios de publicación no presenta errores de whitespace.
+
+El workflow Pages ahora construye KMP y comprueba los nueve recorridos bajo `/finsim/`; ya no despliega el React anterior. Java 21, Gradle 8.11.1, SDK 36, sin claves Android. La comprobación de configuración de firma pasa de configuración global a preReleaseBuild; una copia de fuentes sin keystore rechaza ese task con «Falta configuración de firma de publicación en keystore.properties». El intento inicial con validateSigningRelease demostró que una signingConfig vacía no crea ese task: no se utilizó como evidencia de protección y se añadió el guard explícito antes de publicar.
+
+Verificación nueva en main, sin keystore: `gradle -p kmp :shared:jvmTest :composeApp:testDebugUnitTest :composeApp:wasmJsBrowserDistribution --console=plain`, BUILD SUCCESSFUL en 8 min 39 s, 76 tasks ejecutados; XML confirma **115 shared + 7 UI**, sin fallos ni errores. SHA256 del JS reconstruido localmente: 4E7B5637C3E7939E6B9B9371553A5040CD9960BC29421C23F2BA0AF195118604 (no se presenta como el antiguo bundle C3CB…). También pasan npm ci, tipos, **50 pruebas TypeScript** y build del legado, para verificar el conjunto integrado.
+
+Intentos remotos anteriores sin despliegue:
+
+- 38775348320 (542c9f2): sdkmanager ausente; d8602dc añade android-actions/setup-android@v4.
+- 38775557624 (d8602dc): build y pruebas KMP correctos; **8/9** navegador pasan. Falló el clic forzado en Colombia a 1280 px: el locator resolvió el elemento recién creado, pero Playwright informó Element is not visible. El caso no esperaba geometría antes del clic; otros recorridos de selección/teclado/archivos pasaron. a22f0ff añade espera de visibilidad para las dos opciones recién creadas del test de accesibilidad, sin cambiar UI ni fórmulas, y conserva las comprobaciones finales. Prueba enfocada bajo `/finsim/`: **4/4**, 10,16 s. El intento auxiliar de instrumentación desde node_repl no encontró Chrome en su ruta; no se instaló otro navegador ni se contó como reproducción local.
+
+Candidato actual: a22f0ff, run 38777302454. El workflow guarda version.json con el SHA exacto. La URL pública y la transferencia se comprobarán después del éxito; esta entrada todavía no acredita despliegue. Lector/audiencia/deuda KMP siguen abiertos.
+
+### Publicación comprobada — a22f0ff
+
+[Run 38777302454](https://github.com/jovillarrealm/finsim/actions/runs/38777302454): build y deploy exitosos. Gradle remoto BUILD SUCCESSFUL (2 min 54 s); **9/9** navegador, sin omitidas, 146,37 s. La compilación y las pruebas previas son KMP, no el frontend React. Sin cambios a permisos de Pages ni a su audiencia pública.
+
+`https://jovillarrealm.github.io/finsim/version.json?v=a22f0ff` devuelve exactamente `a22f0ff5130b0befd2339389440e8c7eacc940ff`. Verificación posterior, desde main:
+
+```powershell
+$env:FINSIM_WEB_URL='https://jovillarrealm.github.io/finsim/?v=a22f0ff'
+node --test --test-concurrency=1 kmp/composeApp/browser-tests/comparison-transfer.test.cjs kmp/composeApp/browser-tests/legacy-transfer.test.cjs
+```
+
+**2/2 pasan**, sin omitidas, 28,19 s. Descarga/lectura/importación real del comparador y del préstamo histórico, rechazo que conserva datos, guardado y recuperación correctos. Son contextos de navegador aislados con datos sintéticos; no se altera almacenamiento personal. Los tests amplios conservan sus límites de force:true y altura 5000; no se presentan como lector o hardware móvil.
+
+Chrome DevTools abrió la URL pública en contexto aislado, mostró préstamo y Ofertas con campos nombrados y emulación 360x800/mobile/touch. Tras cambiar la emulación se esperó el árbol de Ofertas; el snapshot transitorio con solo RootWebArea no se contó como evidencia. Sin errores de consola observados; warning WebGL conocido de getParameter/WEBGL_debug_renderer_info. La carga y los flujos reales comprueban los recursos bajo /finsim/.
+
+Versión lista para pruebas con audiencia en https://jovillarrealm.github.io/finsim/?v=a22f0ff. No se ejecutó lector real ni se observó participante; no se publica APK nuevo. FS-17/KMP/ticket 10 conservan revisión y deuda previa; FS-18 sin implementación. La publicación no equivale a aceptación completa.

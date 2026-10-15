@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-Actualizado: 2026-09-21. Edición de meses por lotes integrada y publicada en **bc535a2**. Sesión coordinadora: /root. Verificación técnica completada: 45 pruebas unitarias, 4 flujos de navegador y build con comprobación de tipos. Publicado: https://jovillarrealm.github.io/finsim/. Pendiente: aceptación de uso FS-07/FS-10.
+Actualizado: 2026-10-15. KMP y FS-17 integrados técnicamente en main **542c9f2** y publicados para pruebas con audiencia en **a22f0ff**, run **38777302454** exitoso. Verificados 115 shared, 7 UI, build Web, 9 recorridos CI bajo /finsim/ y 2 recorridos JSON sobre URL pública. Sesión coordinadora: /root. Pendientes: lector real, observación de audiencia y deuda KMP; FS-07/FS-10 conservan aceptación de uso pendiente. Sitio: https://jovillarrealm.github.io/finsim/?v=a22f0ff.
 
 Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md) define alcance, dependencias y criterios de cierre. Los registros por tarea guardan el detalle de continuidad.
 
@@ -26,6 +26,7 @@ Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md)
 | KMP T01–T10 | Migración Kotlin Multiplatform (Web & Android) | en revisión | /root | feat/kmp-migration | 10 tickets completados; motor decimal, paridad y persistencia verificados; APK y web preparados; adb MCP y Android CLI activos |
 | FS-15 | Ingesta de extractos en edge (Pipeline Híbrido) | en revisión | /root | task/fs-15-ingestion | 389ec56; Tickets 01–04 completados; 83 pruebas unitarias jvmTest, build Android y WasmJs exitosos |
 | FS-16 | Rediseño y Ergonomía Móvil (Mobile Layout Revamp) | en revisión | /root | feat/kmp-migration | Tickets 01–05 completados; pestañas limpias sin glifos rotos, formulario a 1 columna adaptativo, cronograma colapsable en acordeón, KPIs fluidos y marcadores de eje; pruebas unitarias y visuales exitosas |
+| FS-17 | Comparador de ofertas de financiación | en revisión | /root | task/fs-17-offer-comparison / finsim-fs17 | Integración 542c9f2; publicación para audiencia a22f0ff/run 38777302454; 115 shared, 7 UI, 9 navegador CI y 2 sobre URL pública; lector/audiencia pendientes |
 
 ## Estados
 
@@ -138,6 +139,8 @@ Revisión independiente Standards/Spec: cero incumplimientos o defectos nuevos b
 2026-10-15 · /root · usuario confirma primero la verificación FS-17. Ejecución nueva de cinco archivos browser-tests: **9/9 pasan**, 154,32 s, incluido el caso final solo con teclado en el mismo run. Bundle KMP idéntico al acreditado; sin producto nuevo ni repetición de shared/UI/builds. Computer Use rechazó automáticamente usar Narrador («Computer Use was not approved to use Narrador», sin motivo adicional); autorización explícita solicitada, sin lector ejecutado ni aceptación inferida. Audiencia pendiente. Evidencia/ficha actualizadas en rama asignada; FS-17/KMP siguen en revisión, sin integración/publicación ni implementación FS-18.
 
 2026-10-15 · /root · el usuario autoriza nueva publicación para pruebas con audiencia. Ampliación coordinada FS-17: workflow Pages construirá KMP en lugar de React; firma Android solo se valida al construir Android firmado, sin claves en CI Web. Se prepara integración técnica en main y verificación del conjunto/URL pública. Publicación todavía no realizada; FS-17/KMP permanecen en revisión por lector, audiencia y deuda previa. Reserva FS-18 conservada, sin implementación.
+
+2026-10-15 · /root · publicación para audiencia completada en **a22f0ff**, [run 38777302454](https://github.com/jovillarrealm/finsim/actions/runs/38777302454) exitoso. Main integra KMP/FS-17 en 542c9f2, conserva reservas y aceptación abierta. CI construye Web sin claves Android, valida shared/UI y **9/9** recorridos bajo /finsim/. Version.json público confirma SHA; **2/2** recorridos adicionales de archivos reales pasan sobre URL pública. Ofertas abre a 360x800 en emulación. No se acredita lector, audiencia, hardware Web/teclado virtual ni cierre de deuda KMP; FS-17/KMP siguen en revisión. FS-18 no implementado; dependencia de fuentes ya incorporada a main para coordinación posterior.
 
 ## FS-18 — Copia de resultados y gráfico unificado del préstamo
 
