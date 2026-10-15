@@ -26,7 +26,9 @@ for (const width of [1280, 360]) {
       await page.goto(process.env.FINSIM_WEB_URL || 'http://127.0.0.1:4174/');
       await page.getByRole('button', { name: 'Ofertas', exact: true }).click({ force: true });
       await page.getByRole('button', { name: 'País de la operación: Sin completar', exact: true }).click({ force: true });
-      await page.getByRole('button', { name: 'Colombia', exact: true }).click({ force: true });
+      const countryOption = page.getByRole('button', { name: 'Colombia', exact: true });
+      await expect(countryOption).toBeVisible();
+      await countryOption.click({ force: true });
       const currency = page.getByRole('button', { name: 'Moneda común: Sin completar', exact: true });
       await expect(currency).toHaveCount(1);
       await page.keyboard.press('Space');
@@ -34,7 +36,9 @@ for (const width of [1280, 360]) {
       await page.keyboard.press('Space');
       await expect(page.getByRole('button', { name: 'Colombia', exact: true })).toHaveCount(0);
       await currency.click({ force: true });
-      await page.getByRole('button', { name: 'COP', exact: true }).click({ force: true });
+      const currencyOption = page.getByRole('button', { name: 'COP', exact: true });
+      await expect(currencyOption).toBeVisible();
+      await currencyOption.click({ force: true });
       await expect(page.getByRole('button', { name: 'País de la operación: Colombia', exact: true })).toHaveCount(1);
       await expect(page.getByRole('button', { name: 'Moneda común: COP', exact: true })).toHaveCount(1);
       await expect(page.getByRole('textbox', { name: 'Efectivo neto que necesitas', exact: true })).toHaveCount(1);
