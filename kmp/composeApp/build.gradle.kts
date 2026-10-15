@@ -77,8 +77,8 @@ android {
         keystoreProps.getProperty("keyPassword") != null
 
     signingConfigs {
-        if (hasReleaseSigning) {
-            create("release") {
+        create("release") {
+            if (hasReleaseSigning) {
                 val storeFilePath = keystoreProps.getProperty("storeFile")
                 val storeF = rootProject.file(storeFilePath)
                 storeFile = if (storeF.exists()) storeF else file(storeFilePath)
@@ -103,11 +103,7 @@ android {
             ndk {
                 debugSymbolLevel = "SYMBOL_TABLE"
             }
-            if (hasReleaseSigning) {
-                signingConfig = signingConfigs.getByName("release")
-            } else {
-                error("Falta configuración de firma de publicación en keystore.properties")
-            }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
