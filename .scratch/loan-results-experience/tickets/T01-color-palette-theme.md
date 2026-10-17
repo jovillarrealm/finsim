@@ -1,6 +1,6 @@
 # T01 — Color Palette & Theme Tokens (Esmeralda y Menta Financiera)
 
-Status: ready
+Status: closed
 Depends On: None
 Blocks: T02, T03, T04, T05
 
@@ -13,6 +13,6 @@ Revitalize the visual presentation of Finsim by implementing the "Esmeralda y Me
 - Update `LightColorScheme` in `Theme.kt` and base surfaces in `App.kt` and `LoanSummary.kt`.
 
 ## Acceptance Criteria
-- `Theme.kt` defines the agreed palette tokens.
-- Cards, background, and navigation bars display the refreshed colors without breaking accessibility contrast.
-- Visual inspection via browser reflects crisp white cards on clean background with forest/mint highlights.
+- [x] `Theme.kt` defines the agreed palette tokens.
+- [x] Cards, background, and navigation bars display the refreshed colors without breaking accessibility contrast.
+- [x] Visual inspection via browser reflects crisp white cards on clean background with forest/mint highlights.
