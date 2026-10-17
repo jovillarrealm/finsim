@@ -142,6 +142,8 @@ Revisión independiente Standards/Spec: cero incumplimientos o defectos nuevos b
 
 2026-10-15 · /root · publicación para audiencia completada en **a22f0ff**, [run 38777302454](https://github.com/jovillarrealm/finsim/actions/runs/38777302454) exitoso. Main integra KMP/FS-17 en 542c9f2, conserva reservas y aceptación abierta. CI construye Web sin claves Android, valida shared/UI y **9/9** recorridos bajo /finsim/. Version.json público confirma SHA; **2/2** recorridos adicionales de archivos reales pasan sobre URL pública. Ofertas abre a 360x800 en emulación. No se acredita lector, audiencia, hardware Web/teclado virtual ni cierre de deuda KMP; FS-17/KMP siguen en revisión. FS-18 no implementado; dependencia de fuentes ya incorporada a main para coordinación posterior.
 
+2026-10-17 · /root · usuario solicita otro AAB. Reserva FS-17 conservada; ampliación coordinada para versión Android 1.0.3/código 4 sobre main 7c908e6, bundleRelease y validación/firma comparada con el AAB anterior. Sin subida a Play Console ni nueva publicación Web; aceptación/deuda KMP siguen pendientes.
+
 ## FS-18 — Copia de resultados y gráfico unificado del préstamo
 
 2026-10-14 · en curso (diseño, sin implementación) · coordinadora/ejecutora /root · reserva `task/fs-18-loan-experience` · C:/Users/Lenovo/Documents/finsim-fs18. Solicitud: campos copiables, composición intereses/capital en curva de saldo, controles para limpiar la vista y retirada condicionada de doble pista. Entrevista grill-with-docs antes de acordar experiencia. Documentos desde main; referencia de UI actual en FS-17 `f49a64f`. La implementación depende de coordinar/incorporar KMP/FS-17 sin merges entre ramas hermanas. No altera aceptación ni reserva de FS-17.
