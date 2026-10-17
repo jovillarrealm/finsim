@@ -6,6 +6,8 @@ Actualizado: 2026-10-17. KMP y FS-17 integrados técnicamente en main **542c9f2*
 
 Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md) define alcance, dependencias y criterios de cierre. Los registros por tarea guardan el detalle de continuidad.
 
+Prioridad confirmada por el usuario el 2026-10-17: **FS-18 primero**. Los pendientes anteriores de lector real, comprensión financiera de audiencia y deuda/verificación KMP se retoman después de FS-18. Permanecen abiertos; no bloquean iniciar FS-18 ni se consideran completados por este aplazamiento.
+
 | ID | Entrega | Estado | Responsable / sesión | Rama / worktree | Evidencia integrada |
 | --- | --- | --- | --- | --- | --- |
 | FS-00 | Repositorio y aplicación | hecha | /root | main / finsim | 26862de; build, pruebas y navegador |
@@ -151,6 +153,8 @@ Revisión independiente Standards/Spec: cero incumplimientos o defectos nuevos b
 2026-10-17 · /root · usuario reporta que los testers coinciden en la mejora de los problemas de layout y solicita merge a main. Feedback positivo de layout registrado en FS-17/FS-16; no se infiere prueba de lector ni comprensión financiera sin guía. feat/kmp-migration y task/fs-17-offer-comparison ya están incluidos en main 974dae4; origin/main está seis commits detrás tras fetch, sin divergencia. Se sincronizan las entregas integradas y este registro con GitHub. Se conservan estados en revisión para los criterios restantes, evidencia técnica vigente y reserva FS-18; sin nueva publicación Pages ni subida a Play Console.
 
 ## FS-18 — Copia de resultados y gráfico unificado del préstamo
+
+2026-10-17 · /root · usuario pospone los pendientes anteriores hasta después de FS-18. FS-18 es la siguiente prioridad; reserva y especificación canónica en C:/Users/Lenovo/Documents/finsim-fs18/.scratch/loan-results-experience/spec.md conservadas. KMP/FS-17 ya están integrados en main b3d2752; al retomar, actualizar la rama FS-18 desde main y resolver la continuidad documental sin merges entre ramas hermanas. Esta priorización no inicia implementación ni cierra aceptación anterior.
 
 2026-10-14 · en curso (diseño, sin implementación) · coordinadora/ejecutora /root · reserva `task/fs-18-loan-experience` · C:/Users/Lenovo/Documents/finsim-fs18. Solicitud: campos copiables, composición intereses/capital en curva de saldo, controles para limpiar la vista y retirada condicionada de doble pista. Entrevista grill-with-docs antes de acordar experiencia. Documentos desde main; referencia de UI actual en FS-17 `f49a64f`. La implementación depende de coordinar/incorporar KMP/FS-17 sin merges entre ramas hermanas. No altera aceptación ni reserva de FS-17.
 
