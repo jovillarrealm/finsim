@@ -1,6 +1,6 @@
 # T03 — Interactive Dual Charts (Bottom Legends, Y-Axis Scale, Hover Tooltip)
 
-Status: blocked
+Status: closed
 Depends On: T01
 Blocks: T06, T07
 
@@ -13,7 +13,7 @@ Revamp the two line charts in `HorizontalComparisonChart.kt`:
 - Increase chart height to 220dp for better spacing and clarity.
 
 ## Acceptance Criteria
-- Toggles appear directly below their respective chart and function as interactive legends.
-- Y-axis scale numbers are clearly visible on the left.
-- Pointer hover over charts displays vertical tracking line and exact series values.
-- Canvas height is 220dp.
+- [x] Toggles appear directly below their respective chart and function as interactive legends.
+- [x] Y-axis scale numbers are clearly visible on the left.
+- [x] Pointer hover over charts displays vertical tracking line and exact series values.
+- [x] Canvas height is 220dp.

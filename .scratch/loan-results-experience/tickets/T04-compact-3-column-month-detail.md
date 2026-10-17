@@ -1,6 +1,6 @@
 # T04 — Compact 3-Column Month Detail Table with Collapsible Accordion
 
-Status: blocked
+Status: closed
 Depends On: T01, T02
 Blocks: T07
 
@@ -15,7 +15,7 @@ Restructure the "Detalle del mes" section in `HorizontalComparisonChart.kt`:
   `▼ Ver detalles contables y pendientes` (Commissions, VAT, Interest charged, Insurance charged, Pending interest, Pending insurance, Overdue capital, Arrears, Total debt, Unapplied surplus).
 
 ## Acceptance Criteria
-- 3-column table compares Original and Modified side-by-side.
-- Vertical height of the detail section is reduced by >60%.
-- Accordion smoothly expands and collapses secondary accounting metrics.
-- All values retain discrete copy capability and correct semantics.
+- [x] 3-column table compares Original and Modified side-by-side.
+- [x] Vertical height of the detail section is reduced by >60%.
+- [x] Accordion smoothly expands and collapses secondary accounting metrics.
+- [x] All values retain discrete copy capability and correct semantics.
