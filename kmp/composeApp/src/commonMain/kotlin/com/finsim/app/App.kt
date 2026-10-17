@@ -40,8 +40,11 @@ fun App(
     val comparisonStore = remember(storage) { com.finsim.comparison.ComparisonWorkspace(storage) }
     var workspace by remember(store) { mutableStateOf(store.state) }
 
+    var eventDraft by remember(workspace.scenario.events) { mutableStateOf(EventDraftBatch.from(workspace.scenario.events)) }
     var selectedTab by remember { mutableStateOf(0) } // 0: loan, 1: rates, 2: reconcile
     var selectedMonth by remember { mutableStateOf(1) }
+    var hiddenResultComponents by remember { mutableStateOf(emptySet<Int>()) }
+    var hiddenResultScenarios by remember { mutableStateOf(emptySet<Int>()) }
     var tableMode by remember { mutableStateOf("modified") } // "modified" or "original"
 
     var noticeMessage by remember { mutableStateOf("") }
@@ -387,6 +390,10 @@ fun App(
                             currency = workspace.scenario.currency,
                             original = workspace.original,
                             modified = workspace.modified,
+                            hiddenComponents = hiddenResultComponents,
+                            hiddenScenarios = hiddenResultScenarios,
+                            onHiddenComponentsChange = { hiddenResultComponents = it },
+                            onHiddenScenariosChange = { hiddenResultScenarios = it },
                             selectedMonth = selectedMonth,
                             onSelectMonth = { selectedMonth = it }
                         )
@@ -395,7 +402,8 @@ fun App(
                         EventEditor(
                             currency = workspace.scenario.currency,
                             selectedMonth = selectedMonth,
-                            currentEvents = workspace.scenario.events,
+                            batch = eventDraft,
+                            onBatchChange = { eventDraft = it },
                             onApplyEvents = { newEvents ->
                                 val outcome = store.applyEvents(newEvents)
                                 workspace = store.state

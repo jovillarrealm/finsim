@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import com.finsim.app.ui.formatMonth
 import com.finsim.domain.Currency
 import com.finsim.domain.LoanResult
+import com.finsim.app.theme.SurfaceWarm
 
 @Composable
 fun MonthlyTable(
@@ -25,7 +26,7 @@ fun MonthlyTable(
     var page by remember { mutableStateOf(0) }
     val lastPage = ((result.rows.size - 1) / 12).coerceAtLeast(0)
     LaunchedEffect(selectedMonth, result.rows.size) { page = ((selectedMonth - 1).coerceAtLeast(0) / 12).coerceAtMost(lastPage) }
-    Card(modifier.fillMaxWidth()) {
+    Card(modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = SurfaceWarm)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Detalle mes a mes · $scenarioName", style = MaterialTheme.typography.titleMedium)
             Text("${result.rows.size} meses · Importes en ${currency.name}. Cada importe permite copiar; Seleccionar lleva al detalle y editor.")
@@ -51,7 +52,7 @@ fun MonthlyTable(
                             val values = listOf(row.openingBalance, paid[0], paid[1], row.interestCharged, row.insuranceCharged, paid[2], paid[3], paid[4], row.cashPaid,
                                 row.closingBalance, row.pendingInterest, row.pendingInsurance, row.overduePrincipal, row.arrears, row.debt,
                                 sumMoney(listOf(row.scheduled.unapplied, row.catchup.unapplied, row.extra.unapplied)))
-                            values.forEachIndexed { index, amount -> CopyMoney("${headers[index + 2]} $scenarioName mes ${row.month}", amount, currency, Modifier.width(160.dp)) }
+                            values.forEachIndexed { index, amount -> CopyMoney("tabla ${headers[index + 2]} $scenarioName mes ${row.month}", amount, currency, Modifier.width(160.dp)) }
                         }
                     }
                 }

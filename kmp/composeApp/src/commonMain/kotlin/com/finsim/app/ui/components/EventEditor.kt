@@ -27,14 +27,12 @@ import com.finsim.domain.*
 fun EventEditor(
     currency: Currency,
     selectedMonth: Int,
-    currentEvents: List<LoanEvent>,
+    batch: EventDraftBatch,
+    onBatchChange: (EventDraftBatch) -> Unit,
     onApplyEvents: (List<LoanEvent>) -> Boolean,
     onPendingChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var batch by remember(currentEvents) {
-        mutableStateOf(EventDraftBatch.from(currentEvents))
-    }
 
     var errorMessage by remember { mutableStateOf("") }
 
@@ -74,7 +72,7 @@ fun EventEditor(
                 Button(
                     enabled = selectedMonth > 0,
                     onClick = {
-                        batch = batch.add(month = selectedMonth)
+                        onBatchChange(batch.add(month = selectedMonth))
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = BrandLime, contentColor = BrandForest)
                 ) {
@@ -129,7 +127,7 @@ fun EventEditor(
                                 )
                                 TextButton(
                                     onClick = {
-                                        batch = batch.remove(item.id)
+                                        onBatchChange(batch.remove(item.id))
                                     }
                                 ) {
                                     Text("Quitar", color = MaterialTheme.colorScheme.error)
@@ -161,7 +159,7 @@ fun EventEditor(
                                             DropdownMenuItem(
                                                 text = { Text(kindOption.displayName) },
                                                 onClick = {
-                                                    batch = batch.updateKind(item.id, kindOption)
+                                                    onBatchChange(batch.updateKind(item.id, kindOption))
                                                     kindMenuExpanded = false
                                                 }
                                             )
@@ -173,7 +171,7 @@ fun EventEditor(
                                     value = item.month.toString(),
                                     onValueChange = { newVal ->
                                         newVal.toIntOrNull()?.let { m ->
-                                            batch = batch.updateMonth(item.id, m)
+                                            onBatchChange(batch.updateMonth(item.id, m))
                                         }
                                     },
                                     label = { Text("Mes") },
@@ -184,7 +182,7 @@ fun EventEditor(
                                     OutlinedTextField(
                                         value = item.amount,
                                         onValueChange = { newVal ->
-                                            batch = batch.updateAmount(item.id, newVal)
+                                            onBatchChange(batch.updateAmount(item.id, newVal))
                                         },
                                         label = { Text("Importe ($currency)") },
                                         modifier = Modifier.weight(1.2f)
@@ -203,7 +201,7 @@ fun EventEditor(
                                         value = item.endMonth.toString(),
                                         onValueChange = { newVal ->
                                             newVal.toIntOrNull()?.let { em ->
-                                                batch = batch.updateRecurring(item.id, endMonth = em, every = item.every)
+                                                onBatchChange(batch.updateRecurring(item.id, endMonth = em, every = item.every))
                                             }
                                         },
                                         label = { Text("Hasta mes") },
@@ -213,7 +211,7 @@ fun EventEditor(
                                         value = item.every.toString(),
                                         onValueChange = { newVal ->
                                             newVal.toIntOrNull()?.let { ev ->
-                                                batch = batch.updateRecurring(item.id, endMonth = item.endMonth, every = ev)
+                                                onBatchChange(batch.updateRecurring(item.id, endMonth = item.endMonth, every = ev))
                                             }
                                         },
                                         label = { Text("Cada N meses") },
@@ -257,7 +255,7 @@ fun EventEditor(
 
                 OutlinedButton(
                     onClick = {
-                        batch = batch.discard()
+                        onBatchChange(batch.discard())
                         errorMessage = ""
                     },
                     enabled = hasPending,

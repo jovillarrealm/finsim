@@ -1,12 +1,14 @@
 package com.finsim.app.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -15,6 +17,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.finsim.app.theme.*
 import com.finsim.app.ui.formatMoney
@@ -32,6 +35,10 @@ fun HorizontalComparisonChart(
     currency: Currency,
     original: LoanResult,
     modified: LoanResult,
+    hiddenComponents: Set<Int>,
+    hiddenScenarios: Set<Int>,
+    onHiddenComponentsChange: (Set<Int>) -> Unit,
+    onHiddenScenariosChange: (Set<Int>) -> Unit,
     selectedMonth: Int,
     onSelectMonth: (Int) -> Unit,
     modifier: Modifier = Modifier
@@ -44,9 +51,7 @@ fun HorizontalComparisonChart(
     val components = remember(original, modified) { results.map { result -> result.rows.associate { it.month to paidComponents(it) } } }
     val available = remember(components) { (0..4).filter { c -> components.any { rows -> rows.values.any { it[c] != "0.00" } } }.toSet() }
     // Remember exclusions so a newly available category starts enabled after applying events.
-    var hiddenComponents by remember { mutableStateOf(emptySet<Int>()) }
-    var hiddenScenarios by remember { mutableStateOf(emptySet<Int>()) }
-    LaunchedEffect(available) { hiddenComponents = hiddenComponents.intersect(available) }
+    LaunchedEffect(available) { onHiddenComponentsChange(hiddenComponents.intersect(available)) }
     val visibleComponents = available - hiddenComponents
     val range = monthWindow(month, horizon)
     var monthInput by remember(month) { mutableStateOf(month.toString()) }
@@ -63,31 +68,36 @@ fun HorizontalComparisonChart(
                     "Caja total" to (original.totals.cashPaid to modified.totals.cashPaid)).forEach { (label, amounts) ->
                     Column {
                         Text("Diferencia $label", style = MaterialTheme.typography.labelSmall)
-                        CopyMoney("diferencia $label Modificado menos Original", difference(amounts.second, amounts.first), currency)
+                        CopyMoney("diferencia $label Modificado menos Original", difference(amounts.second, amounts.first), currency, signed = true)
                     }
                 }
                 Column {
                     Text("Diferencia de plazo", style = MaterialTheme.typography.labelSmall)
                     val term = if (original.complete && modified.complete && original.payoffMonth != null && modified.payoffMonth != null)
-                        "${modified.payoffMonth!! - original.payoffMonth!!} meses" else "Incompleto"
+                        "${if (modified.payoffMonth!! > original.payoffMonth!!) "+" else ""}${modified.payoffMonth!! - original.payoffMonth!!} meses" else "Incompleto"
                     CopyResult("diferencia de plazo", term)
                 }
             }
             Text("Liquidación Original: ${original.payoffDate?.let(::formatMonth) ?: "No alcanzada"} · Modificado: ${modified.payoffDate?.let(::formatMonth) ?: "No alcanzada"}", style = MaterialTheme.typography.bodySmall)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 names.forEachIndexed { i, name -> FilterChip(i !in hiddenScenarios,
-                    { hiddenScenarios = if (i in hiddenScenarios) hiddenScenarios - i else hiddenScenarios + i },
-                    label = { Text("Mostrar $name") }) }
+                    { onHiddenScenariosChange(if (i in hiddenScenarios) hiddenScenarios - i else hiddenScenarios + i) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = BrandSageLight, selectedLabelColor = BrandDark),
+                    label = { Text("$name: ${if (i in hiddenScenarios) "oculto" else "visible"}") }) }
             }
             Text("Componentes pagados por mes", style = MaterialTheme.typography.labelLarge)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 available.forEach { c -> FilterChip(c in visibleComponents,
-                    { hiddenComponents = if (c in hiddenComponents) hiddenComponents - c else hiddenComponents + c },
-                    label = { Text(componentLabels[c], color = componentColors[c]) }) }
+                    { onHiddenComponentsChange(if (c in hiddenComponents) hiddenComponents - c else hiddenComponents + c) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = BrandSageLight, selectedLabelColor = BrandDark),
+                    label = { Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(10.dp).background(componentColors[c]))
+                        Text("${componentLabels[c]}: ${if (c in visibleComponents) "visible" else "oculto"}")
+                    } }) }
             }
             if (hiddenScenarios.size == 2 || visibleComponents.isEmpty()) {
                 Text("Sin series visibles${if (hiddenScenarios.size < 2) " de componentes" else ""}")
-                OutlinedButton(onClick = { hiddenScenarios = emptySet(); hiddenComponents = emptySet() }) { Text("Restablecer") }
+                OutlinedButton(onClick = { onHiddenScenariosChange(emptySet()); onHiddenComponentsChange(emptySet()) }) { Text("Restablecer") }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 OutlinedButton(enabled = range.first > 0, onClick = { select((range.first - 12).coerceAtLeast(0)) }) { Text("Anterior") }
@@ -95,7 +105,8 @@ fun HorizontalComparisonChart(
             }
             Text("Tramo M${range.first}–M${range.last} de M0–M$horizon", style = MaterialTheme.typography.labelLarge)
             OutlinedTextField(value = monthInput, onValueChange = { monthInput = it; it.toIntOrNull()?.let { value -> if (value in 0..horizon) select(value) } },
-                label = { Text("Mes seleccionado (0–$horizon)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                label = { Text("Mes seleccionado (0–$horizon)") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Mes seleccionado (0–$horizon)" })
             val balances = results.mapIndexed { i, result -> ChartSeries(names[i], BrandForest, i == 0,
                 range.map { m -> resultBalance(result, m) }) }.filterIndexed { i, _ -> i !in hiddenScenarios }
             ResultLineChart("Saldo de capital al cierre", currency, range, month, balances, ::select)
@@ -112,37 +123,42 @@ fun HorizontalComparisonChart(
             val modBalance = resultBalance(modified, month)
             if (origBalance != null && modBalance != null) {
                 Text("Diferencia de saldo (modificado − original)")
-                CopyMoney("diferencia de saldo mes $month", difference(modBalance, origBalance), currency)
+                CopyMoney("diferencia de saldo mes $month", difference(modBalance, origBalance), currency, signed = true)
             }
-            results.forEachIndexed { i, result ->
-                val row = result.rows.find { it.month == month }
-                val name = names[i]
-                Text("$name${row?.date?.let { " · ${formatMonth(it)}" } ?: ""}", style = MaterialTheme.typography.titleSmall)
-                fun label(data: String) = "$data $name mes $month"
-                val balance = resultBalance(result, month)
-                if (balance != null) { Text("Saldo de capital"); CopyMoney(label("saldo de capital"), balance, currency) }
-                when {
-                    month == 0 -> Text("M0: capital inicial, antes de pagos. No admite eventos.")
-                    row != null -> {
-                        val paid = components[i].getValue(month)
-                        componentLabels.forEachIndexed { c, title ->
-                            Text(title); CopyMoney(label(title), paid[c], currency)
-                        }
-                        if (i in hiddenScenarios || visibleComponents.isEmpty()) Text("Importe visible: sin series de componentes visibles")
-                        else { Text("Importe visible"); CopyMoney(label("importe visible"), sumMoney(visibleComponents.map { paid[it] }), currency) }
-                        Text("Total pagado"); CopyMoney(label("total pagado"), row.cashPaid, currency)
-                        listOf("Interés generado" to row.interestCharged, "Seguro generado" to row.insuranceCharged,
-                            "Interés pendiente" to row.pendingInterest, "Seguro pendiente" to row.pendingInsurance,
-                            "Capital vencido" to row.overduePrincipal, "Mora" to row.arrears, "Deuda total" to row.debt,
-                            "Excedente no aplicado" to sumMoney(listOf(row.scheduled.unapplied, row.catchup.unapplied, row.extra.unapplied))).forEach { (title, amount) ->
-                            Text(title); CopyMoney(label(title), amount, currency)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                results.forEachIndexed { i, result ->
+                    Column(Modifier.widthIn(min = 260.dp).weight(1f)) {
+                        val row = result.rows.find { it.month == month }
+                        val name = names[i]
+                        Text("$name${row?.date?.let { " · ${formatMonth(it)}" } ?: ""}", style = MaterialTheme.typography.titleSmall)
+                        fun label(data: String) = "$data $name mes $month"
+                        val balance = resultBalance(result, month)
+                        if (balance != null) { Text("Saldo de capital"); CopyMoney(label("saldo de capital"), balance, currency) }
+                        when {
+                            month == 0 -> Text("M0: capital inicial, antes de pagos. No admite eventos.")
+                            row != null -> {
+                                val paid = components[i].getValue(month)
+                                componentLabels.forEachIndexed { c, title ->
+                                    Text(title); CopyMoney(label(title), paid[c], currency)
+                                }
+                                if (i in hiddenScenarios || visibleComponents.isEmpty()) Text("Importe visible: sin series de componentes visibles")
+                                else { Text("Importe visible"); CopyMoney(label("importe visible"), sumMoney(visibleComponents.map { paid[it] }), currency) }
+                                Text("Total pagado"); CopyMoney(label("total pagado"), row.cashPaid, currency)
+                                listOf("Comisión pagada" to row.commissionPaid, "IVA pagado" to row.vatPaid,
+                                    "Interés generado" to row.interestCharged, "Seguro generado" to row.insuranceCharged,
+                                    "Interés pendiente" to row.pendingInterest, "Seguro pendiente" to row.pendingInsurance,
+                                    "Capital vencido" to row.overduePrincipal, "Mora" to row.arrears, "Deuda total" to row.debt,
+                                    "Excedente no aplicado" to sumMoney(listOf(row.scheduled.unapplied, row.catchup.unapplied, row.extra.unapplied))).forEach { (title, amount) ->
+                                    Text(title); CopyMoney(label(title), amount, currency)
+                                }
+                            }
+                            result.complete -> {
+                                Text("Liquidado; sin pagos posteriores en este mes.")
+                                Text("Total pagado"); CopyMoney(label("total pagado"), "0.00", currency)
+                            }
+                            else -> Text("Sin datos simulados para este mes; resultado incompleto.")
                         }
                     }
-                    result.complete -> {
-                        Text("Liquidado; sin pagos posteriores en este mes.")
-                        Text("Total pagado"); CopyMoney(label("total pagado"), "0.00", currency)
-                    }
-                    else -> Text("Sin datos simulados para este mes; resultado incompleto.")
                 }
             }
         }
@@ -155,11 +171,15 @@ private data class ChartSeries(val label: String, val color: Color, val dashed: 
 private fun ResultLineChart(title: String, currency: Currency, range: IntRange, month: Int,
     series: List<ChartSeries>, onSelect: (Int) -> Unit) {
     val maximum = series.flatMap { it.values }.filterNotNull().maxByOrNull { it.toDouble() } ?: "0.00"
-    val scale = maximum.toDouble().coerceAtLeast(1.0)
+    val upperBound = if (maximum.toDouble() <= 0.0) "1.00" else maximum
+    val scale = upperBound.toDouble()
     Text(title, style = MaterialTheme.typography.titleSmall)
-    Text("Escala: ${formatMoney("0.00", currency)} a ${formatMoney(maximum, currency)}", style = MaterialTheme.typography.bodySmall)
+    Text("Escala: ${formatMoney("0.00", currency)} a ${formatMoney(upperBound, currency)}", style = MaterialTheme.typography.bodySmall)
     if (series.isEmpty()) Text("Sin series visibles")
-    Canvas(Modifier.fillMaxWidth().height(160.dp).semantics { contentDescription = "$title; selecciona el mes con el control Mes seleccionado" }
+    Canvas(Modifier.fillMaxWidth().height(160.dp).semantics {
+        contentDescription = "$title; selecciona el mes con el control Mes seleccionado"
+        stateDescription = series.joinToString { "${it.label}: ${if (it.dashed) "discontinua" else "continua"}" }
+    }
         .pointerInput(range) { detectTapGestures { point -> onSelect(range.first + (point.x / size.width * (range.last - range.first)).roundToInt().coerceIn(0, range.last - range.first)) } }
         .pointerInput(range) { detectDragGestures { change, _ ->
             change.consume()

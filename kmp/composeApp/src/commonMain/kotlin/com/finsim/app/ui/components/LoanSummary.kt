@@ -99,6 +99,7 @@ fun LoanSummary(
                     modifier = Modifier.weight(1f),
                     label = "Liquidación",
                     value = result.payoffDate?.let { formatMonth(it) } ?: "No alcanzada",
+                    copyCaptionLabel = "duración Modificado",
                     caption = result.payoffMonth?.let { "Mes $it de amortización" } ?: "Sin fecha final"
                 )
             }
@@ -170,6 +171,7 @@ private fun SummaryKpiCard(
     value: String,
     caption: String,
     clipboardValue: String = value,
+    copyCaptionLabel: String? = null,
     isHighlight: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -196,7 +198,7 @@ private fun SummaryKpiCard(
                 CopyResult("$label Modificado", value, clipboardValue)
             }
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
+            if (copyCaptionLabel != null) CopyResult(copyCaptionLabel, caption) else Text(
                 text = caption,
                 fontSize = 10.sp,
                 lineHeight = 13.sp,

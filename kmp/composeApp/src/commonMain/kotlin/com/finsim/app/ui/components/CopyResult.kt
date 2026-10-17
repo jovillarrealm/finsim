@@ -37,5 +37,7 @@ internal fun CopyResult(label: String, value: String, clipboardValue: String = v
 }
 
 @Composable
-internal fun CopyMoney(label: String, amount: String, currency: Currency, modifier: Modifier = Modifier) =
-    CopyResult(label, formatMoney(amount, currency), clipboardMoney(amount), modifier)
+internal fun CopyMoney(label: String, amount: String, currency: Currency, modifier: Modifier = Modifier, signed: Boolean = false) {
+    val sign = if (signed && Decimal.parse(amount).isPositive) "+" else ""
+    CopyResult(label, sign + formatMoney(amount, currency), sign + clipboardMoney(amount), modifier)
+}

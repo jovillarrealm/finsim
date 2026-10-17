@@ -1,11 +1,11 @@
 # FS-18 — Resultados copiables y gráficos del préstamo
 
-Status: ready-for-agent
-Triage Label: ready-for-agent
+Status: in-progress
+Triage Label: in-progress
 Fecha: 2026-10-14
 Tracker: Markdown local, conforme al patrón existente del proyecto.
 Alcance: cierre de diseño confirmado por el usuario; especificación solicitada mediante mattpocock-skills:to-spec.
-Implementación: no iniciada; requiere resolver incorporación coordinada de KMP/FS-17.
+Implementación: iniciada el 2026-10-17 en task/fs-18-implementation, desde main con KMP/FS-17 incorporados. Ver ficha FS-18 para verificación y límites.
 Esta es la fuente canónica. La etiqueta no sustituye reserva, integración ni aceptación de producto.
 
 ## Problem Statement
