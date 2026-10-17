@@ -25,7 +25,7 @@ Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md)
 | FS-13 | Moneda del escenario | hecha | /root + /root/currency_ui | codex/fs-13-currency / finsim-fs13 | 8cba454 integrado; 45 pruebas, 3 flujos navegador y build |
 | KMP T01–T10 | Migración Kotlin Multiplatform (Web & Android) | en revisión | /root | feat/kmp-migration | 10 tickets completados; motor decimal, paridad y persistencia verificados; APK y web preparados; adb MCP y Android CLI activos |
 | FS-15 | Ingesta de extractos en edge (Pipeline Híbrido) | en revisión | /root | task/fs-15-ingestion | 389ec56; Tickets 01–04 completados; 83 pruebas unitarias jvmTest, build Android y WasmJs exitosos |
-| FS-16 | Rediseño y Ergonomía Móvil (Mobile Layout Revamp) | en revisión | /root | feat/kmp-migration | Tickets 01–05 completados; pestañas limpias sin glifos rotos, formulario a 1 columna adaptativo, cronograma colapsable en acordeón, KPIs fluidos y marcadores de eje; pruebas unitarias y visuales exitosas |
+| FS-16 | Rediseño y Ergonomía Móvil (Mobile Layout Revamp) | en revisión | /root | feat/kmp-migration | Integrado técnicamente en main 542c9f2; tickets 01–05 y verificaciones anteriores conservados; usuario reporta mejora de layout confirmada por testers el 2026-10-17 |
 | FS-17 | Comparador de ofertas de financiación | en revisión | /root | task/fs-17-offer-comparison / finsim-fs17 | Integración 542c9f2; publicación para audiencia a22f0ff/run 38777302454; 115 shared, 7 UI, 9 navegador CI y 2 sobre URL pública; lector/audiencia pendientes |
 
 ## Estados
@@ -147,6 +147,8 @@ Revisión independiente Standards/Spec: cero incumplimientos o defectos nuevos b
 2026-10-17 · /root · compilación AAB detecta configuración local de firma apuntando a ruta ausente del worktree; se reutiliza el keystore existente mediante ruta absoluta en properties ignorado, sin copiar secretos. R8 incluido con AGP 8.7.3 emite errores de lectura de metadata Kotlin 2.2. Se coordina pin acotado de R8 8.10.21 en settings.gradle.kts conforme a documentación oficial, sin cambiar AGP/Kotlin ni dependencias de producto. Recompilar y validar antes de entregar.
 
 2026-10-17 · /root · AAB **1.0.3/código 4** entregado en C:/Users/Lenovo/Documents/finsim/dist/android/finsim-1.0.3-4.aab (4.871.936 bytes), fuente **8fe3689** integrada en main. Build release correcto, R8 8.10.21 confirmado en mapping, bundletool validate y generación de APK de validación correctos; firma verificada y certificado idéntico al AAB anterior código 3. Hash completo y límites en ficha FS-17 (entrega 47bb0a1). Sin instalación en dispositivo, subida a Play Console ni nueva publicación Web; suites anteriores conservadas, aceptación/deuda abiertas. Propiedades de firma permanecen ignoradas y no se copian claves.
+
+2026-10-17 · /root · usuario reporta que los testers coinciden en la mejora de los problemas de layout y solicita merge a main. Feedback positivo de layout registrado en FS-17/FS-16; no se infiere prueba de lector ni comprensión financiera sin guía. feat/kmp-migration y task/fs-17-offer-comparison ya están incluidos en main 974dae4; origin/main está seis commits detrás tras fetch, sin divergencia. Se sincronizan las entregas integradas y este registro con GitHub. Se conservan estados en revisión para los criterios restantes, evidencia técnica vigente y reserva FS-18; sin nueva publicación Pages ni subida a Play Console.
 
 ## FS-18 — Copia de resultados y gráfico unificado del préstamo
 
