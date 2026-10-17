@@ -144,6 +144,8 @@ Revisión independiente Standards/Spec: cero incumplimientos o defectos nuevos b
 
 2026-10-17 · /root · usuario solicita otro AAB. Reserva FS-17 conservada; ampliación coordinada para versión Android 1.0.3/código 4 sobre main 7c908e6, bundleRelease y validación/firma comparada con el AAB anterior. Sin subida a Play Console ni nueva publicación Web; aceptación/deuda KMP siguen pendientes.
 
+2026-10-17 · /root · compilación AAB detecta configuración local de firma apuntando a ruta ausente del worktree; se reutiliza el keystore existente mediante ruta absoluta en properties ignorado, sin copiar secretos. R8 incluido con AGP 8.7.3 emite errores de lectura de metadata Kotlin 2.2. Se coordina pin acotado de R8 8.10.21 en settings.gradle.kts conforme a documentación oficial, sin cambiar AGP/Kotlin ni dependencias de producto. Recompilar y validar antes de entregar.
+
 ## FS-18 — Copia de resultados y gráfico unificado del préstamo
 
 2026-10-14 · en curso (diseño, sin implementación) · coordinadora/ejecutora /root · reserva `task/fs-18-loan-experience` · C:/Users/Lenovo/Documents/finsim-fs18. Solicitud: campos copiables, composición intereses/capital en curva de saldo, controles para limpiar la vista y retirada condicionada de doble pista. Entrevista grill-with-docs antes de acordar experiencia. Documentos desde main; referencia de UI actual en FS-17 `f49a64f`. La implementación depende de coordinar/incorporar KMP/FS-17 sin merges entre ramas hermanas. No altera aceptación ni reserva de FS-17.
