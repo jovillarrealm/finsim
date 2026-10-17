@@ -1,6 +1,6 @@
 # T05 — Continuous Scrolling Month-by-Month Schedule with Sticky Headers
 
-Status: blocked
+Status: closed
 Depends On: T01, T02
 Blocks: T06, T07
 

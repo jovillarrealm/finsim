@@ -1,6 +1,6 @@
 # T06 — Dual Data Export Engine: Apache Arrow IPC (.arrow) & Formatted CSV/TSV
 
-Status: blocked
+Status: closed
 Depends On: T05
 Blocks: T07
 
