@@ -129,30 +129,6 @@ fun HorizontalComparisonChart(
                 color = TextForestMuted
             )
 
-            // Tramo Navigation & Month Selector
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(
-                    enabled = range.first > 0,
-                    onClick = { select((range.first - 12).coerceAtLeast(0)) },
-                    shape = RoundedCornerShape(8.dp)
-                ) { Text("Anterior") }
-                Text("Tramo M${range.first}–M${range.last} de M0–M$horizon", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = BrandForest)
-                OutlinedButton(
-                    enabled = range.last < horizon,
-                    onClick = { select(range.last + 1) },
-                    shape = RoundedCornerShape(8.dp)
-                ) { Text("Siguiente") }
-            }
-
-            OutlinedTextField(
-                value = monthInput,
-                onValueChange = { monthInput = it; it.toIntOrNull()?.let { value -> if (value in 0..horizon) select(value) } },
-                label = { Text("Mes seleccionado (0–$horizon)") },
-                singleLine = true,
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Mes seleccionado (0–$horizon)" }
-            )
-
             // CHART 1: Saldo de capital al cierre
             val balances = results.mapIndexed { i, result ->
                 ChartSeries(names[i], BrandForest, i == 0, range.map { m -> resultBalance(result, m) })
@@ -237,6 +213,40 @@ fun HorizontalComparisonChart(
                 }
             }
 
+            // Tramo Navigation & Month Selector
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
+                    enabled = range.first > 0,
+                    onClick = { select((range.first - 12).coerceAtLeast(0)) },
+                    shape = RoundedCornerShape(8.dp)
+                ) { Text("Anterior") }
+                OutlinedButton(
+                    enabled = range.last < horizon,
+                    onClick = { select(range.last + 1) },
+                    shape = RoundedCornerShape(8.dp)
+                ) { Text("Siguiente") }
+            }
+
+            Text(
+                "Tramo M${range.first}–M${range.last} de M0–M$horizon",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = BrandForest
+            )
+
+            OutlinedTextField(
+                value = monthInput,
+                onValueChange = { monthInput = it; it.toIntOrNull()?.let { value -> if (value in 0..horizon) select(value) } },
+                label = { Text("Mes seleccionado (0–$horizon)") },
+                singleLine = true,
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Mes seleccionado (0–$horizon)" }
+            )
+
             HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
 
             // DETALLE DEL MES: Tabla Comparativa a 3 Columnas
@@ -316,6 +326,15 @@ fun HorizontalComparisonChart(
                                 }
                             }
 
+                            // Generated Amounts (Separated from Paid Amounts)
+                            val origInterestCharged = origRow?.interestCharged ?: "0.00"
+                            val modInterestCharged = modRow?.interestCharged ?: "0.00"
+                            DetailTableRow("Interés generado", origInterestCharged, modInterestCharged, currency, "Interés generado", month)
+
+                            val origInsuranceCharged = origRow?.insuranceCharged ?: "0.00"
+                            val modInsuranceCharged = modRow?.insuranceCharged ?: "0.00"
+                            DetailTableRow("Seguro generado", origInsuranceCharged, modInsuranceCharged, currency, "Seguro generado", month)
+
                             // Visible Sum if filtered
                             if (visibleComponents.isNotEmpty() && origPaid != null && modPaid != null) {
                                 val origVis = sumMoney(visibleComponents.map { origPaid[it] })
@@ -347,8 +366,6 @@ fun HorizontalComparisonChart(
                                 val advancedMetrics = listOf(
                                     "Comisión pagada" to { r: com.finsim.domain.MonthRow -> r.commissionPaid },
                                     "IVA pagado" to { r: com.finsim.domain.MonthRow -> r.vatPaid },
-                                    "Interés generado" to { r: com.finsim.domain.MonthRow -> r.interestCharged },
-                                    "Seguro generado" to { r: com.finsim.domain.MonthRow -> r.insuranceCharged },
                                     "Interés pendiente" to { r: com.finsim.domain.MonthRow -> r.pendingInterest },
                                     "Seguro pendiente" to { r: com.finsim.domain.MonthRow -> r.pendingInsurance },
                                     "Capital vencido" to { r: com.finsim.domain.MonthRow -> r.overduePrincipal },
