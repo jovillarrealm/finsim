@@ -1,6 +1,6 @@
 # T02 — Discrete Copy Button Component (Hover Clipboard & Check Feedback)
 
-Status: blocked
+Status: closed
 Depends On: T01
 Blocks: T04, T05
 
@@ -12,6 +12,6 @@ Refactor `CopyResult` and `CopyMoney` in `CopyResult.kt`:
 - Crucially, preserve `contentDescription = "Copiar $label"` on the Compose semantics node so screen readers and automated test locators (`getByRole('button', { name: 'Copiar ...' })`) continue to match effortlessly.
 
 ## Acceptance Criteria
-- No visible `· Copiar` text cluttering the UI at rest.
-- Hover reveals clipboard icon; clicking triggers copy and shows checkmark feedback.
-- Accessibility tests and Playwright button locators pass cleanly.
+- [x] No visible `· Copiar` text cluttering the UI at rest.
+- [x] Hover reveals clipboard icon; clicking triggers copy and shows checkmark feedback.
+- [x] Accessibility tests and Playwright button locators pass cleanly.
