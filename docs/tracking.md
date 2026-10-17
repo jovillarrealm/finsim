@@ -29,6 +29,7 @@ Prioridad confirmada por el usuario el 2026-10-17: **FS-18 primero**. Los pendie
 | FS-15 | Ingesta de extractos en edge (Pipeline Híbrido) | en revisión | /root | task/fs-15-ingestion | 389ec56; Tickets 01–04 completados; 83 pruebas unitarias jvmTest, build Android y WasmJs exitosos |
 | FS-16 | Rediseño y Ergonomía Móvil (Mobile Layout Revamp) | en revisión | /root | feat/kmp-migration | Integrado técnicamente en main 542c9f2; tickets 01–05 y verificaciones anteriores conservados; usuario reporta mejora de layout confirmada por testers el 2026-10-17 |
 | FS-17 | Comparador de ofertas de financiación | en revisión | /root | task/fs-17-offer-comparison / finsim-fs17 | Integración 542c9f2; publicación para audiencia a22f0ff/run 38777302454; 115 shared, 7 UI, 9 navegador CI y 2 sobre URL pública; lector/audiencia pendientes |
+| FS-18 | Resultados copiables y gráficos de préstamo | en curso | /root | task/fs-18-implementation / finsim-fs18-implementation | Nueva rama solicitada; spec aprobada incorporada desde diseño; implementación autorizada, pendientes anteriores aplazados |
 
 ## Estados
 
@@ -153,6 +154,8 @@ Revisión independiente Standards/Spec: cero incumplimientos o defectos nuevos b
 2026-10-17 · /root · usuario reporta que los testers coinciden en la mejora de los problemas de layout y solicita merge a main. Feedback positivo de layout registrado en FS-17/FS-16; no se infiere prueba de lector ni comprensión financiera sin guía. feat/kmp-migration y task/fs-17-offer-comparison ya están incluidos en main 974dae4; origin/main está seis commits detrás tras fetch, sin divergencia. Se sincronizan las entregas integradas y este registro con GitHub. Se conservan estados en revisión para los criterios restantes, evidencia técnica vigente y reserva FS-18; sin nueva publicación Pages ni subida a Play Console.
 
 ## FS-18 — Copia de resultados y gráfico unificado del préstamo
+
+2026-10-17 · /root · usuario solicita nueva rama y comenzar implementación. Reserva renovada: task/fs-18-implementation, C:/Users/Lenovo/Documents/finsim-fs18-implementation, desde main 9bd1cba más este commit de reserva. Especificación aprobada y redirect documental incorporados a main desde task/fs-18-loan-experience (6a2fd37); rama/worktree de diseño conservados. Alcance de archivos compartidos coordinado: UI/coordinación del préstamo, portapapeles por plataforma y pruebas; sin cambios al motor ni JSON. Criterios A01–A13/F01–F06; UI real y transformación decimal de presentación son las superficies de prueba acordadas. Reservar antes de crear worktree; solo /root modifica este tablero. Pendientes anteriores continúan después de FS-18.
 
 2026-10-17 · /root · usuario pospone los pendientes anteriores hasta después de FS-18. FS-18 es la siguiente prioridad; reserva y especificación canónica en C:/Users/Lenovo/Documents/finsim-fs18/.scratch/loan-results-experience/spec.md conservadas. KMP/FS-17 ya están integrados en main b3d2752; al retomar, actualizar la rama FS-18 desde main y resolver la continuidad documental sin merges entre ramas hermanas. Esta priorización no inicia implementación ni cierra aceptación anterior.
 
