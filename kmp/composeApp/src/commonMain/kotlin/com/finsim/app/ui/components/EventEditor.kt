@@ -72,6 +72,7 @@ fun EventEditor(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Button(
+                    enabled = selectedMonth > 0,
                     onClick = {
                         batch = batch.add(month = selectedMonth)
                     },
@@ -81,6 +82,7 @@ fun EventEditor(
                 }
             }
 
+            if (selectedMonth == 0) Text("M0 es el capital inicial; selecciona un mes desde 1 para añadir eventos.")
             if (errorMessage.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(

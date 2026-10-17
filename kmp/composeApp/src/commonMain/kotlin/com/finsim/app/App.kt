@@ -382,7 +382,7 @@ fun App(
                             result = workspace.modified
                         )
 
-                        // Visual Comparison Charts (Untouched: Option 1 & Option 3 with toggle)
+                        // Applied results share selection with the event draft and table.
                         HorizontalComparisonChart(
                             currency = workspace.scenario.currency,
                             original = workspace.original,
@@ -482,6 +482,7 @@ fun App(
                         MonthlyTable(
                             currency = workspace.scenario.currency,
                             result = if (tableMode == "modified") workspace.modified else workspace.original,
+                            scenarioName = if (tableMode == "modified") "Modificado" else "Original",
                             selectedMonth = selectedMonth,
                             onSelectMonth = { selectedMonth = it }
                         )

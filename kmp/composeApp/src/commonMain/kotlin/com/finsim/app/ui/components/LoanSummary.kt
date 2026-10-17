@@ -92,6 +92,7 @@ fun LoanSummary(
                     modifier = Modifier.weight(1f),
                     label = "Cuota base",
                     value = formatMoney(result.basePayment, currency),
+                    clipboardValue = clipboardMoney(result.basePayment),
                     caption = "Pago mensual habitual"
                 )
                 SummaryKpiCard(
@@ -112,13 +113,15 @@ fun LoanSummary(
                     modifier = Modifier.weight(1f),
                     label = "Total intereses",
                     value = formatMoney(result.totals.interest, currency),
+                    clipboardValue = clipboardMoney(result.totals.interest),
                     caption = "Costo financiero neto"
                 )
                 SummaryKpiCard(
                     modifier = Modifier.weight(1f),
                     label = "Caja total pagada",
                     value = formatMoney(result.totals.cashPaid, currency),
-                    caption = "Capital + interés + seguros",
+                    clipboardValue = clipboardMoney(result.totals.cashPaid),
+                    caption = "Capital, interés, seguros y otros cargos",
                     isHighlight = true
                 )
             }
@@ -137,13 +140,10 @@ fun LoanSummary(
                             shape = RoundedCornerShape(6.dp),
                             border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFE2D4EA))
                         ) {
-                            Text(
-                                text = "Seguros totales: ${formatMoney(result.totals.insurance, currency)}",
-                                color = BrandPlum,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
+                            Column {
+                                Text("Seguros totales")
+                                CopyMoney("seguros totales Modificado", result.totals.insurance, currency)
+                            }
                         }
                     }
                     if (result.totals.unapplied != "0.00") {
@@ -152,13 +152,10 @@ fun LoanSummary(
                             shape = RoundedCornerShape(6.dp),
                             border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFE8D4A2))
                         ) {
-                            Text(
-                                text = "Excedente no aplicado: ${formatMoney(result.totals.unapplied, currency)}",
-                                color = BrandAmberText,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
+                            Column {
+                                Text("Excedente no aplicado")
+                                CopyMoney("excedente no aplicado Modificado", result.totals.unapplied, currency)
+                            }
                         }
                     }
                 }
@@ -172,16 +169,10 @@ private fun SummaryKpiCard(
     label: String,
     value: String,
     caption: String,
+    clipboardValue: String = value,
     isHighlight: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    // Dynamic typography scaling for longer values (e.g., COP 25.750.306,00)
-    val valueFontSize = when {
-        value.length > 15 -> 13.sp
-        value.length > 11 -> 14.sp
-        else -> 15.sp
-    }
-
     Surface(
         modifier = modifier,
         color = if (isHighlight) SurfaceHighlight else Color.White,
@@ -202,15 +193,7 @@ private fun SummaryKpiCard(
                     softWrap = true
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = value,
-                    fontSize = valueFontSize,
-                    lineHeight = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isHighlight) BrandForest else BrandDark,
-                    maxLines = 2,
-                    softWrap = true
-                )
+                CopyResult("$label Modificado", value, clipboardValue)
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
