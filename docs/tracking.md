@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-Actualizado: 2026-10-15. KMP y FS-17 integrados técnicamente en main **542c9f2** y publicados para pruebas con audiencia en **a22f0ff**, run **38777302454** exitoso. Verificados 115 shared, 7 UI, build Web, 9 recorridos CI bajo /finsim/ y 2 recorridos JSON sobre URL pública. Sesión coordinadora: /root. Pendientes: lector real, observación de audiencia y deuda KMP; FS-07/FS-10 conservan aceptación de uso pendiente. Sitio: https://jovillarrealm.github.io/finsim/?v=a22f0ff.
+Actualizado: 2026-10-17. KMP y FS-17 integrados técnicamente en main **542c9f2** y publicados para pruebas con audiencia en **a22f0ff**, run **38777302454** exitoso. Android **1.0.3 (4)** generado, firmado y validado localmente desde **8fe3689**, sin subida a Play Console. Evidencia Web anterior: 115 shared, 7 UI, build Web, 9 recorridos CI y 2 JSON públicos; no repetidos para el AAB. Sesión coordinadora: /root. Pendientes: lector real, audiencia y deuda KMP; FS-07/FS-10 conservan aceptación pendiente. Sitio: https://jovillarrealm.github.io/finsim/?v=a22f0ff.
 
 Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md) define alcance, dependencias y criterios de cierre. Los registros por tarea guardan el detalle de continuidad.
 
@@ -145,6 +145,8 @@ Revisión independiente Standards/Spec: cero incumplimientos o defectos nuevos b
 2026-10-17 · /root · usuario solicita otro AAB. Reserva FS-17 conservada; ampliación coordinada para versión Android 1.0.3/código 4 sobre main 7c908e6, bundleRelease y validación/firma comparada con el AAB anterior. Sin subida a Play Console ni nueva publicación Web; aceptación/deuda KMP siguen pendientes.
 
 2026-10-17 · /root · compilación AAB detecta configuración local de firma apuntando a ruta ausente del worktree; se reutiliza el keystore existente mediante ruta absoluta en properties ignorado, sin copiar secretos. R8 incluido con AGP 8.7.3 emite errores de lectura de metadata Kotlin 2.2. Se coordina pin acotado de R8 8.10.21 en settings.gradle.kts conforme a documentación oficial, sin cambiar AGP/Kotlin ni dependencias de producto. Recompilar y validar antes de entregar.
+
+2026-10-17 · /root · AAB **1.0.3/código 4** entregado en C:/Users/Lenovo/Documents/finsim/dist/android/finsim-1.0.3-4.aab (4.871.936 bytes), fuente **8fe3689** integrada en main. Build release correcto, R8 8.10.21 confirmado en mapping, bundletool validate y generación de APK de validación correctos; firma verificada y certificado idéntico al AAB anterior código 3. Hash completo y límites en ficha FS-17 (entrega 47bb0a1). Sin instalación en dispositivo, subida a Play Console ni nueva publicación Web; suites anteriores conservadas, aceptación/deuda abiertas. Propiedades de firma permanecen ignoradas y no se copian claves.
 
 ## FS-18 — Copia de resultados y gráfico unificado del préstamo
 
