@@ -25,7 +25,7 @@ fun LoanSummary(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceWarm),
         border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
     ) {
@@ -83,7 +83,7 @@ fun LoanSummary(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 2x2 Modern KPI Grid
+            // 2x2 Modern KPI Grid with Thematic Semantic Tints
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -92,13 +92,23 @@ fun LoanSummary(
                     modifier = Modifier.weight(1f),
                     label = "Cuota base",
                     value = formatMoney(result.basePayment, currency),
-                    caption = "Pago mensual habitual"
+                    clipboardValue = clipboardMoney(result.basePayment),
+                    caption = "Pago mensual habitual",
+                    containerColor = KpiMintBg,
+                    borderColor = KpiMintBorder,
+                    labelColor = KpiMintText,
+                    captionColor = KpiMintText
                 )
                 SummaryKpiCard(
                     modifier = Modifier.weight(1f),
                     label = "Liquidación",
                     value = result.payoffDate?.let { formatMonth(it) } ?: "No alcanzada",
-                    caption = result.payoffMonth?.let { "Mes $it de amortización" } ?: "Sin fecha final"
+                    copyCaptionLabel = "duración Modificado",
+                    caption = result.payoffMonth?.let { "Mes $it de amortización" } ?: "Sin fecha final",
+                    containerColor = KpiSkyBg,
+                    borderColor = KpiSkyBorder,
+                    labelColor = KpiSkyText,
+                    captionColor = KpiSkyText
                 )
             }
 
@@ -112,13 +122,23 @@ fun LoanSummary(
                     modifier = Modifier.weight(1f),
                     label = "Total intereses",
                     value = formatMoney(result.totals.interest, currency),
-                    caption = "Costo financiero neto"
+                    clipboardValue = clipboardMoney(result.totals.interest),
+                    caption = "Costo financiero neto",
+                    containerColor = KpiAmberBg,
+                    borderColor = KpiAmberBorder,
+                    labelColor = KpiAmberText,
+                    captionColor = KpiAmberText
                 )
                 SummaryKpiCard(
                     modifier = Modifier.weight(1f),
                     label = "Caja total pagada",
                     value = formatMoney(result.totals.cashPaid, currency),
-                    caption = "Capital + interés + seguros",
+                    clipboardValue = clipboardMoney(result.totals.cashPaid),
+                    caption = "Capital, interés, seguros y otros cargos",
+                    containerColor = Color(0xFFD1FAE5),
+                    borderColor = Color(0xFF6EE7B7),
+                    labelColor = Color(0xFF064E3B),
+                    captionColor = Color(0xFF047857),
                     isHighlight = true
                 )
             }
@@ -133,32 +153,28 @@ fun LoanSummary(
                 ) {
                     if (result.totals.insurance != "0.00") {
                         Surface(
-                            color = BrandPlumLight,
-                            shape = RoundedCornerShape(6.dp),
-                            border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFE2D4EA))
+                            color = KpiPlumBg,
+                            shape = RoundedCornerShape(8.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, KpiPlumBorder)
                         ) {
-                            Text(
-                                text = "Seguros totales: ${formatMoney(result.totals.insurance, currency)}",
-                                color = BrandPlum,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
+                            Column(Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                Text("Seguros totales", style = MaterialTheme.typography.labelSmall, color = KpiPlumText, fontWeight = FontWeight.SemiBold)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                CopyMoney("seguros totales Modificado", result.totals.insurance, currency)
+                            }
                         }
                     }
                     if (result.totals.unapplied != "0.00") {
                         Surface(
-                            color = BrandAmberLight,
-                            shape = RoundedCornerShape(6.dp),
-                            border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFE8D4A2))
+                            color = KpiAmberBg,
+                            shape = RoundedCornerShape(8.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, KpiAmberBorder)
                         ) {
-                            Text(
-                                text = "Excedente no aplicado: ${formatMoney(result.totals.unapplied, currency)}",
-                                color = BrandAmberText,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
+                            Column(Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                Text("Excedente no aplicado", style = MaterialTheme.typography.labelSmall, color = KpiAmberText, fontWeight = FontWeight.SemiBold)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                CopyMoney("excedente no aplicado Modificado", result.totals.unapplied, currency)
+                            }
                         }
                     }
                 }
@@ -172,52 +188,44 @@ private fun SummaryKpiCard(
     label: String,
     value: String,
     caption: String,
+    clipboardValue: String = value,
+    copyCaptionLabel: String? = null,
+    containerColor: Color = Color.White,
+    borderColor: Color = BorderSage,
+    labelColor: Color = Color(0xFF435845),
+    captionColor: Color = Color(0xFF5A6E59),
     isHighlight: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    // Dynamic typography scaling for longer values (e.g., COP 25.750.306,00)
-    val valueFontSize = when {
-        value.length > 15 -> 13.sp
-        value.length > 11 -> 14.sp
-        else -> 15.sp
-    }
-
     Surface(
         modifier = modifier,
-        color = if (isHighlight) SurfaceHighlight else Color.White,
-        shape = RoundedCornerShape(10.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, if (isHighlight) Color(0xFFBED1B8) else BorderSage)
+        color = containerColor,
+        shape = RoundedCornerShape(12.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
     ) {
         Column(
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
                 Text(
                     text = label,
                     fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isHighlight) BrandForest else Color(0xFF435845),
+                    fontWeight = FontWeight.Bold,
+                    color = labelColor,
                     maxLines = 1,
                     softWrap = true
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = value,
-                    fontSize = valueFontSize,
-                    lineHeight = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isHighlight) BrandForest else BrandDark,
-                    maxLines = 2,
-                    softWrap = true
-                )
+                CopyResult("$label Modificado", value, clipboardValue)
             }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
+            Spacer(modifier = Modifier.height(6.dp))
+            if (copyCaptionLabel != null) CopyResult(copyCaptionLabel, caption) else Text(
                 text = caption,
                 fontSize = 10.sp,
                 lineHeight = 13.sp,
-                color = if (isHighlight) BrandSage else Color(0xFF5A6E59),
+                color = captionColor,
+                fontWeight = FontWeight.Medium,
                 maxLines = 2,
                 softWrap = true
             )

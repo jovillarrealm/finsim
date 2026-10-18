@@ -1,177 +1,164 @@
-# FS-18 — Resultados copiables y gráficos del préstamo
+# FS-18 — Experiencia de Resultados del Préstamo, Estética y Exportación Avanzada
 
 Status: ready-for-agent
 Triage Label: ready-for-agent
-Fecha: 2026-10-14
+Fecha: 2026-10-17
 Tracker: Markdown local, conforme al patrón existente del proyecto.
-Alcance: cierre de diseño confirmado por el usuario; especificación solicitada mediante mattpocock-skills:to-spec.
-Implementación: no iniciada; requiere resolver incorporación coordinada de KMP/FS-17.
-Esta es la fuente canónica. La etiqueta no sustituye reserva, integración ni aceptación de producto.
+Alcance: Rediseño estético y de ergonomía visual, gráficos interactivos con leyendas inferiores y escala en eje Y, tabla comparativa mensual compacta, scroll fluido del cronograma y exportación dual (Apache Arrow IPC + CSV/TSV).
+
+---
 
 ## Problem Statement
 
-Una persona que explora su préstamo no puede reutilizar fácilmente valores como la cuota base: los resultados se muestran como texto sin acción de copia. Necesita llevar importes a otro campo, una hoja de cálculo o una conversación sin transcribirlos ni eliminar manualmente símbolos monetarios.
+Una persona que utiliza Finsim para planificar y comparar escenarios de su préstamo se enfrenta a importantes barreras de legibilidad, ergonomía y reutilización de datos:
 
-Para entender qué cambian sus abonos debe alternar entre una curva de saldo y una vista de doble pista. La curva permite comparar capital pendiente, pero no explica qué parte de los pagos corresponde a capital, intereses, seguros o cargos. Doble pista contiene parte de ese desglose y ocupa otra vista. La persona necesita comparar original y modificado, limpiar la información visible y consultar meses concretos desde el teléfono, conservando edición y tabla.
+1. **Monotonía visual y falta de jerarquía:** La interfaz presenta una paleta de colores deslavada y plana (dominada por fondos beige/alabastro y grises de bajo contraste), lo que dificulta escanear visualmente las métricas críticas y diluye la identidad amigable de laboratorio financiero.
+2. **Ruido visual en las acciones de copia:** Cada número monetario en el resumen, gráficos y detalle muestra de forma permanente y repetitiva el texto explícito `· Copiar`, saturando la vista y compitiendo con la lectura de las cifras.
+3. **Gráficos distantes y con escasa señalización:**
+   - Los controles de visibilidad (toggles de escenarios y componentes) se encuentran ubicados muy arriba, desconectados de los gráficos que manipulan por selectores de tramo y cajas de texto.
+   - El eje vertical carece de escala numérica en el dibujo, relegando la magnitud a un texto plano superior (`Escala: COP 0 a COP...`), y no ofrece retroalimentación interactiva (tooltips o cursor de seguimiento) al pasar el cursor sobre los puntos.
+   - El gráfico inferior de pagos mensuales por componente resulta estrecho y difícil de interpretar ante múltiples series simultáneas.
+4. **Sobrecarga vertical en el detalle mensual:** Al seleccionar un mes, la interfaz despliega una lista vertical no estructurada de más de 18 filas consecutivas por escenario (36 en total), demandando un desplazamiento vertical excesivo de más de 800 píxeles para comparar el escenario original contra el modificado.
+5. **Rigidez en la tabla de amortización y exportación limitada:** La tabla mes a mes se encuentra restringida a una paginación fija de 12 cuotas por bloque sin desplazamiento continuo, y no dispone de mecanismos de exportación columnar moderna (Apache Arrow) para analítica de datos en Python/Pandas/Polars ni exportación delimitada limpia para hojas de cálculo.
+
+---
 
 ## Solution
 
-Una sola experiencia de préstamo con dos gráficos de líneas verticalmente alineados: saldo de capital arriba y componentes efectivamente pagados cada mes abajo. Ambos muestran original y modificado. No habrá barras ni alternancia entre tipos de gráfico.
+Una experiencia integral de resultados y cronograma que combina alta ergonomía visual, interactividad analítica y exportación versátil:
 
-Cada componente tiene un color consistente. Original utiliza trazo discontinuo y modificado continuo; etiquetas y detalle numérico complementan el color. Los filtros permiten ocultar escenarios o componentes sin alterar el préstamo. Los gráficos comparten mes seleccionado y, en teléfono, tramo temporal navegable. El detalle permite comparar valores exactos, copiar y acceder a edición del escenario modificado. La tabla sigue siendo una alternativa accesible.
+1. **Paleta Esmeralda y Menta Financiera:** Fondo limpio y fresco (`#F8FAF8`), tarjetas blancas nítidas con bordes sutiles, verde bosque institucional (`#144436`) para títulos y elementos estructurales, y verde menta/esmeralda vivo (`#059669` / `#10B981`) para estados activos, curvas destacadas y confirmaciones.
+2. **Acción de copia sutil y sin ruido:** Las cifras numéricas se muestran limpias en reposo. Al pasar el cursor (hover), emerge suavemente un icono de portapapeles; al hacer clic, el valor numérico sin formatear se transfiere al portapapeles del sistema y el icono se transforma temporalmente en una marca de verificación verde (**✓**) con confirmación visual sutil, manteniendo la semántica y accesibilidad para lectores de pantalla.
+3. **Gráficos coordinados con leyendas integradas y eje Y rotulado:**
+   - Toggles reubicados al pie de cada gráfico respectivo, operando como leyendas interactivas directas (Original y Modificado bajo el gráfico de Saldo; componentes con su muestra de color bajo el gráfico de Pagos).
+   - Eje vertical izquierdo con 3 a 4 niveles de referencia numérica formateada de manera compacta (ej. `$20M`, `$10M`, `$0`).
+   - Cursor de seguimiento vertical que, al mover el puntero o interactuar táctilmente, resalta el mes activo y despliega un tooltip flotante con el desglose exacto de las series visibles.
+   - Altura del lienzo ampliada a 220dp para mayor claridad visual.
+4. **Detalle del mes en tabla compacta a 3 columnas:**
+   - Presentación estructurada `Métrica | Escenario Original | Escenario Modificado`.
+   - Cifras fundamentales (Saldo de capital, Total pagado y componentes de cuota) visibles en un formato denso y de rápida comparación.
+   - Acordeón colapsable discreto para conceptos contables y regulatorios secundarios (Comisión pagada, IVA pagado, Interés generado, Seguro generado, Deuda total, Mora, Excedente no aplicado).
+5. **Cronograma con scroll continuo y exportación dual:**
+   - Tabla mes a mes con desplazamiento vertical fluido (hasta 500dp) y desplazamiento horizontal con cabecera fija de columnas, eliminando la paginación rígida de 12 meses.
+   - **Exportación Apache Arrow IPC (`.arrow`):** Archivo columnar nativo con tipos estrictos (`Int32`, `Utf8`, `Float64`) para importación instantánea en Python (Pandas/Polars) y DuckDB sin inconsistencias de tipos.
+   - **Exportación CSV / TSV:** Archivo delimitado estándar con codificación UTF-8 con BOM para apertura inmediata sin desconfiguración de separadores en Excel y Google Sheets.
 
-Resumen, detalle mensual y tabla incorporan acciones de copia por valor. Los importes se pegan con dos decimales y coma decimal, sin moneda ni separadores de miles: 507,51. Se confirma éxito y se informa un fallo sin alterar el resultado.
+---
 
 ## User Stories
 
-1. Como persona que explora un préstamo, quiero copiar la cuota base desde el resumen, para reutilizarla sin transcribirla.
-2. Como persona que consulta resultados, quiero copiar otros valores del resumen, para compartir importes, fechas y duración con precisión.
-3. Como persona que inspecciona un mes, quiero copiar sus importes desde el detalle, para compararlos con mis registros.
-4. Como persona que usa la tabla, quiero copiar sus valores individualmente, para reutilizar el dato que estoy leyendo.
-5. Como persona que pega un importe en otro campo, quiero recibir un número sin moneda ni miles, para evitar limpieza manual.
-6. Como persona que copia dinero, quiero conservar exactamente dos decimales, para no perder centavos ni introducir redondeos adicionales.
-7. Como persona que usa teclado o teléfono, quiero activar Copiar mediante un control accesible, para no depender de seleccionar texto con precisión.
-8. Como persona que copia, quiero saber si la operación tuvo éxito o falló, para no pegar inadvertidamente un contenido anterior.
-9. Como persona que revisa el préstamo, quiero ver saldo y pagos en dos gráficos próximos, para relacionar la deuda pendiente con el dinero que aporto.
-10. Como persona que compara, quiero ver original y modificado en ambos gráficos, para seguir el efecto de mis eventos sin cambiar de escenario.
-11. Como persona que interpreta el gráfico, quiero distinguir escenarios mediante trazo y etiquetas además del color, para reconocer series coincidentes o similares.
-12. Como persona que consulta el saldo, quiero ver el capital inicial antes del primer pago, para comprender desde dónde empieza la reducción.
-13. Como persona que consulta un cierre mensual, quiero ver el capital que queda al final del mes, para no confundirlo con la deuda total ni con el pago del periodo.
-14. Como persona que analiza pagos, quiero ver los componentes individuales de cada mes, para distinguir capital habitual, capital adicional, intereses, seguros y otros cargos.
-15. Como persona que aporta un abono o recuperación, quiero ver su distribución real, para reconocer cuánto cubrió capital y cuánto atendió otros conceptos.
-16. Como persona que ofrece más dinero del necesario, quiero que el excedente no aplicado se mantenga separado, para no atribuirle una salida de caja inexistente.
-17. Como persona que omite una cuota, quiero distinguir cargos generados y dinero pagado, para entender por qué puede haber intereses pendientes con pago cero.
-18. Como persona con cargos de precancelación calculados, quiero ver comisión e IVA dentro de otros cargos, para comprender toda la caja pagada.
-19. Como persona con seguros posteriores a liquidación, quiero seguir viendo esos meses, para no creer que todos los pagos terminan al liquidar capital.
-20. Como persona con una simulación incompleta, quiero reconocer su límite y saldo pendiente, para no interpretar una liquidación o ahorro que no se alcanzó.
-21. Como persona que quiere concentrarse en una comparación, quiero ocultar cualquiera de los escenarios en ambos gráficos, para reducir información visible.
-22. Como persona que analiza intereses, quiero ocultar los demás componentes inferiores, para apreciar su evolución con una escala legible.
-23. Como persona que filtra, quiero conservar los importes de las series restantes y el total real del mes, para no confundir visibilidad con ahorro.
-24. Como persona que vuelve a un tramo anterior, quiero conservar los mismos componentes disponibles, para no perder una categoría que allí tiene valor cero.
-25. Como persona que oculta todas las series, quiero un estado explícito y una acción Restablecer, para recuperar la vista sin interpretar ceros ficticios.
-26. Como persona que consulta un préstamo largo en teléfono, quiero navegar por tramos mensuales legibles, para seleccionar meses sin comprimir todo el plazo.
-27. Como persona que navega, quiero que ambos gráficos muestren los mismos meses, para comparar saldo y pagos del mismo periodo.
-28. Como persona que selecciona un punto en cualquiera de los gráficos, quiero consultar el mismo mes en el detalle, para entender sus valores exactos.
-29. Como persona que quiere modificar el préstamo, quiero editar eventos del mes seleccionado, para explorar cambios conservando el original.
-30. Como persona que prepara varios eventos, quiero que los gráficos mantengan el último resultado aplicado hasta aplicar el borrador, para distinguir edición pendiente de simulación vigente.
-31. Como persona que usa teclado o lectura accesible, quiero disponer de controles etiquetados y tabla mensual, para acceder a información y acciones sin interpretar el dibujo.
-32. Como persona que guarda un escenario, quiero que filtrar y navegar no cambie sus entradas ni eventos, para conservar mis datos financieros.
-33. Como persona que compara saldos, quiero una diferencia nombrada con precisión, para no confundir menor capital pendiente con ahorro de intereses.
-34. Como persona que usa la app, quiero una única experiencia de gráficos que conserve los recorridos útiles, para dejar de alternar con doble pista.
+1. Como persona que explora un crédito, quiero una paleta de colores fresca y con buen contraste, para distinguir fácilmente títulos, tarjetas y series sin fatiga visual.
+2. Como persona que consulta resultados, quiero ver cifras limpias sin la palabra 'Copiar' repetida permanentemente, para leer mis números sin saturación visual.
+3. Como persona que pasa el cursor sobre una métrica, quiero ver aparecer un icono de portapapeles, para reconocer de inmediato que el valor es copiable.
+4. Como persona que hace clic en copiar, quiero ver una marca de verificación verde instantánea en el lugar del icono, para tener confirmación visual inmediata de la copia.
+5. Como persona que usa lector de pantalla o teclado, quiero que los botones de copia mantengan su nombre accesible completo, para operar de forma equivalente sin depender del cursor.
+6. Como persona que copia un importe monetario, quiero recibir un valor numérico estandarizado con dos decimales, para pegarlo en hojas de cálculo o campos sin necesidad de eliminar símbolos monetarios a mano.
+7. Como persona que analiza el gráfico de saldo, quiero ver los toggles de 'Original' y 'Modificado' directamente debajo del lienzo, para entender la leyenda y filtrar escenarios en el mismo punto de atención.
+8. Como persona que analiza el gráfico de componentes, quiero ver los toggles de cada serie con su respectivo código de color justo al pie del gráfico, para identificar y alternar series sin buscar controles lejanos.
+9. Como persona que evalúa magnitudes en los gráficos, quiero ver marcas de escala con valores compactos en el eje vertical izquierdo, para dimensionar el saldo y las cuotas sin leer textos descriptivos largos.
+10. Como persona que mueve el cursor sobre los gráficos, quiero que una línea guía vertical y un tooltip flotante me muestren los importes exactos del mes señalado, para inspeccionar cifras precisas sin salir del gráfico.
+11. Como persona que compara curvas, quiero que los lienzos tengan al menos 220dp de altura, para que las líneas de pagos múltiples no se encimen ni se vean comprimidas.
+12. Como persona que inspecciona un mes concreto, quiero ver una tabla comparativa de 3 columnas (Métrica, Original, Modificado), para evaluar las diferencias entre ambos escenarios de un solo vistazo.
+13. Como persona que revisa la cuota de un mes, quiero ver saldo, total pagado y componentes habituales inmediatamente visibles, para no tener que buscar entre filas secundarias.
+14. Como persona que analiza aspectos regulatorios o atrasos, quiero un acordeón plegable para comisiones, IVA, mora y saldos pendientes, para acceder a datos avanzados sin saturar el espacio vertical cotidiano.
+15. Como persona que consulta un préstamo de largo plazo (ej. 36 o 120 meses), quiero desplazarme verticalmente por la tabla completa sin pasar páginas de 12 en 12, para revisar la evolución temporal con fluidez.
+16. Como persona que se desplaza hacia abajo en la tabla de amortización, quiero que la fila de encabezados permanezca visible en la parte superior, para saber siempre qué columna estoy leyendo.
+17. Como analista de datos o usuario técnico, quiero exportar el cronograma en formato Apache Arrow IPC (`.arrow`), para cargarlo directamente en Python, Pandas, Polars o DuckDB con tipos numéricos nativos sin pérdidas de precisión.
+18. Como persona usuaria de Excel o Google Sheets, quiero exportar el cronograma en formato delimitado con UTF-8 BOM, para abrir la tabla directamente sin que se alteren las tildes ni se confundan los separadores decimales.
+19. Como persona que oculta todas las series de un gráfico, quiero ver un aviso explícito y un botón de restablecimiento, para recuperar la visualización rápidamente.
+20. Como persona que usa dispositivos táctiles o móviles, quiero poder interactuar con los gráficos y tablas mediante toques precisos, para disponer de la misma capacidad de inspección que en escritorio.
+
+---
 
 ## Implementation Decisions
 
-### Alcance y módulos
+### 1. Sistema de Diseño y Tokens de Color
+- La paleta se centraliza en el tema visual de la aplicación:
+  - Estructura y títulos: `BrandForest` (`#144436`) y `TextMain` (`#0F2922`).
+  - Fondo general: `BackgroundClean` (`#F8FAF8`).
+  - Superficies y contenedores: `SurfaceCard` (`#FFFFFF`) con bordes ligeros `BorderSubtle` (`#E2E8F0` / `#D1DCD0`).
+  - Acentos interactivos y positivos: `BrandEmerald` (`#059669`) y `BrandMint` (`#10B981`) con contenedor tenue `BrandMintLight` (`#ECFDF5`).
+  - Señalización de alertas y cargos: se preservan ámbar cálido para intereses y ciruela para seguros, con contraste refinado.
 
-- La implementación modifica presentación y coordinación de la experiencia existente de préstamos: resumen, gráficos, detalle mensual, tabla y acciones de copia. Reutiliza WorkspaceStore, el editor de eventos y los resultados LoanResult/MonthRow.
-- Respeta ADR 0001: el motor KMP compartido es canónico. No cambia fórmulas, prelación, precisión, reglas regionales ni el motor TypeScript congelado. No introduce otro motor, otra capa de persistencia ni nuevas dependencias para dibujar o copiar.
-- No requiere cambios al documento de préstamo, su versión, exportación/importación ni claves de almacenamiento. Los resultados siguen recalculándose desde entradas.
-- La UI actual de referencia es KMP en FS-17, entrega f49a64f. La rama reservada para FS-18 contiene documentación; coordinar la incorporación de dependencias antes de implementar. No hacer merges entre ramas hermanas.
+### 2. Módulo de Copia Discreta (Copy UX)
+- Se desacopla la presentación visual del botón respecto a su nombre semántico:
+  - El texto visible omite el sufijo `· Copiar`.
+  - El contenedor reacciona al estado de puntero (hover) en escritorio, exhibiendo un glifo vectorial de portapapeles.
+  - Al desencadenarse la copia, el icono conmuta a un check verde (`✓`) durante 1.500 ms y se restituye de forma autónoma.
+  - El nodo de accesibilidad preserva inalterado el atributo semántico `contentDescription = "Copiar $label"` para garantizar total paridad en lectores de pantalla y pruebas automatizadas existentes.
 
-### Contrato de representación financiera
+### 3. Módulo de Gráficos de Resultados y Navegación
+- Reestructuración del flujo vertical:
+  1. Controles de navegación de tramo (Anterior, Siguiente, Selector de mes numérico).
+  2. Gráfico 1: Saldo de capital al cierre (220dp).
+  3. Leyenda inferior y toggles interactivos de Gráfico 1 (Filtro Original / Filtro Modificado).
+  4. Gráfico 2: Pagos mensuales por componente (220dp).
+  5. Leyenda inferior y toggles interactivos de Gráfico 2 (Filtros por componente con indicadores de color).
+- Escala de Eje Y:
+  - Generación de 3 a 4 niveles horizontales de referencia calculados dinámicamente a partir del valor máximo visible.
+  - Rotulación alineada a la izquierda con cifras compactas legibles (ej. `$20M`, `$10M`, `$0`).
+- Interactividad y Tooltip:
+  - Detección de puntero sobre el lienzo para proyectar una línea vertical sobre el mes señalado.
+  - Tarjeta flotante que enumera las series activas y sus importes exactos en el mes señalado.
 
-- Gráfico superior: saldo de capital al cierre del mes; mes 0 representa el capital inicial antes de cualquier pago. Saldo de capital no incluye intereses ni seguros pendientes.
-- Gráfico inferior: cinco categorías individuales, sin apilar ni acumular: capital habitual, capital adicional, intereses pagados, seguros pagados y otros cargos pagados.
-- Capital habitual procede de la asignación a capital del pago habitual. Capital adicional suma capital de recuperación y extra. Intereses y seguros pagados suman sus asignaciones habituales, de recuperación y extra. Otros cargos suman comisión e IVA efectivamente pagados; el detalle conserva ambos identificables.
-- La suma de categorías debe coincidir exactamente con caja pagada del mes. Un extra ofrecido no se representa íntegramente como capital. Excedentes no aplicados se muestran aparte y no entran en caja.
-- Agregados y subtotales se obtienen de importes monetarios registrados mediante aritmética decimal compartida. Las coordenadas del dibujo pueden usar representación gráfica aproximada; el detalle y la copia conservan el importe exacto de dos decimales.
-- Distinguir pagos de cargos generados y pendientes. Una omisión puede dar pagos cero con intereses/seguros generados; una recuperación puede pagar cargos de meses anteriores. La tabla conserva sus conceptos explícitos y corrige cualquier etiqueta engañosa del dato de capital adicional al conectar esta experiencia.
-- Original y modificado utilizan el horizonte común que incluye seguros posteriores. Tras una liquidación confirmada se puede representar saldo cero y pagos cero donde realmente no existan obligaciones; no rellenar resultados incompletos con liquidación ficticia ni extrapolar más allá del límite calculado.
-- Las diferencias entre saldos se llaman Diferencia de saldo. No usar Capital Ahorrado ni Deuda evitada para ese dato. Conservar las diferencias de intereses, seguros, caja y plazo existentes con su signo y límite de completitud.
+### 4. Módulo de Detalle Mensual Compacto
+- Sustitución de las 36 filas verticales individuales por una matriz tabular a 3 columnas:
+  - Columna 1: Nombre del concepto.
+  - Columna 2: Importe escenario Original con acción de copia integrada.
+  - Columna 3: Importe escenario Modificado con acción de copia integrada.
+- Sección principal visible: Saldo de capital, Total pagado, Capital habitual, Capital adicional, Intereses pagados, Seguros pagados, Otros cargos.
+- Sección secundaria colapsable (Acordeón): Comisión pagada, IVA pagado, Interés generado, Seguro generado, Interés pendiente, Seguro pendiente, Capital vencido, Mora, Deuda total, Excedente no aplicado.
 
-### Líneas y visibilidad
+### 5. Módulo de Cronograma Mes a Mes y Motor de Exportación
+- Visualización:
+  - Contenedor con altura delimitada (hasta 500dp) con desplazamiento vertical y horizontal libre.
+  - Fila superior de cabecera fijada (`sticky`) durante el desplazamiento vertical.
+- Exportación Apache Arrow:
+  - Definición de esquema columnar estricto:
+    - `month`: Int32
+    - `date`: Utf8
+    - `opening_balance`, `scheduled_principal`, `extra_principal`, `interest_charged`, `insurance_charged`, `interest_paid`, `insurance_paid`, `other_charges_paid`, `total_paid`, `closing_balance`, `pending_interest`, `pending_insurance`, `overdue_principal`, `arrears`, `debt`, `unapplied`: Float64 (o Decimal128 serializado).
+  - Web (Wasm): serialización de RecordBatch Arrow IPC Stream mediante puente JavaScript.
+  - Android: serialización de VectorSchemaRoot mediante integración con el motor Apache Arrow.
+- Exportación Tabular (CSV / TSV):
+  - Serializador en Kotlin puro multiplataforma.
+  - Generación de texto delimitado con cabecera en español, codificación UTF-8 con BOM (`\uFEFF`) para compatibilidad directa con Microsoft Excel y hojas de cálculo.
 
-- Ambos gráficos son de líneas con puntos mensuales y conexiones rectas. Las conexiones expresan evolución entre observaciones mensuales; no simulan importes diarios. No habrá barras, áreas apiladas ni selector de tipo de gráfico.
-- Mantener un color por componente inferior entre escenarios; original discontinuo y modificado continuo en ambos gráficos. Las etiquetas identifican componente y escenario; el detalle permite distinguir series superpuestas.
-- Al abrir la sesión se activan ambos escenarios y todas las categorías con algún pago no cero en cualquiera de los escenarios a lo largo del horizonte calculado. Las categorías totalmente inexistentes no añaden controles. Disponibilidad no depende del tramo visible ni de un escenario oculto.
-- Toggles Original/Modificado compartidos por ambos gráficos. Toggles de componente afectan solo al gráfico inferior. Conservar las elecciones de la sesión al navegar y aplicar eventos; si aparece una categoría nueva, comienza activa. No guardar filtros dentro del documento financiero.
-- Ocultar una serie no cambia valores, selección, eventos ni resultados. Las líneas restantes mantienen sus importes. Cada gráfico tiene eje monetario propio, etiquetado y con base cero; los dos escenarios comparten escala dentro de ese gráfico. La escala inferior se ajusta a series visibles para permitir inspección de importes pequeños.
-- El detalle mantiene ambos escenarios y sus totales reales aunque estén ocultos. Con filtros activos distingue Importe visible de Total pagado, por escenario. Si no hay componentes visibles, indicar ausencia de series en vez de presentar ese subtotal como un pago real cero.
-- Si un gráfico queda sin series, mostrar Sin series visibles y Restablecer. Restablecer recupera escenarios y categorías disponibles inicialmente; no aplica eventos ni escribe almacenamiento. Un mes de pago genuinamente cero se distingue de un gráfico oculto.
-
-### Tiempo, selección y edición
-
-- Ambos gráficos comparten índices de mes, rango visible y mes seleccionado. Saldo es existencia al cierre; componentes son movimientos de ese mismo mes. Un gráfico no usa la escala monetaria del otro.
-- En teléfono se navega por tramos de hasta 12 meses de pagos mediante Anterior/Siguiente, con límites y rango identificados. El primer tramo añade el punto inicial M0; no cuenta como cuota. Los dos gráficos siguen el mismo rango. En escritorio la presentación puede aprovechar el ancho conservando selección y alineación temporal; no se añade zoom en esta entrega.
-- El mes 0 muestra solo estado inicial, sin pago ni edición de eventos. Los meses desde 1 permiten seleccionar desde cualquiera de los gráficos, desde un control mensual accesible y desde la tabla. Seleccionar desde tabla/control lleva el tramo a ese mes.
-- Seleccionar muestra un detalle común con original/modificado, distribución completa, total real, componentes visibles cuando corresponda y cargos pendientes identificados aparte. La interacción toca/selecciona primero; editar eventos corresponde al modificado mediante el editor existente.
-- La navegación no descarta borradores. Durante edición pendiente, gráficos, resumen y detalle siguen mostrando el último escenario aplicado. Aplicar o descartar conserva las reglas existentes; filtrar no activa una aplicación implícita. Al reducirse el horizonte tras aplicar, selección/rango quedan dentro de los meses disponibles.
-- Controles etiquetados, estado de toggles expuesto, foco visible y operación con teclado. La tabla ofrece la misma selección/detalle y acceso a edición del modificado. El dibujo no es la única vía de acceso a importes o acciones.
-
-### Copia
-
-- Añadir acción Copiar por valor de resultado en resumen, detalle mensual y tabla. Su etiqueta accesible identifica dato y, cuando corresponda, escenario/mes. No añadir copia a cada campo editable ni convertir resultados en entradas al tocarlos.
-- Importes copiados: coma decimal, exactamente dos decimales, sin moneda, espacios ni separadores de miles; conservar signo cuando exista. Por ejemplo, COP 1.014,02 se copia como 1014,02; COP 507,51 como 507,51. Otros valores se copian como texto mostrado.
-- Usar la capacidad de portapapeles de la plataforma mediante la integración Compose existente o el adaptador mínimo necesario. Confirmación breve de éxito y mensaje explícito de fallo; no anunciar éxito antes de completar la operación. Un fallo no altera datos ni selección.
-- Copia accesible con teclado en Web y acción táctil en Android. No depender de mantener pulsado un Canvas ni de conceder permisos permanentes para una acción que la plataforma resuelva por gesto del usuario.
-
-### Sustitución y aceptación
-
-- Retirar doble pista y su selector al entregar el reemplazo, después de demostrar sus recorridos preservados. No mantener una vista adicional como opción indefinida.
-- Se conservan editor, tabla, resumen, diferencias y acciones de persistencia existentes. Cierre de FS-18 requiere integración y comprobaciones según protocolo; no cierra automáticamente deuda KMP, FS-17 ni observación de audiencia anterior.
+---
 
 ## Testing Decisions
 
-### Superficie principal
+### Criterios de Calidad de Pruebas
+- Las pruebas deben evaluar comportamiento externo observable (renderizado de elementos accesibles, respuesta a eventos de puntero/clic, contenido copiado en el portapapeles y bytes/texto exportados), evitando acoplarse a detalles internos de implementación o estilos privados.
+- El canal de pruebas prioritario y de mayor nivel de integración es el arnés de pruebas de navegador Playwright contra la distribución real de la aplicación compilada en Web Wasm.
 
-- Verificar el comportamiento visible de la aplicación de préstamo, desde entradas o importación pública de un escenario hasta gráficos, selección, detalle, edición y copia real. Esta superficie alta reutiliza el flujo de WorkspaceStore y las adaptaciones de plataforma; no crear una API de pruebas ni acoplar tests al árbol interno de dibujo.
-- El cierre de diseño confirmado incluía selección/edición desde ambos gráficos y tabla, filtros no destructivos y copia real Android/Web. Se mantienen esas expectativas para las pruebas; no se abre otra entrevista sobre mecanismos internos.
-- Referentes existentes: recorridos Playwright de UI compacta y teclado de la app KMP, compatibilidad JSON histórica y verificación Android con selector nativo y evidencia de UI. Para este alcance los controles deben estar realmente visibles y alcanzables; clic forzado no acredita ergonomía móvil.
-- Las pruebas comunes del gráfico actual cubren ticks, no composición ni portapapeles. Reutilizarlas donde sigan siendo pertinentes. Solo añadir una prueba de transformación pura si la representación requiere lógica decimal no trivial; no repartir un caso de usuario entre muchos mocks o capas artificiales.
-- Probar gráficos, resumen, detalle y tabla como vistas coherentes del mismo resultado. Evidencia visual confirma líneas/trazos/leyendas; verificaciones numéricas leen importes accesibles, sin inferir centavos a partir de píxeles.
+### Módulos y Costuras a Evaluar
+1. **Costura E2E de Navegador (Playwright / Chromium):**
+   - Verificación de renderizado de la nueva paleta y visibilidad de controles.
+   - Activación de acciones de copia en resumen, tabla y detalle mensual, validando la lectura real de `navigator.clipboard.readText()`.
+   - Interacción con los toggles al pie de los gráficos y verificación de la actualización de series.
+   - Apertura y cierre del acordeón de detalles secundarios en la tabla comparativa de 3 columnas.
+   - Descarga y consistencia de los archivos exportados (`.arrow` y `.csv`/`.tsv`).
+2. **Costura de Presentación y Serialización (Kotlin Multiplatform Test):**
+   - Validación unitaria de la generación del esquema y los registros del exportador de Apache Arrow IPC.
+   - Validación de consistencia del formateador CSV/TSV ante valores nulos, meses de gracia y valores con decimales.
 
-### Casos de aceptación
+### Arte Previo en el Repositorio
+- Pruebas existentes en `kmp/composeApp/browser-tests/loan-results.test.cjs`.
+- Pruebas de presentación en `kmp/composeApp/src/commonTest/kotlin/com/finsim/app/ui/components/`.
 
-| ID | Recorrido | Evidencia requerida |
-| --- | --- | --- |
-| A01 | Abrir préstamo sin eventos | Dos gráficos de líneas con ambos escenarios, leyendas inequívocas y sin barras ni selector doble pista. Escenarios iguales pueden superponerse sin perder identificación en detalle. |
-| A02 | Ver préstamo con interés | F01 coincide en saldo, capital, interés y caja de gráficos/detalle/tabla; copiar cuota devuelve exactamente 507,51. |
-| A03 | Aplicar un abono | Capital adicional y sus efectos aparecen en ambos gráficos/detalle al aplicar; sin recalcular mientras sea borrador. La suma pagada incluye todo lo aplicado, sin excedente. |
-| A04 | Omitir y recuperar | F02 distingue cargos y pagos; recuperación conserva desglose exacto y saldo. Ninguna vista trata interés generado como pagado. |
-| A05 | Filtrar componentes/escenarios | Importes restantes y documento guardado no cambian; escala/leyendas responden, detalle conserva ambos totales y diferencia importe visible de total real. |
-| A06 | Ocultar todo y restablecer | Estado explícito, recuperación de series y ninguna falsa liquidación/pago cero. |
-| A07 | Navegar plazo largo en 360 px | Tramos legibles de hasta 12 meses, límites correctos hasta 1.200, ambos gráficos sincronizados; controles visibles y accesibles. Selección externa lleva al tramo correcto. |
-| A08 | Seleccionar/editar mes | Desde ambos gráficos, tabla y teclado se obtiene el mismo detalle y editor del modificado. M0 informa saldo inicial y no admite eventos. |
-| A09 | Copiar en tres superficies | Resumen, detalle y tabla escriben el portapapeles real; formato, signo, éxito y error correctos, también Android. Un pegado/lectura real acredita contenido, no solo el aviso. |
-| A10 | Redondeo/seguro posterior | F03–F05 conservan centavos, excedentes y meses de seguros sin inventar cuota ni truncar horizonte. |
-| A11 | Cargos y resultado incompleto | F06 conserva comisión/IVA en caja. Resultado incompleto conserva saldo/pendientes y su advertencia; no dibuja liquidación inexistente ni ahorro definitivo. |
-| A12 | Preservar estado/compatibilidad | Filtros, navegación y copia no cambian entradas/eventos ni JSON; guardar/importar/exportar/recargar siguen funcionando. Prueba representativa del documento histórico con abono. |
-| A13 | Android/Web y accesibilidad | Compilan ambas plataformas; recorrido táctil y de teclado comprobado, controles/valores etiquetados y tabla operable. Registrar lector real y límites de dispositivo sin simular evidencia. |
-
-### Referencias numéricas independientes
-
-Los importes siguientes proceden de convenciones acordadas o de una fila sintética explícita; las expectativas no se generan mediante el motor bajo prueba. Notación visual con coma decimal.
-
-| Caso | Entradas o dato suministrado | Valores esperados |
-| --- | --- | --- |
-| F01 | Capital 1000,00; EM 1 %; 2 meses; sin seguro/eventos | M0 saldo 1000,00. M1 capital habitual 497,51, interés 10,00, caja 507,51, saldo 502,49. M2 capital 502,49, interés 5,02, caja 507,51, saldo 0,00. Interés total 15,02; caja 1015,02. |
-| F02 | Capital 1000,00; EM 1 %; cuota base 100,00; seguro fijo 5,00; omitir M1 y recuperación 105,00 en M2 | M1 pago 0,00, interés generado 10,00 y seguro generado 5,00, saldo 1000,00. M2 capital habitual 75,00, capital adicional 105,00, intereses pagados 20,00, seguros pagados 10,00, caja 210,00, saldo 820,00. |
-| F03 | Capital 1000,00; tasa cero; seguro mensual 0,1 %; cuota base 100,00; extra ofrecido 1000,00 en M1 | Capital habitual 100,00, adicional 900,00, seguro 1,00, interés 0,00, caja 1001,00, saldo 0,00. Extra no aplicado 100,00, fuera de la suma pagada. |
-| F04 | Capital 100,00; tasa cero; 3 meses | Pagos/capital 33,33; 33,33; 33,34. Suma 100,00, saldo final cero, sin M4 espurio. |
-| F05 | Capital 100,00; tasa cero; cuota 100,00; seguro fijo 10,00 que continúa hasta M3 | Capital liquidado M1; caja 110,00; 10,00; 10,00. Saldo cero M1–M3, seguro visible hasta M3, caja total 130,00. |
-| F06 | Fila sintética de representación: capital habitual 100,00; adicional 100,00; interés pagado 10,00; seguro pagado 5,00; comisión 3,00; IVA 0,63 | Otros cargos 3,63; cinco categorías suman caja 218,63. Es fixture de representación, no certificación de condiciones contractuales. |
-
-- Con F01 M1 y filtro que oculta intereses: Importe visible 497,51 y Total pagado 507,51 por escenario correspondiente. La cuota real no se modifica.
-- Añadir caso de resultado incompleto del motor existente y de horizonte largo; comprobar advertencia y ausencia de relleno falso sin inventar una nueva regla financiera.
-- Verificar portapapeles con 0,00, 507,51, 1014,02 y una diferencia negativa existente. Copiar conserva dos decimales, signo y dato de origen. Un fallo de plataforma debe mostrarse como fallo.
-- Ejecutar comprobaciones pertinentes de UI, regresiones de préstamos/persistencia y builds Android/Web. Solo ampliar pruebas de motor si cambia código financiero, algo fuera del alcance previsto.
-- En esta sesión se valida la especificación y su aritmética de referencia. No se afirma que estos criterios ya estén implementados o pasen en producto.
-- Verificación documental ejecutada: siete secciones requeridas, 34 historias, criterios A01–A13, referencias F01–F06, enlaces locales y 17 igualdades independientes en centavos correctos; sin rutas concretas en Implementation Decisions. No se ejecutaron suites de producto por esta entrega documental.
+---
 
 ## Out of Scope
 
-- Barras, áreas apiladas, doble pista como alternativa permanente, más de dos escenarios o gráficos de pagos acumulados.
-- Cálculos diarios, tasas nuevas, cambios de prelación, reglas regionales o fórmulas para adaptar el dibujo.
-- Rediseño del comparador de ofertas independiente, conciliación, ingesta de extractos, conversor o motor TypeScript.
-- Nuevos contratos JSON, sincronización, cuentas, almacenamiento de preferencias visuales o migraciones.
-- Exportación masiva de tabla, copiar filas completas/CSV, controles Copiar en cada input o exigencia nueva de selección libre de texto.
-- Control adicional de zoom, nueva librería de gráficos, telemetría o backend.
-- Publicar la aplicación, certificar fidelidad bancaria/legal o dar por cerrados pendientes anteriores de KMP/FS-17/audiencia.
+- Modificaciones a las fórmulas matemáticas del motor financiero (`:shared`), reglas de prelación de pagos o perfiles regulatorios.
+- Sincronización multiusuario en la nube o almacenamiento en bases de datos externas.
+- Alteraciones al código de la aplicación prototipo anterior basada en React (`src/`).
+- Importación o lectura inversa de archivos Apache Arrow en la aplicación (el alcance contempla exclusivamente la exportación).
+
+---
 
 ## Further Notes
 
-- El usuario confirmó Q10 y solicitó to-spec. Las alternativas anteriores de barras quedan descartadas; esta especificación sustituye el borrador de entrevista.
-- La fuente de reglas monetarias es [financial-conventions](../../docs/financial-conventions.md); vocabulario acordado en [CONTEXT](../../CONTEXT.md). ADR 0001 y glosario de préstamos se leyeron en la rama FS-17 de referencia; su incorporación al conjunto está pendiente de coordinación.
-- Este acuerdo sustituye, para la experiencia de préstamos FS-18, la presentación histórica mediante barras del brief/FS-07. Conserva sus requisitos financieros, edición y accesibilidad. Actualizar esos documentos al integrar, evitando presentar como desplegado un cambio aún no implementado.
-- Publicada como especificación ready-for-agent en tracker local. No se crea issue remoto ni se realiza despliegue. No descompone en tickets de implementación: esa acción requiere su flujo correspondiente.
-- La [ficha FS-18](../../docs/tasks/FS-18.md) conserva responsable, rama, dependencias y siguiente paso; el [tablero](../../docs/tracking.md) se modifica solo por la coordinadora en el checkout de integración.
+- Se mantiene estricto apego al ADR-0001: el motor Kotlin Multiplatform es la única fuente de verdad para los cálculos financieros.
+- Los cambios respetan el vocabulario canónico establecido en `GLOSSARY.md` (Cronograma de amortización, Imputación, Capital vencido, Mora, Escenario).

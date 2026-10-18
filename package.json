@@ -12,6 +12,7 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
+    "apache-arrow": "^21.2.0",
     "decimal.js": "^10.6.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

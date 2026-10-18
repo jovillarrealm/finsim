@@ -40,8 +40,11 @@ fun App(
     val comparisonStore = remember(storage) { com.finsim.comparison.ComparisonWorkspace(storage) }
     var workspace by remember(store) { mutableStateOf(store.state) }
 
+    var eventDraft by remember(workspace.scenario.events) { mutableStateOf(EventDraftBatch.from(workspace.scenario.events)) }
     var selectedTab by remember { mutableStateOf(0) } // 0: loan, 1: rates, 2: reconcile
     var selectedMonth by remember { mutableStateOf(1) }
+    var hiddenResultComponents by remember { mutableStateOf(emptySet<Int>()) }
+    var hiddenResultScenarios by remember { mutableStateOf(emptySet<Int>()) }
     var tableMode by remember { mutableStateOf("modified") } // "modified" or "original"
 
     var noticeMessage by remember { mutableStateOf("") }
@@ -382,11 +385,15 @@ fun App(
                             result = workspace.modified
                         )
 
-                        // Visual Comparison Charts (Untouched: Option 1 & Option 3 with toggle)
+                        // Applied results share selection with the event draft and table.
                         HorizontalComparisonChart(
                             currency = workspace.scenario.currency,
                             original = workspace.original,
                             modified = workspace.modified,
+                            hiddenComponents = hiddenResultComponents,
+                            hiddenScenarios = hiddenResultScenarios,
+                            onHiddenComponentsChange = { hiddenResultComponents = it },
+                            onHiddenScenariosChange = { hiddenResultScenarios = it },
                             selectedMonth = selectedMonth,
                             onSelectMonth = { selectedMonth = it }
                         )
@@ -395,7 +402,8 @@ fun App(
                         EventEditor(
                             currency = workspace.scenario.currency,
                             selectedMonth = selectedMonth,
-                            currentEvents = workspace.scenario.events,
+                            batch = eventDraft,
+                            onBatchChange = { eventDraft = it },
                             onApplyEvents = { newEvents ->
                                 val outcome = store.applyEvents(newEvents)
                                 workspace = store.state
@@ -482,6 +490,7 @@ fun App(
                         MonthlyTable(
                             currency = workspace.scenario.currency,
                             result = if (tableMode == "modified") workspace.modified else workspace.original,
+                            scenarioName = if (tableMode == "modified") "Modificado" else "Original",
                             selectedMonth = selectedMonth,
                             onSelectMonth = { selectedMonth = it }
                         )

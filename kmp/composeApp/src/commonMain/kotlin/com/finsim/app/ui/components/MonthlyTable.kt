@@ -1,35 +1,26 @@
 package com.finsim.app.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.finsim.app.theme.*
-import com.finsim.app.ui.formatMoney
 import com.finsim.app.ui.formatMonth
 import com.finsim.domain.Currency
 import com.finsim.domain.LoanResult
-import com.finsim.domain.MonthRow
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MonthlyTable(
     currency: Currency,
@@ -37,222 +28,191 @@ fun MonthlyTable(
     selectedMonth: Int = 1,
     onSelectMonth: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    initialExpanded: Boolean = false
+    initialExpanded: Boolean = false,
+    scenarioName: String = "Modificado"
 ) {
-    var isExpanded by remember { mutableStateOf(initialExpanded) }
+    var expanded by remember { mutableStateOf(initialExpanded) }
+    var exportMessage by remember { mutableStateOf("") }
+    val downloader = rememberScheduleDownloader()
+
+    val horizontalScroll = rememberScrollState()
+    val verticalScroll = rememberScrollState()
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceWarm),
-        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Header row with accordion trigger (entire row is touch target)
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { isExpanded = !isExpanded }
-                    .padding(vertical = 4.dp),
+                Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.weight(1f, fill = false)
-                ) {
+                Column {
                     Text(
-                        text = "Detalle mes a mes",
+                        "Detalle mes a mes · $scenarioName",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = BrandDark
+                        color = BrandForest
                     )
-                    Surface(
-                        color = BrandSageLight,
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text(
-                            text = "${result.rows.size} meses",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = BrandSage,
-                            maxLines = 1,
-                            softWrap = false,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Surface(
-                    color = if (isExpanded) BrandForest else BrandSageLight,
-                    shape = RoundedCornerShape(8.dp),
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        if (isExpanded) BrandForest else BorderSage
-                    )
-                ) {
                     Text(
-                        text = if (isExpanded) "Ocultar tabla" else "Ver tabla",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isExpanded) Color.White else BrandForest,
-                        maxLines = 1,
-                        softWrap = false,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        "${result.rows.size} meses simulados · Importes en ${currency.name}. Desplazamiento continuo en 2D.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextForestMuted
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = if (isExpanded)
-                    "Importes en ${currency.name}. Toca cualquier fila para seleccionarla y editar sus eventos."
-                else
-                    "Importes en ${currency.name}. Despliega para consultar cargos mensuales y distribución.",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextForestMuted
-            )
-
-            AnimatedVisibility(
-                visible = isExpanded,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(modifier = Modifier.padding(top = 14.dp)) {
-                    val scrollState = rememberScrollState()
+                OutlinedButton(
+                    onClick = { expanded = !expanded },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = BrandForest
+                    )
+                ) {
+                    Text(if (expanded) "Ocultar tabla" else "Ver tabla")
+                }
 
-                    // Horizontal scroll hint bar
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "9 columnas · Desliza horizontalmente ↔",
-                            fontSize = 11.sp,
-                            color = TextForestMuted,
-                            fontWeight = FontWeight.Medium
+                if (expanded) {
+                    Button(
+                        onClick = {
+                            val csv = generateScheduleCsv(result, scenarioName)
+                            downloader.downloadCsv("cronograma-$scenarioName.csv", csv) { exportMessage = it }
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = BrandEmerald,
+                            contentColor = Color.White
                         )
-                        if (scrollState.canScrollForward) {
-                            Surface(
-                                color = BrandSageLight,
-                                shape = RoundedCornerShape(4.dp)
-                            ) {
-                                Text(
-                                    text = "Más columnas ➔",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = BrandForest,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
+                    ) {
+                        Text("Exportar CSV / Excel")
                     }
 
-                    // Table container: horizontally scrollable, vertical flow in outer scroll
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, BorderSage, RoundedCornerShape(8.dp))
-                            .clip(RoundedCornerShape(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            downloader.downloadArrow("cronograma-$scenarioName.arrow", result) { exportMessage = it }
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, BrandEmerald),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = BrandForest
+                        )
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(scrollState)
-                        ) {
-                            // Header row
-                            Row(
-                                modifier = Modifier
-                                    .background(Color(0xFFEDF1E6))
-                                    .padding(vertical = 10.dp, horizontal = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                TableCell("Mes", width = 56.dp, isHeader = true)
-                                TableCell("Fecha", width = 86.dp, isHeader = true)
-                                TableCell("Saldo inicial", width = 115.dp, isHeader = true, alignRight = true)
-                                TableCell("Capital", width = 100.dp, isHeader = true, alignRight = true)
-                                TableCell("Extra / Recup.", width = 110.dp, isHeader = true, alignRight = true)
-                                TableCell("Interés", width = 95.dp, isHeader = true, alignRight = true)
-                                TableCell("Seguro", width = 85.dp, isHeader = true, alignRight = true)
-                                TableCell("Pago total", width = 115.dp, isHeader = true, alignRight = true)
-                                TableCell("Saldo final", width = 115.dp, isHeader = true, alignRight = true)
-                            }
+                        Text("Exportar Apache Arrow (.arrow)")
+                    }
+                }
+            }
 
-                            // Data rows without nested LazyColumn scroll trap
-                            result.rows.forEach { row ->
+            if (exportMessage.isNotEmpty()) {
+                Text(
+                    exportMessage,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = BrandEmerald,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            if (expanded) {
+                Text(
+                    "Desplaza horizontalmente para ver todas las columnas y verticalmente para explorar todos los meses:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextForestMuted
+                )
+
+                val headers = listOf(
+                    "Mes", "Fecha", "Saldo inicial", "Capital habitual", "Capital adicional", "Interés generado", "Seguro generado",
+                    "Intereses pagados", "Seguros pagados", "Otros cargos", "Pago total", "Saldo final", "Interés pendiente", "Seguro pendiente", "Capital vencido", "Mora", "Deuda", "No aplicado"
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
+                    color = SurfaceCard,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Container with Synchronized Horizontal Scroll and Sticky Header
+                    Column(Modifier.horizontalScroll(horizontalScroll)) {
+                        // Sticky Header Row with Mint Sage Background
+                        Row(
+                            Modifier
+                                .background(TableHeaderBg)
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            headers.forEach {
+                                Text(
+                                    it,
+                                    Modifier.width(160.dp).padding(horizontal = 8.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = BrandForest
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
+
+                        // Vertically Scrollable Rows Body with Zebra Striping
+                        Column(
+                            Modifier
+                                .heightIn(max = 480.dp)
+                                .verticalScroll(verticalScroll)
+                        ) {
+                            result.rows.forEachIndexed { rowIndex, row ->
+                                val paid = paidComponents(row)
                                 val isSelected = row.month == selectedMonth
-                                val extraP = (row.extra.principal.toDoubleOrNull() ?: 0.0) + (row.catchup.principal.toDoubleOrNull() ?: 0.0)
 
                                 Row(
-                                    modifier = Modifier
-                                        .clickable { onSelectMonth(row.month) }
-                                        .background(
-                                            if (isSelected) BrandSageLight
-                                            else if (row.month % 2 == 0) Color(0xFFF7F9EF)
-                                            else Color.White
-                                        )
-                                        .padding(vertical = 8.dp, horizontal = 8.dp),
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .background(if (isSelected) Color(0xFFD1FAE5) else if (rowIndex % 2 == 1) TableZebraRow else Color.White)
+                                        .then(if (isSelected) Modifier.border(1.dp, BrandEmerald, RoundedCornerShape(4.dp)) else Modifier)
+                                        .padding(vertical = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    TableCell("M${row.month}", width = 56.dp, isBold = isSelected, color = if (isSelected) BrandForest else BrandDark)
-                                    TableCell(formatMonth(row.date), width = 86.dp, color = TextForestMuted)
-                                    TableCell(formatMoney(row.openingBalance, currency), width = 115.dp, alignRight = true)
-                                    TableCell(formatMoney(row.scheduled.principal, currency), width = 100.dp, alignRight = true, color = BrandForest)
-                                    TableCell(
-                                        if (extraP > 0) formatMoney(row.extra.principal, currency) else "—",
-                                        width = 110.dp,
-                                        alignRight = true,
-                                        color = if (extraP > 0) BrandLimeDark else TextForestMuted
+                                    // Month column + Select button
+                                    Column(Modifier.width(160.dp).padding(horizontal = 4.dp)) {
+                                        OutlinedButton(
+                                            onClick = { onSelectMonth(row.month) },
+                                            shape = RoundedCornerShape(6.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Text("Seleccionar M${row.month}${if (isSelected) " ✓" else ""}", fontSize = 11.sp)
+                                        }
+                                        CopyResult("mes $scenarioName mes ${row.month}", "M${row.month}")
+                                    }
+
+                                    // Date column
+                                    Box(Modifier.width(160.dp).padding(horizontal = 4.dp)) {
+                                        CopyResult("fecha $scenarioName mes ${row.month}", formatMonth(row.date))
+                                    }
+
+                                    // Metric values
+                                    val unapplied = sumMoney(listOf(row.scheduled.unapplied, row.catchup.unapplied, row.extra.unapplied))
+                                    val values = listOf(
+                                        row.openingBalance, paid[0], paid[1], row.interestCharged, row.insuranceCharged,
+                                        paid[2], paid[3], paid[4], row.cashPaid, row.closingBalance,
+                                        row.pendingInterest, row.pendingInsurance, row.overduePrincipal, row.arrears, row.debt, unapplied
                                     )
-                                    TableCell(formatMoney(row.interestCharged, currency), width = 95.dp, alignRight = true, color = BrandAmber)
-                                    TableCell(formatMoney(row.insuranceCharged, currency), width = 85.dp, alignRight = true, color = BrandPlum)
-                                    TableCell(formatMoney(row.cashPaid, currency), width = 115.dp, alignRight = true, isBold = true)
-                                    TableCell(formatMoney(row.closingBalance, currency), width = 115.dp, alignRight = true, isBold = isSelected)
+                                    val labels = listOf(
+                                        "saldo inicial", "Capital habitual", "Capital adicional", "interés generado", "seguro generado",
+                                        "intereses pagados", "seguros pagados", "otros cargos", "pago total", "saldo de capital",
+                                        "interés pendiente", "seguro pendiente", "capital vencido", "mora", "deuda", "excedente no aplicado"
+                                    )
+
+                                    values.forEachIndexed { colIndex, amount ->
+                                        Box(Modifier.width(160.dp).padding(horizontal = 4.dp)) {
+                                            CopyMoney("tabla ${labels[colIndex]} $scenarioName mes ${row.month}", amount, currency)
+                                        }
+                                    }
                                 }
-                            }
-                        }
-
-                        // Subtle edge shadows for horizontal scroll affordance
-                        if (scrollState.canScrollForward) {
-                            Box(
-                                modifier = Modifier.matchParentSize()
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.CenterEnd)
-                                        .fillMaxHeight()
-                                        .width(18.dp)
-                                        .background(
-                                            Brush.horizontalGradient(
-                                                colors = listOf(Color.Transparent, Color(0x1F173F32))
-                                            )
-                                        )
-                                )
-                            }
-                        }
-
-                        if (scrollState.canScrollBackward) {
-                            Box(
-                                modifier = Modifier.matchParentSize()
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.CenterStart)
-                                        .fillMaxHeight()
-                                        .width(14.dp)
-                                        .background(
-                                            Brush.horizontalGradient(
-                                                colors = listOf(Color(0x1F173F32), Color.Transparent)
-                                            )
-                                        )
-                                )
+                                HorizontalDivider(color = BorderSubtle.copy(alpha = 0.5f), thickness = 0.5.dp)
                             }
                         }
                     }
@@ -260,23 +220,4 @@ fun MonthlyTable(
             }
         }
     }
-}
-
-@Composable
-private fun TableCell(
-    text: String,
-    width: androidx.compose.ui.unit.Dp,
-    isHeader: Boolean = false,
-    isBold: Boolean = false,
-    alignRight: Boolean = false,
-    color: Color = BrandDark
-) {
-    Text(
-        text = text,
-        fontSize = if (isHeader) 11.sp else 12.sp,
-        fontWeight = if (isHeader) FontWeight.Bold else if (isBold) FontWeight.Bold else FontWeight.Normal,
-        color = if (isHeader) Color(0xFF4D5E4C) else color,
-        textAlign = if (alignRight) TextAlign.End else TextAlign.Start,
-        modifier = Modifier.width(width).padding(horizontal = 4.dp)
-    )
 }
