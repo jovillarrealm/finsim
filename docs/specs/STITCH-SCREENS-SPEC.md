@@ -155,9 +155,75 @@ La implementación previa de Finsim cuenta con una base de cálculo financiero e
 
 ---
 
-## 6. Testing & Validaciones
+## 6. Marco de Evaluación y Suite de Pruebas
 
-- **Pruebas de Invarianza Numérica:** Todas las métricas presentadas en los hitos y tarjetas KPI deben provenir de `simulateLoan` y sus componentes `paidComponents`, manteniendo paridad de 40 dígitos en `:shared:jvmTest` y Vitest.
-- **Comprobación de Tipos:** `npm run typecheck` (`tsc --noEmit`) sin advertencias ni errores.
-- **Accesibilidad y Contraste:** Contrastes de texto WCAG AA sobre fondos `#F8F9F5`, `#FFFFFF` y `#ECFDF5`.
-- **Pruebas de Regresión:** `npm test` (50 pruebas web) y `gradle :composeApp:testDebugUnitTest`.
+Para garantizar que la implementación conserve la exactitud matemática y la fidelidad ergonómica requerida, se define una estrategia de validación en **6 pilares objetivos y automatizables**:
+
+### 6.1 Los 6 Pilares de Evaluación
+
+1. **Rigor e Invariantes Financieras (*Zero-Mock Math Verification*):**
+   - **Conservación exacta de caja:** Toda cifra en pantalla proviene determinísticamente de `simulateLoan` (aritmética decimal de 40 dígitos). Cero valores estáticos, redondeados con sesgo o ficticios.
+   - **Invariante mensual:** En cada mes $m$: $\text{Saldo final} = \text{Saldo inicial} - \text{Capital habitual} - \text{Capital extraordinario}$.
+   - **Cascada de pagos contractual:** Imputación prioritaria estricta en 6 etapas (seguros pendientes $\rightarrow$ seguros del mes $\rightarrow$ intereses vencidos $\rightarrow$ intereses del mes $\rightarrow$ capital vencido $\rightarrow$ capital ordinario).
+   - **Paridad multiplataforma:** Coincidencia exacta entre el motor TypeScript (`src/engine/loan.ts`) y el canónico en Kotlin Multiplatform (`kmp/shared/.../Loan.kt`).
+
+2. **Pruebas de Componentes y Estado Reactivo:**
+   - **Sincronización bidireccional:** Pulsar o hacer hover sobre un punto de la curva SVG o barra apilada actualiza de inmediato el cursor `#111827`, el panel de inspección activa (`Mes XX Seleccionado`) y enfoca el gestor de eventos.
+   - **Conmutación de modos:** Alternar entre `Trayectoria de saldo` y `Composición mensual` preserva el mes activo sin recargar la simulación.
+   - **Selector de cronograma:** Alternar entre `Hitos Clave` y `Tabla Completa` conmuta la presentación sin alterar los valores subyacentes.
+
+3. **Auditoría de Tokens y Conformidad Visual (*Design System Audit*):**
+   - **Alineación con Warm Botanical Precision:** Verificación de tokens de diseño (`#C4F278`, `#002217`, `#F0FDF4`, `#0D9488`, `#D97706`, `#7C3AED`, `#111827`).
+   - **Estabilidad de layout con `tabular-nums`:** Todos los importes monetarios y cronológicos emplean `font-variant-numeric: tabular-nums` para evitar desplazamientos de layout durante interacciones dinámicas.
+   - **Ergonomía táctil móvil:** Áreas de contacto $\ge 44 \times 44\text{ px}$ en todos los botones e ítems de la barra de navegación flotante.
+   - **Márgenes de seguridad:** Respeto estricto a las clases `pb-safe` y `pt-safe` (`env(safe-area-inset-*)`).
+
+4. **Pruebas de Estrés y Casos de Borde Financieros (*Boundary Fuzzing*):**
+   - **Escenario base sin prepagos:** La curva original y modificada se superponen con brecha cero. La zona `LIBRE DE DEUDA` permanece oculta y no se generan falsos positivos de ahorro.
+   - **Prepagos masivos tempranos:** Liquidación anticipada en mes 1 o mes 2 renderiza adecuadamente la zona de extinción sin divisiones por cero o coordenadas SVG NaN.
+   - **Horizonte de 360 meses (Hipotecario):** Escalamiento del eje temporal y SVG fluido sin congelamiento del hilo principal.
+   - **Multi-divisa:** Formateo riguroso en `COP`, `USD`, `EUR`, `MXN` y `PEN`.
+
+5. **Auditoría de Accesibilidad (WCAG 2.1 AA):**
+   - **Contraste de color:** Ratio $\ge 4.5:1$ en todos los estados y badges (ej. `#065F46` sobre `#ECFDF5`).
+   - **Semántica y lectores de pantalla:** `role="region"`, `role="tab"`, `aria-selected`, `aria-live="polite"`, `aria-current="page"` y `role="status"`.
+   - **Navegación por teclado:** Foco visible inconfundible con outline de 3px en Financial Mint (`#84E296`).
+
+6. **Integridad de Datos y Exportabilidad (*Round-Trip Interoperability*):**
+   - **Exportación CSV:** Formato tabular estándar con delimitadores y columnas completas, importable directamente en Excel o Google Sheets.
+   - **Idempotencia JSON:** Exportación e importación de escenarios produce árboles de objetos idénticos al 100%.
+
+---
+
+### 6.2 Suite Automatizada de Integración (`StitchScreensIntegration.test.tsx`)
+
+La suite implementada en [`src/features/loan/StitchScreensIntegration.test.tsx`](file:///C:/Users/Lenovo/Documents/finsim/src/features/loan/StitchScreensIntegration.test.tsx) valida directamente contra los criterios de aceptación:
+
+| Caso de Prueba | Componente Evaluado | Comprobaciones Clave |
+| :--- | :--- | :--- |
+| `LoanSummary renders the executive Hero Savings Card and 2x2 secondary KPI grid with prepayments` | [`LoanSummary.tsx`](file:///C:/Users/Lenovo/Documents/finsim/src/features/loan/LoanSummary.tsx) | - Presencia de `hero-savings-card` y `Ahorro Neto Proyectado`<br/>- Cálculo dinámico de `% intereses` y `Tiempo ganado:`<br/>- Presencia de `kpi-grid-2x2` (Cuota mensual fija, Intereses con valor pactado tachado, Seguros con cuotas ahorradas, Total desembolso). |
+| `ScenarioComparison renders Trajectory Curve with extinction zone and active month card` | [`ScenarioComparison.tsx`](file:///C:/Users/Lenovo/Documents/finsim/src/features/loan/ScenarioComparison.tsx) | - Selector `Trayectoria de saldo`<br/>- SVG con clase `trajectory-svg` y gradiente `amortDeltaGradient`<br/>- Activación de zona `LIBRE DE DEUDA` y `$0 pagos requeridos`<br/>- Presencia de `active-month-card` con detalle del mes y botón `Modificar este mes`. |
+| `MonthlyTable renders curated Key Milestones with prepayments and full schedule toggle` | [`MonthlyTable.tsx`](file:///C:/Users/Lenovo/Documents/finsim/src/features/loan/MonthlyTable.tsx) | - Alternancia de vistas (`Hitos Clave` vs `Tabla Completa`)<br/>- Lista `milestones-schedule-list` con `Mes 01`<br/>- Badges `+X Extra` en meses de abono y `Fin de Crédito` en liquidación<br/>- Botón de exportación `Descargar cronograma completo (.CSV)`. |
+| `MonthlyTable renders clean fallback without prepayments when no events exist` | [`MonthlyTable.tsx`](file:///C:/Users/Lenovo/Documents/finsim/src/features/loan/MonthlyTable.tsx) | - Escenario sin eventos omite badges `badge-extra`<br/>- Conserva `Mes 01` e hito final de finalización pactada. |
+
+---
+
+### 6.3 Comandos de Verificación en Integración Continua (CI)
+
+```bash
+# 1. Pruebas unitarias e integración Web (54 tests en 12 suites)
+npm test
+
+# 2. Comprobación estricta de tipos TypeScript (cero errores)
+npm run typecheck
+
+# 3. Compilación de producción Vite
+npm run build
+
+# 4. Pruebas de motor canónico Kotlin Multiplatform (115 tests JVM)
+gradle :shared:jvmTest
+
+# 5. Pruebas unitarias de componentes Compose Multiplatform
+gradle :composeApp:testDebugUnitTest
+```
+
