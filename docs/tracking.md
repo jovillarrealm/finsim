@@ -2,7 +2,12 @@
 
 ## Estado actual
 
-Actualizado: 2026-10-18. Unificación definitiva de la arquitectura multiplataforma en Kotlin Multiplatform (Compose Wasm y Android). Paridad visual completa (diseño Warm Botanical Precision, Hero banner, badge de marca, escenario de demostración con zona de extinción y ahorro neto de COP 4.6M, y gráficos de trayectoria sin distorsión). Eliminación completa de la aplicación de prueba React en `src/` y de dependencias redundantes. Verificación de 13/13 pruebas de navegador Playwright en Chromium, 115 pruebas unitarias JVM y build de distribución WasmJs sin errores. Sitio: https://jovillarrealm.github.io/finsim/.
+Actualizado: 2026-10-18.
+
+> [!CAUTION] Error Arquitectónico Grave Registrado (2026-10-18) — [ADR 0002](adr/0002-dual-web-stack-divergence-incident.md)
+> Se incurrió en un error grave de divergencia de pila: durante la implementación del refresco visual de Stitch, el agente continuó modificando y validando la aplicación web de React en `src/` (servida con Vite en el puerto 5173) en lugar de concentrarse exclusivamente en el codebase unificado de Compose Multiplatform WasmJs (`kmp/composeApp`).
+> Esto generó una webapp en React completamente paralela y separada del codebase KMP, duplicando componentes (`ScenarioComparison.tsx`, `LoanSummary.tsx`, `MonthlyTable.tsx`) frente a sus equivalentes en Kotlin (`HorizontalComparisonChart.kt`, `LoanSummary.kt`, `MonthlyTable.kt`).
+> El único objetivo Web oficial en producción es `kmp/composeApp` compilado a `wasmJs` (`:composeApp:wasmJsBrowserDistribution`), desplegado en GitHub Pages. Queda prohibido el desarrollo en `src/` y se exige que toda prueba de navegador futura se ejecute contra el artefacto WasmJs de KMP.
 
 Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md) define alcance, dependencias y criterios de cierre. Los registros por tarea guardan el detalle de continuidad.
 
