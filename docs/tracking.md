@@ -30,6 +30,8 @@ Prioridad confirmada por el usuario el 2026-10-17: **FS-18 primero**. Los pendie
 | FS-16 | Rediseño y Ergonomía Móvil (Mobile Layout Revamp) | en revisión | /root | feat/kmp-migration | Integrado técnicamente en main 542c9f2; tickets 01–05 y verificaciones anteriores conservados; usuario reporta mejora de layout confirmada por testers el 2026-10-17 |
 | FS-17 | Comparador de ofertas de financiación | en revisión | /root | task/fs-17-offer-comparison / finsim-fs17 | Integración 542c9f2; publicación para audiencia a22f0ff/run 38777302454; 115 shared, 7 UI, 9 navegador CI y 2 sobre URL pública; lector/audiencia pendientes |
 | FS-18 | Resultados copiables y gráficos de préstamo | hecha | /root | task/fs-18-implementation / finsim-fs18-implementation | Integrada en main 7da1f71; desplegada en GitHub Pages c341542/run 39088886664; 115 JVM tests, 13/13 Playwright E2E tests, CSV/Arrow downloads, tarjeta de inspección sincronizada con 6 números (capital, intereses, seguros en modo original y modificado), estética Esmeralda y Menta Financiera |
+| Stitch T06–T10 | Adopción visual y ergonomía Stitch (Mobile Nav, Hero Ahorro, Trayectoria con Extinción, Torres y Cronograma de Hitos) | hecha | /root | main | Integrada en main; 54 vitest tests pasan, typecheck limpio, build ok, 115 JVM tests y tests Compose/Android exitosos; tickets T06-T10 completados |
+
 
 ## Estados
 
