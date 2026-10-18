@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { D, MAX_MONTHS, money, type Currency, type LoanResult, type Scenario } from '../../domain/scenario';
 import { formatMoney, formatMonth } from '../../format';
@@ -84,15 +84,41 @@ export default function ScenarioComparison({
       ? modified.payoffMonth - original.payoffMonth
       : null;
 
+  const [containerWidth, setContainerWidth] = useState(720);
+  const observerRef = useRef<ResizeObserver | null>(null);
+
+  const containerCallbackRef = useCallback((el: HTMLDivElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+    if (el && typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(entries => {
+        for (const entry of entries) {
+          const w = Math.round(entry.contentRect.width);
+          if (w > 0) setContainerWidth(w);
+        }
+      });
+      observer.observe(el);
+      observerRef.current = observer;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      observerRef.current?.disconnect();
+    };
+  }, []);
+
   // Trajectory SVG coordinates calculation
   const principalNum = Number(scenario.principal) || 1;
   const svgLeft = 60;
   const svgRight = 25;
   const svgTop = 20;
   const svgBottom = 35;
-  const svgWidth = 720;
-  const svgHeight = 220;
-  const chartW = svgWidth - svgLeft - svgRight;
+  const svgWidth = Math.max(300, containerWidth);
+  const svgHeight = 240;
+  const chartW = Math.max(10, svgWidth - svgLeft - svgRight);
   const chartH = svgHeight - svgTop - svgBottom;
 
   const getX = (m: number) => svgLeft + (m / months) * chartW;
@@ -238,15 +264,16 @@ export default function ScenarioComparison({
       {/* VISTA 1: Gráfico de Trayectoria SVG (T08) */}
       {chartMode === 'trajectory' && (
         <div className="trajectory-card">
-          <div className="trajectory-svg-container">
+          <div className="trajectory-svg-container" ref={containerCallbackRef}>
             <svg
               className="trajectory-svg"
               viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-              preserveAspectRatio="none"
               onClick={e => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const clickX = e.clientX - rect.left;
-                const ratio = (clickX - (svgLeft / svgWidth) * rect.width) / ((chartW / svgWidth) * rect.width);
+                const scaleX = rect.width > 0 ? svgWidth / rect.width : 1;
+                const chartSvgX = clickX * scaleX;
+                const ratio = (chartSvgX - svgLeft) / chartW;
                 const targetM = Math.round(ratio * months);
                 if (targetM >= 1 && targetM <= months) select(targetM);
               }}
@@ -306,27 +333,43 @@ export default function ScenarioComparison({
                     strokeWidth="1.5"
                     rx="4"
                   />
-                  <text
-                    x={extXStart + extWidth / 2}
-                    y={svgTop + chartH / 2 - 6}
-                    fill="#065F46"
-                    fontSize="11"
-                    fontWeight="700"
-                    letterSpacing="0.06em"
-                    textAnchor="middle"
-                  >
-                    LIBRE DE DEUDA
-                  </text>
-                  <text
-                    x={extXStart + extWidth / 2}
-                    y={svgTop + chartH / 2 + 10}
-                    fill="#047857"
-                    fontSize="9"
-                    fontWeight="500"
-                    textAnchor="middle"
-                  >
-                    $0 pagos requeridos
-                  </text>
+                  {extWidth >= 70 && (
+                    <>
+                      <text
+                        x={extXStart + extWidth / 2}
+                        y={svgTop + chartH / 2 - 6}
+                        fill="#065F46"
+                        fontSize="11"
+                        fontWeight="700"
+                        letterSpacing="0.06em"
+                        textAnchor="middle"
+                      >
+                        LIBRE DE DEUDA
+                      </text>
+                      <text
+                        x={extXStart + extWidth / 2}
+                        y={svgTop + chartH / 2 + 10}
+                        fill="#047857"
+                        fontSize="9"
+                        fontWeight="500"
+                        textAnchor="middle"
+                      >
+                        $0 pagos requeridos
+                      </text>
+                    </>
+                  )}
+                  {extWidth >= 40 && extWidth < 70 && (
+                    <text
+                      x={extXStart + extWidth / 2}
+                      y={svgTop + chartH / 2 + 4}
+                      fill="#065F46"
+                      fontSize="9"
+                      fontWeight="700"
+                      textAnchor="middle"
+                    >
+                      LIBRE
+                    </text>
+                  )}
                 </g>
               )}
 
@@ -357,21 +400,24 @@ export default function ScenarioComparison({
               {prepaymentMilestones.map(r => {
                 const mx = getX(r.month);
                 const my = getY(Number(r.closingBalance));
+                const badgeWidth = 64;
+                const badgeHeight = 16;
+                const badgeX = Math.max(svgLeft, Math.min(mx - badgeWidth / 2, svgWidth - svgRight - badgeWidth));
                 return (
                   <g key={r.month}>
-                    <circle cx={mx} cy={my} r="5.5" fill="#0D9488" stroke="#FFFFFF" strokeWidth="2" />
+                    <circle cx={mx} cy={my} r="5" fill="#0D9488" stroke="#FFFFFF" strokeWidth="2" />
                     <rect
-                      x={mx - 32}
-                      y={Math.max(my - 24, svgTop)}
-                      width="64"
-                      height="16"
+                      x={badgeX}
+                      y={Math.max(my - 22, svgTop)}
+                      width={badgeWidth}
+                      height={badgeHeight}
                       rx="3"
                       fill="#002217"
                       opacity="0.9"
                     />
                     <text
-                      x={mx}
-                      y={Math.max(my - 13, svgTop + 11)}
+                      x={badgeX + badgeWidth / 2}
+                      y={Math.max(my - 11, svgTop + 11)}
                       fill="#c4f278"
                       fontSize="8.5"
                       fontWeight="700"
@@ -389,7 +435,7 @@ export default function ScenarioComparison({
                   <circle
                     cx={getX(modified.payoffMonth)}
                     cy={getY(0)}
-                    r="6"
+                    r="5.5"
                     fill="#059669"
                     stroke="#FFFFFF"
                     strokeWidth="2"
@@ -415,6 +461,9 @@ export default function ScenarioComparison({
             style={{
               display: 'flex',
               justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '0.4rem 0.8rem',
               fontSize: '0.72rem',
               color: 'var(--muted)',
               paddingLeft: '55px',

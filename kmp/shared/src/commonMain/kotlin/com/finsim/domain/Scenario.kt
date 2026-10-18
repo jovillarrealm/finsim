@@ -236,3 +236,22 @@ val exampleScenario = Scenario(
     ),
     events = emptyList()
 )
+
+val stitchDemoScenario = Scenario(
+    version = 1,
+    currency = Currency.COP,
+    name = "Ejemplo · Crédito de libre inversión",
+    source = "original",
+    principal = "25000000.00",
+    startDate = "2026-03",
+    termMonths = 48,
+    rate = Rate.Annual(value = "0.185"),
+    insurance = listOf(
+        Insurance(id = "life", name = "Seguro de vida deudores", kind = "fixed", value = "32500.00", endsAtPayoff = true)
+    ),
+    events = listOf(
+        LoanEvent.Extra(id = "abono-m6", month = 6, amount = "5000000.00"),
+        LoanEvent.Extra(id = "abono-m18", month = 18, amount = "3000000.00")
+    )
+)
+

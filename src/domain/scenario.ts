@@ -125,3 +125,22 @@ export const exampleScenario: Scenario = {
   insurance: [{ id: 'life', name: 'Seguro de vida', kind: 'percentage', value: '0.0005', endsAtPayoff: true }],
   events: [],
 };
+
+export const stitchDemoScenario: Scenario = {
+  version: 1,
+  currency: 'COP',
+  name: 'Ejemplo · Crédito de libre inversión',
+  source: 'original',
+  principal: '25000000.00',
+  startDate: '2026-03',
+  termMonths: 48,
+  rate: { kind: 'annual', value: '0.185' },
+  insurance: [
+    { id: 'life', name: 'Seguro de vida deudores', kind: 'fixed', value: '32500.00', endsAtPayoff: true },
+  ],
+  events: [
+    { id: 'abono-m6', kind: 'extra', month: 6, amount: '5000000.00' },
+    { id: 'abono-m18', kind: 'extra', month: 18, amount: '3000000.00' },
+  ],
+};
+
