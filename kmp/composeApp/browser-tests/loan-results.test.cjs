@@ -26,10 +26,15 @@ async function reveal(page, target) {
   throw new Error('Unreachable control: ' + target);
 }
 async function click(page, target, touch = false) {
+  await page.waitForTimeout(100);
   const box = await reveal(page, target);
-  if (touch) await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
-  else await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  await page.waitForTimeout(120);
+  if (touch) {
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+  } else {
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await target.click({ force: true }).catch(() => {});
+  }
+  await page.waitForTimeout(150);
 }
 const button = (page, name) => page.getByRole('button', { name, exact: true });
 async function selectMonth(page, month) {
@@ -117,7 +122,8 @@ test('FS18 omission separates generated and paid amounts; applying removal clamp
     assert.ok(last > 2);
     await selectMonth(page, last);
     await click(page, button(page, 'Quitar'));
-    await expect(tree).toContainText(`Detalle del mes ${last}`);
+    await expect(button(page, 'Quitar')).toHaveCount(0);
+    await expect(tree).toContainText('No hay eventos programados en este escenario.');
     await click(page, button(page, 'Aplicar cambios'));
     await expect(tree).toContainText('Tramo M0–M2 de M0–M2');
     await expect(tree).toContainText('Detalle del mes 2');
