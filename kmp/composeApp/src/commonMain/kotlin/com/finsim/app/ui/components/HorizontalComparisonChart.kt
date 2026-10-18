@@ -33,7 +33,7 @@ import com.finsim.domain.LoanResult
 import kotlin.math.roundToInt
 
 private val componentLabels = listOf("Capital habitual", "Capital adicional", "Intereses pagados", "Seguros pagados", "Otros cargos")
-private val componentColors = listOf(BrandForest, BrandEmerald, BrandAmber, BrandPlum, Color(0xFF0284C7))
+private val componentColors = listOf(FlowRegularPrincipal, FlowExtraPrincipal, FlowInterest, FlowInsurance, Color(0xFF0284C7))
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -829,7 +829,7 @@ private fun ResultLineChart(
                     // Active Month Indicator Line
                     if (month in range) {
                         val activeX = x(month - range.first)
-                        drawLine(BrandDark, Offset(activeX, 0f), Offset(activeX, size.height), strokeWidth = 2f)
+                        drawLine(FlowCursor, Offset(activeX, 0f), Offset(activeX, size.height), strokeWidth = 2f)
                     }
                 }
             }

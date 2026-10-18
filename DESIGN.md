@@ -77,75 +77,101 @@ Siguiendo lo que el product brief lidera:
 
 ---
 
-## 3. Identidad Visual, Tokens y Sistema de Diseño
+## 3. Identidad Visual, Tokens y Sistema de Diseño: «Warm Botanical Precision»
 
-El lenguaje visual de Finsim proyecta la atmósfera de un **Laboratorio Financiero Cálido, Natural y Transparente**, alejándose del azul corporativo frío bancario mediante una paleta de verdes de pino y bosque, acentos lima enérgicos y superficies de papel cálido.
+El diseño adopta la filosofía **Warm Botanical Precision** generada en Stitch (Proyecto `6070787729708745637`): un banco de trabajo editorial y analítico que combina la autoridad y calidez de los libros de contabilidad clásicos con la nitidez y ergonomía de un instrumento computacional contemporáneo. 
 
-### 3.1 Paleta de Color y Semántica Financiera
+Se basa en una unión estructurada de **Editorial Minimalista** y **Modernismo Cálido y Táctil**:
+- **Fondos de Porcelana Cálida (`#F8F9F5`):** Atenúan el resplandor visual durante sesiones prolongadas de cálculo sin el contraste estéril del blanco puro.
+- **Autoridad de Pino Botánico (`#0F382A`):** Sustituye los negros sintéticos agresivos para anclar la tipografía, cabeceras y controles primarios.
+- **Destellos Focales Luminiscentes (`#C4F278` y `#84E296`):** Acentos *Chartreuse* y menta fresca que inyectan dinamismo, destacando el punto de marca, anillos de foco accesibles y deltas favorables de ahorro.
+- **Realismo Matemático Desnudo:** Distinción inequívoca de la cascada legal de 6 etapas mediante pigmentos semánticos firmes y consistentes.
+
+### 3.1 Paleta de Color y Semántica Financiera («Warm Botanical Precision»)
 
 ```
 Paleta Institucional:
 ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│   BrandForest   │ │    BrandDark    │ │    BrandLime    │ │  BrandLimeDark  │
-│     #173F32     │ │     #203D33     │ │     #D7E8A3     │ │     #839954     │
-│   Primario/CTA  │ │  Texto Principal│ │  Acento Secund. │ │   Dot/Subtítulo │
+│ Botanical Pine  │ │    Text Main    │ │Chartreuse Accent│ │  Financial Mint │
+│     #0F382A     │ │     #0F2922     │ │     #C4F278     │ │     #84E296     │
+│   Primario/CTA  │ │ Texto Principal │ │Acento Secund/Dot│ │ Foco / Ahorro   │
 └─────────────────┘ └─────────────────┘ └─────────────────┘ └─────────────────┘
 
-Semántica de Cargos y Flujos Financieros:
+Semántica de Flujo y Cascada de Amortización:
 ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│   BrandBlue     │ │   BrandTeal     │ │   BrandAmber    │ │   BrandPlum     │
-│     #2563A6     │ │     #188570     │ │ #B45309/#C75A25 │ │ #6B4B82/#8B62AC │
+│ RegularPrincipal│ │ Extra Principal │ │ Interest Accrual│ │Insurance Charges│
+│#2563EB / #1D4ED8│ │#0D9488 / #059669│ │#D97706 / #EA580C│ │#7C3AED / #8B5CF6│
 │ Capital Habitual│ │ Extra/Recuperac.│ │    Intereses    │ │     Seguros     │
 └─────────────────┘ └─────────────────┘ └─────────────────┘ └─────────────────┘
 
 Superficies, Estados y Alertas:
 ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│ BackgroundWarm  │ │   SurfaceWarm   │ │    BrandSage    │ │    BrandRed     │
-│     #F6F5EE     │ │    #FFFFFEF9    │ │     #285C38     │ │     #A53225     │
-│ Fondo Alabastro │ │ Superficie Panel│ │  Éxito / Ahorro │ │  Error / Mora   │
+│Porcelain Canvas │ │  Surface Card   │ │Surface Highlight│ │  Cursor Guía    │
+│     #F8F9F5     │ │     #FFFFFF     │ │     #F0FDF4     │ │     #111827     │
+│ Fondo Alabastro │ │ Contenedor Panel│ │ Resalte de Mes  │ │ Inspección Eje  │
 └─────────────────┘ └─────────────────┘ └─────────────────┘ └─────────────────┘
 ```
 
-#### Especificación de Tokens de Color
-- `--green` / `BrandForest`: `#173F32` (RGB: 23, 63, 50). Botones principales, encabezados de marca, pestañas activas.
-- `--dark` / `BrandDark`: `#203D33` (RGB: 32, 61, 51). Color principal de lectura tipográfica de alto contraste.
-- `--lime` / `BrandLime`: `#D7E8A3` (RGB: 215, 232, 163). Acento fresco, fondo de botones secundarios.
-- `--lime-dark` / `BrandLimeDark`: `#839954` (RGB: 131, 153, 84). Punto distintivo del logo `finsim.`, anillos de foco `:focus-visible` (`#799634`), subtítulos destacados (`#607848`).
-- `--muted` / `TextForestMuted`: `#617168` (RGB: 97, 113, 104). Texto secundario, subtítulos, etiquetas *eyebrow*, leyendas de gráficos.
-- `--line` / `BorderSage`: `#DCE3D8` (RGB: 220, 227, 216). Bordes de paneles, divisores de tablas, separadores de sección.
-- `BorderInput`: `#CBD5C6` (RGB: 203, 213, 198). Contorno de campos de formulario.
-- `BackgroundWarm`: `#F6F5EE` (RGB: 246, 245, 238). Fondo general de la aplicación (papel alabastro cálido).
-- `SurfaceWarm`: `#FFFFFEF9` (RGB: 255, 254, 249). Superficie de tarjetas y paneles con elevación visual tenue.
-- `SurfaceHighlight`: `#F0F5EC` (RGB: 240, 245, 236). Resalte suave para tarjetas KPI principales.
-- `Badge Sage` / Éxito: Fondo `#EAF0DF`, texto `#365339` (o `#285C38`). Para «Simulación completa» y deltas favorables.
-- `Badge Warning` / Alerta: Fondo `#F9E8BC`, texto `#6B4B0B`. Para «Simulación incompleta» y advertencias de mora.
-- `Error`: `#A53225` / `#B64030`. Para mensajes de validación y campos inválidos (`aria-invalid="true"`).
+#### Especificación Exhaustiva de Tokens
+- **`primary` / `BrandForest`:** `#0F382A` (Botanical Pine). Encabezados estructurales, botones primarios `.button-primary`, fondo de pestañas activas.
+- **`text-primary` / `TextMain`:** `#0F2922`. Color principal de texto y etiquetas de campo.
+- **`secondary` / `BrandChartreuse`:** `#C4F278` (Radiant Chartreuse). Botón secundario `.button-secondary`, punto de marca `finsim.`, etiquetas dinámicas.
+- **`tertiary` / `BrandMint`:** `#84E296` (Financial Mint). Indicadores de foco accesible `:focus-visible { outline: 3px solid #84E296; outline-offset: 3px; }`.
+- **`text-muted` / `TextForestMuted`:** `#52665D`. Etiquetas de sobre-título (*eyebrow*), subtítulos, textos de ayuda y pies legales.
+- **`background` / `BackgroundWarm`:** `#F8F9F5` (Warm Porcelain Paper). Fondo general de aplicación.
+- **`surface-card` / `SurfaceWarm`:** `#FFFFFF`. Tarjetas, paneles elevados y controles.
+- **`surface-highlight`:** `#F0FDF4`. Resalte para KPIs seleccionados y meses inspeccionados.
+- **`border-sage` / `--line`:** `#E2E8DF`. Línea divisoria suave para paneles y tarjetas.
+- **`border-input`:** `#CBD5C6`. Contorno estándar de inputs y selects.
+- **Cascada Semántica del Cronograma (Barras y Líneas):**
+  - `flow-regular-principal`: `#2563EB` (Dark: `#1D4ED8`) — Capital ordinario mensual.
+  - `flow-extra-principal`: `#0D9488` (Dark: `#059669`) — Abonos extraordinarios y recuperación.
+  - `flow-interest`: `#D97706` (Dark: `#EA580C`) — Intereses corrientes.
+  - `flow-insurance`: `#7C3AED` (Dark: `#8B5CF6`) — Primas de seguros.
+  - `flow-reference-cursor`: `#111827` — Línea de cursor vertical sincronizada.
+- **Badges y Señalización de Estado:**
+  - `Simulación Completa`: Fondo `#ECFDF5`, borde `#A7F3D0`, texto `#065F46`.
+  - `Simulación Incompleta` / Warning: Fondo `#FEF3C7`, borde `#FDE68A`, texto `#92400E`.
+  - `Alerta / Mora / Danger`: Fondo `#FEE2E2`, borde `#FECACA`, texto `#DC2626`.
+  - `KPI Sky Container`: Fondo `#F0F9FF`, borde `#BAE6FD`, texto `#0369A1`.
 
-### 3.2 Escala Tipográfica y Tokens de Texto
+### 3.2 Escala Tipográfica («Inter») y Mandato Tabular
 - **Pila Tipográfica:** `Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`.
-- **Comportamiento Numérico Obligatorio:** `font-variant-numeric: tabular-nums` en todas las tablas, KPIs, importes y gráficos para evitar saltos visuales al cambiar dígitos.
+- **Mandato Numérico Obligatorio:** `font-variant-numeric: tabular-nums;` en todas las celdas, tarjetas KPI, gráficos y resúmenes para garantizar que las cifras decimales permanezcan alineadas verticalmente en tiempo real.
 - **Jerarquía:**
-  - **Hero Display (H1):** `clamp(2rem, 5vw, 3.8rem)`, interlineado `1.1`, espacio entre letras `-0.055em`, grosor `650`.
-  - **Marca / Logotipo:** `1.5rem` (`22sp`), espacio entre letras `-0.06em`, grosor `750` / `Black`.
-  - **Eyebrow (Sobre-título):** `0.7rem` (`10sp`), mayúsculas, espacio entre letras `0.16em` (`0.5sp`), grosor `750`, color `--muted`.
-  - **Títulos de Sección (H2):** `1.35rem`, espacio entre letras `-0.025em`, grosor `650`.
-  - **Subtítulos y Encabezados de Módulo (H3):** `1.05rem`, grosor `650`.
-  - **Valores Destacados KPI (DD):** `clamp(1rem, 1.6vw, 1.4rem)`, espacio entre letras `-0.03em`, grosor `650`.
-  - **Cuerpo y Controles de Formulario:** `0.85rem` – `1rem`, interlineado `1.5`.
-  - **Tabla Mensual de Amortización:** `0.76rem` (`12sp`), compacto para máxima densidad de información.
-  - **Notas y Disclaimers:** `0.75rem` – `0.80rem`, color `--muted`.
+  - **`brand-logo`:** `24px` (`1.5rem`), grosor `700`, interlineado `28px`, tracking `-0.06em`.
+  - **`hero-display`:** `56px` (`clamp(2rem, 5vw, 3.8rem)`), grosor `600`, interlineado `62px`, tracking `-0.055em` (Mobile: `32px`, `38px`, `-0.04em`).
+  - **`headline-lg` (H2):** `22px` (`1.35rem`), grosor `600`, interlineado `28px`, tracking `-0.025em`.
+  - **`headline-md` (H3):** `17px` (`1.05rem`), grosor `600`, interlineado `24px`, tracking `-0.01em`.
+  - **`eyebrow`:** `11px` (`0.7rem`), grosor `700`, mayúsculas, tracking `0.16em`, color `#52665D`.
+  - **`kpi-value`:** `22px`, grosor `600`, interlineado `26px`, tracking `-0.03em`, tabular-nums.
+  - **`kpi-delta`:** `18px`, grosor `700`, interlineado `22px`, tracking `-0.02em` (con prefijo de signo `+` o `-`).
+  - **`body-lg` / `body-md`:** `16px` / `14px`, grosor `400`, interlineado `24px` / `21px`.
+  - **`label-field`:** `13px`, grosor `600`, interlineado `18px`, tracking `-0.01em`.
+  - **`table-data`:** `12px` (`0.76rem`), grosor `400`, interlineado `16px`, tabular-nums.
+  - **`caption-legal`:** `12px`, grosor `400`, interlineado `16px`, color `#52665D`.
 
-### 3.3 Espaciado, Retículas y Superficies
-- **Contenedor Principal (`.shell`):** Ancho máximo de `1440px`, centrado, con relleno dinámico `2rem clamp(1rem, 4vw, 4rem) 4rem`.
-- **Paneles (`.panel`):** Radio de borde `20px` (escritorio), `14px` (móviles `< 560px`), borde de `1px solid var(--line)`, relleno `clamp(1.2rem, 3vw, 2rem)`.
-- **Objetivos Táctiles Accesibles:** Altura mínima de `44px` / `45px` en todos los botones, selectores y campos de entrada.
-- **Retícula de Formulario (`.form-grid`):**
-  - Escritorio / Tablet (`>= 600dp`): 2 columnas fluidas (`repeat(2, minmax(0, 1fr))`) con separación de `1.2rem 1.5rem`.
-  - Móvil (`< 600dp`): 1 columna apilada para evitar truncamiento de etiquetas y selectores.
-- **Retícula de Resumen (`.summary-grid`):**
-  - Escritorio: 4 columnas (`repeat(4, minmax(0, 1fr))`).
-  - Tablet (`<= 900px`): 2 columnas.
-  - Móvil (`<= 560px`): 2 columnas compactas con separación reducida.
+### 3.3 Elevación y Profundidad por Capas Táctiles (Outline-First)
+Finsim rechaza sombras pesadas artificiales y biseles skeuomórficos. La profundidad se establece mediante **estratificación tonal** y **contornos de alta precisión**:
+1. **Sustrato Base (`#F8F9F5`):** Papel cálido y reposado.
+2. **Paneles Elevados (`#FFFFFF`):** Cajas blancas con borde perimetral `1px solid #E2E8DF`.
+3. **Resaltes de Inspección (`#F0FDF4`):** Superficie de tinte menta para meses y filas activas.
+4. **Tarjetas de Inspección Flotantes (`#0F2922`):** Contenedores oscuros de alto contraste para el cursor en hover sobre los gráficos.
+5. **Anillos de Foco Accesibles:** `outline: 3px solid #84E296; outline-offset: 3px;`.
+
+### 3.4 Escala de Bordes y Radios (Shapes)
+- **Paneles y Tarjetas Mayores (`.panel`):** Radio `20px` en escritorio, `14px` en móviles `< 560px`.
+- **Botones Interactivos (`.button`):** Radio `9px`, altura mínima `44px`.
+- **Controles de Formulario (`input`, `select`):** Radio `8px`, altura mínima `45px`, borde `1px solid #CBD5C6`.
+- **Badges y Píldoras de Estado:** Radio `9999px` (*full pill*).
+- **Nodos de Datos de Inspección:** Radio `4px` a `6px`.
+
+### 3.5 Especificación de Componentes
+- **Botón Primario (`.button` / `.button-primary`):** Relleno `#0F382A`, texto `#FFFFFF`, altura `44px`, radio `9px`. Hover: `brightness(1.12)`, Active: `#0B261D`.
+- **Botón Secundario (`.button.secondary`):** Relleno `#C4F278`, texto `#0F2922`, altura `44px`, radio `9px`. Hover: `brightness(1.06)`.
+- **Botón Fantasma (`.button.ghost`):** Relleno `transparent`, texto `#0F382A`, borde `1px solid #E2E8DF`. Hover: fondo `#F8F9F5`, borde `#CBD5C6`.
+- **Tabla Mensual (`MonthlyTable`):** Cabecera `thead th` en `#E6ECE2` con texto en `11px` mayúsculas; fila cebra alternada `#F9FBFA` y hover `#F4F6F1`. Columna del mes fija (*sticky*). Altura máxima `650px` con desplazamiento libre.
+- **Borrador de Eventos en Lote (`EventDraftBatch`):** Aviso persistente: *«Cambios pendientes. Los gráficos muestran la última simulación aplicada.»* con acciones *«Aplicar cambios al escenario»* y *«Descartar cambios»*.
 
 ---
 

@@ -44,7 +44,7 @@ fun LoanSummary(
                     Surface(
                         color = if (result.complete) BrandSageLight else BrandAmberLight,
                         shape = RoundedCornerShape(8.dp),
-                        border = androidx.compose.foundation.BorderStroke(0.5.dp, if (result.complete) Color(0xFFC7D9BA) else Color(0xFFE8D4A2))
+                        border = androidx.compose.foundation.BorderStroke(0.5.dp, if (result.complete) KpiMintBorder else KpiAmberBorder)
                     ) {
                         Text(
                             text = if (result.complete) "Liquidado" else "En curso",

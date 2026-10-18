@@ -55,10 +55,10 @@ export default function ScenarioComparison({ scenario, original, modified, onCha
         <CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="month" label={{ value: 'Mes', position: 'insideBottomRight', offset: -4 }} />
         <YAxis width={68} domain={[0, ceiling]} tickFormatter={value => new Intl.NumberFormat('es-CO', { notation: 'compact' }).format(Number(value))} />
         <Tooltip formatter={(_value, _name, item) => chartMoney(item.payload, item.dataKey as keyof typeof originalData[number]['exact'], scenario.currency)} labelFormatter={label => `Mes ${label}`} /><Legend />
-        <Bar dataKey="scheduled" name="Capital habitual" stackId="cash" fill="#2563a6" isAnimationActive={false} />
-        <Bar dataKey="extra" name="Capital extra y recuperación" stackId="cash" fill="#188570" isAnimationActive={false} />
-        <Bar dataKey="interest" name="Intereses pagados" stackId="cash" fill="#c75a25" isAnimationActive={false} />
-        <Bar dataKey="insurance" name="Seguros pagados" stackId="cash" fill="#8b62ac" isAnimationActive={false} />
+        <Bar dataKey="scheduled" name="Capital habitual" stackId="cash" fill="#2563EB" isAnimationActive={false} />
+        <Bar dataKey="extra" name="Capital extra y recuperación" stackId="cash" fill="#0D9488" isAnimationActive={false} />
+        <Bar dataKey="interest" name="Intereses pagados" stackId="cash" fill="#D97706" isAnimationActive={false} />
+        <Bar dataKey="insurance" name="Seguros pagados" stackId="cash" fill="#7C3AED" isAnimationActive={false} />
         <ReferenceLine x={month} stroke="#111827" />
       </BarChart></ResponsiveContainer>
     </figure>)}</div>

@@ -82,7 +82,7 @@ fun App(
                                 )
                                 Text(
                                     text = ".",
-                                    color = BrandLimeDark,
+                                    color = BrandChartreuse,
                                     fontSize = 24.sp,
                                     fontWeight = FontWeight.Black
                                 )
@@ -567,7 +567,7 @@ private fun ScenarioActionButtons(
     Button(
         onClick = onSave,
         enabled = enabled,
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(9.dp),
         colors = ButtonDefaults.buttonColors(containerColor = BrandForest),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
     ) {
@@ -577,7 +577,7 @@ private fun ScenarioActionButtons(
     Button(
         onClick = onResetExample,
         enabled = enabled,
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(9.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = BrandLime,
             contentColor = BrandForest
@@ -590,7 +590,7 @@ private fun ScenarioActionButtons(
     OutlinedButton(
         onClick = onImport,
         enabled = enabled,
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(9.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandForest),
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
