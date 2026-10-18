@@ -51,3 +51,11 @@ Suma de las salidas nuevas de dinero asociadas a la necesidad de financiación: 
 
 **Costo de financiación**:
 Parte del total pagado que excede el efectivo neto recibido o el precio de compra de esa oferta, según la necesidad comparada. Se distingue del capital devuelto y de la diferencia de precios entre ofertas.
+
+## Préstamos
+
+**Saldo de capital**:
+Capital del préstamo que permanece pendiente al cierre de un mes. No incluye intereses ni seguros pendientes.
+
+**Composición del pago mensual**:
+Desglose del dinero efectivamente aplicado durante un mes entre los conceptos financieros que cubre. Se distingue de los cargos generados en ese mes y de los saldos pendientes.
