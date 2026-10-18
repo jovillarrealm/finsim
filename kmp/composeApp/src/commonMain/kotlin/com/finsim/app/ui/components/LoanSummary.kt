@@ -219,10 +219,11 @@ fun LoanSummary(
             ) {
                 SummaryKpiCard(
                     modifier = Modifier.weight(1f),
-                    label = "Cuota mensual fija",
-                    value = formatMoney(monthlyInstallment, currency),
-                    clipboardValue = clipboardMoney(monthlyInstallment),
-                    caption = "Capital + Intereses + Seguros",
+                    label = "Cuota base",
+                    copyLabel = "Cuota base Modificado",
+                    value = formatMoney(result.basePayment, currency),
+                    clipboardValue = clipboardMoney(result.basePayment),
+                    caption = "Pago mensual habitual",
                     containerColor = KpiMintBg,
                     borderColor = KpiMintBorder,
                     labelColor = KpiMintText,
@@ -230,16 +231,15 @@ fun LoanSummary(
                 )
                 SummaryKpiCard(
                     modifier = Modifier.weight(1f),
-                    label = "Intereses acumulados",
-                    value = formatMoney(result.totals.interest, currency),
-                    clipboardValue = clipboardMoney(result.totals.interest),
-                    deltaBadge = if (interestDelta < Decimal.ZERO) "-${formatMoney((-interestDelta).toFixed(2), currency)}" else null,
-                    caption = if (original != null && interestDelta < Decimal.ZERO) "Pactados: ${formatMoney(original.totals.interest, currency)}" else "Costo neto de financiación",
-                    strikethroughCaption = if (original != null && interestDelta < Decimal.ZERO) "Pactados: ${formatMoney(original.totals.interest, currency)}" else null,
-                    containerColor = KpiAmberBg,
-                    borderColor = KpiAmberBorder,
-                    labelColor = KpiAmberText,
-                    captionColor = KpiAmberText
+                    label = "Liquidación",
+                    copyLabel = "Liquidación Modificado",
+                    value = result.payoffDate?.let { formatMonth(it) } ?: "No alcanzada",
+                    copyCaptionLabel = "duración Modificado",
+                    caption = result.payoffMonth?.let { "Mes $it de amortización" } ?: "Sin fecha final",
+                    containerColor = KpiSkyBg,
+                    borderColor = KpiSkyBorder,
+                    labelColor = KpiSkyText,
+                    captionColor = KpiSkyText
                 )
             }
 
@@ -249,29 +249,27 @@ fun LoanSummary(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                val insuranceCaption = when {
-                    monthsSaved > 0 -> "-$monthsSaved cuotas de seguro ahorradas"
-                    result.lastInsuranceMonth != null -> "Último cargo: mes ${result.lastInsuranceMonth}"
-                    else -> "Sin cargos de seguro"
-                }
                 SummaryKpiCard(
                     modifier = Modifier.weight(1f),
-                    label = "Seguros totales",
-                    value = formatMoney(result.totals.insurance, currency),
-                    clipboardValue = clipboardMoney(result.totals.insurance),
-                    deltaBadge = if (insuranceDelta < Decimal.ZERO) "-${formatMoney((-insuranceDelta).toFixed(2), currency)}" else null,
-                    caption = insuranceCaption,
-                    containerColor = KpiPlumBg,
-                    borderColor = KpiPlumBorder,
-                    labelColor = KpiPlumText,
-                    captionColor = KpiPlumText
+                    label = "Total intereses",
+                    copyLabel = "Total intereses Modificado",
+                    value = formatMoney(result.totals.interest, currency),
+                    clipboardValue = clipboardMoney(result.totals.interest),
+                    deltaBadge = if (interestDelta < Decimal.ZERO) "-${formatMoney((-interestDelta).toFixed(2), currency)}" else null,
+                    caption = if (original != null && interestDelta < Decimal.ZERO) "Pactados: ${formatMoney(original.totals.interest, currency)}" else "Costo financiero neto",
+                    strikethroughCaption = if (original != null && interestDelta < Decimal.ZERO) "Pactados: ${formatMoney(original.totals.interest, currency)}" else null,
+                    containerColor = KpiAmberBg,
+                    borderColor = KpiAmberBorder,
+                    labelColor = KpiAmberText,
+                    captionColor = KpiAmberText
                 )
                 SummaryKpiCard(
                     modifier = Modifier.weight(1f),
-                    label = "Total desembolso",
+                    label = "Caja total pagada",
+                    copyLabel = "Caja total pagada Modificado",
                     value = formatMoney(result.totals.cashPaid, currency),
                     clipboardValue = clipboardMoney(result.totals.cashPaid),
-                    caption = if (original != null && cashDelta < Decimal.ZERO) "Antes: ${formatMoney(original.totals.cashPaid, currency)}" else "Capital, intereses y seguros",
+                    caption = if (original != null && cashDelta < Decimal.ZERO) "Antes: ${formatMoney(original.totals.cashPaid, currency)}" else "Capital, interés, seguros y otros cargos",
                     strikethroughCaption = if (original != null && cashDelta < Decimal.ZERO) "Antes: ${formatMoney(original.totals.cashPaid, currency)}" else null,
                     containerColor = Color(0xFFD1FAE5),
                     borderColor = Color(0xFF6EE7B7),
@@ -329,6 +327,7 @@ private fun SummaryKpiCard(
     strikethroughCaption: String? = null,
     deltaBadge: String? = null,
     clipboardValue: String = value,
+    copyLabel: String = "$label Modificado",
     copyCaptionLabel: String? = null,
     containerColor: Color = Color.White,
     borderColor: Color = BorderSage,
@@ -379,7 +378,7 @@ private fun SummaryKpiCard(
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                CopyResult("$label Modificado", value, clipboardValue)
+                CopyResult(copyLabel, value, clipboardValue)
             }
             Spacer(modifier = Modifier.height(6.dp))
             if (strikethroughCaption != null) {

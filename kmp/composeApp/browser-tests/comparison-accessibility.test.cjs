@@ -13,6 +13,7 @@ for (const width of [1280, 360]) {
       await page.getByRole('button', { name: 'Ofertas', exact: true }).click({ force: true });
       const goal = page.getByRole('textbox', { name: 'Efectivo neto que necesitas', exact: true });
       await expect(goal).toHaveCount(1);
+      await expect(goal).toBeVisible();
       await goal.click({ force: true });
       await page.keyboard.type('1000');
       await expect(goal).toContainText('1000');

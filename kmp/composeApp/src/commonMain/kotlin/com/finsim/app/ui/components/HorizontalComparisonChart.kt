@@ -65,7 +65,6 @@ fun HorizontalComparisonChart(
 
     var hoveredMonth by remember { mutableStateOf<Int?>(null) }
     var showAdvancedDetails by remember { mutableStateOf(false) }
-    var chartMode by remember { mutableStateOf("trajectory") } // "trajectory" or "stacked"
     val hasExtinction = modified.complete && original.complete &&
         modified.payoffMonth != null && original.payoffMonth != null &&
         modified.payoffMonth!! < original.payoffMonth!!
@@ -146,206 +145,163 @@ fun HorizontalComparisonChart(
                 color = TextForestMuted
             )
 
-            // Mode Selector (Trayectoria de saldo vs Composición mensual)
-            Surface(
-                color = Color(0xFFEBEFE5),
-                shape = RoundedCornerShape(10.dp),
-                border = androidx.compose.foundation.BorderStroke(0.5.dp, BorderSage),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            // CHART 1: Saldo de capital al cierre (Trayectoria)
+            val balances = results.mapIndexed { i, result ->
+                ChartSeries(
+                    names[i],
+                    if (i == 0) TextForestMuted else BrandEmerald,
+                    i == 0,
+                    range.map { m -> resultBalance(result, m) }
+                )
+            }.filterIndexed { i, _ -> i !in hiddenScenarios }
+
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Trajectory Legend
                 Row(
-                    modifier = Modifier.padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val modes = listOf(
-                        "trajectory" to "📈 Trayectoria de saldo",
-                        "stacked" to "📊 Composición mensual"
-                    )
-                    modes.forEach { (modeKey, modeTitle) ->
-                        val isSelected = chartMode == modeKey
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Box(Modifier.width(14.dp).height(2.dp).background(TextForestMuted))
+                        Text("Original (${original.payoffMonth ?: horizon}m)", fontSize = 11.sp, color = TextForestMuted)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Box(Modifier.width(14.dp).height(3.dp).background(BrandEmerald))
+                        Text("Con abonos (${modified.payoffMonth ?: horizon}m)", fontSize = 11.sp, color = BrandForest, fontWeight = FontWeight.Bold)
+                    }
+                    if (hasExtinction) {
                         Surface(
-                            color = if (isSelected) SurfaceCard else Color.Transparent,
-                            shape = RoundedCornerShape(8.dp),
-                            shadowElevation = if (isSelected) 1.dp else 0.dp,
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { chartMode = modeKey }
+                            color = BrandMintLight,
+                            shape = RoundedCornerShape(4.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, KpiMintBorder)
                         ) {
-                            Box(
-                                modifier = Modifier.padding(vertical = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = modeTitle,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) BrandForest else TextForestMuted
-                                )
-                            }
+                            Text(
+                                "LIBRE DE DEUDA",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = BrandSage,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
                         }
+                    }
+                }
+
+                ResultLineChart(
+                    title = "Saldo de capital al cierre",
+                    currency = currency,
+                    range = range,
+                    month = month,
+                    hoveredMonth = hoveredMonth,
+                    onHoverMonth = { hoveredMonth = it },
+                    series = balances,
+                    onSelect = ::select,
+                    isTrajectoryChart = true,
+                    hasExtinction = hasExtinction,
+                    extinctionStartMonth = modified.payoffMonth,
+                    extinctionEndMonth = original.payoffMonth,
+                    prepaymentMonths = prepaymentMonths,
+                    inspectionCard = {
+                        val curMonth = hoveredMonth ?: month
+                        val origBal = resultBalance(original, curMonth)
+                        val modBal = resultBalance(modified, curMonth)
+                        SixComponentInspectionCard(
+                            subtitle = "Capital, intereses y seguros",
+                            month = curMonth,
+                            original = original,
+                            modified = modified,
+                            currency = currency,
+                            extraHeader = if (origBal != null && modBal != null) {
+                                {
+                                    Text(
+                                        "· Saldo: Orig ${formatMoney(origBal, currency)} / Mod ${formatMoney(modBal, currency)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.85f)
+                                    )
+                                }
+                            } else null
+                        )
+                    }
+                )
+                // Bottom Legend / Toggles for Chart 1
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Leyenda y filtros:", style = MaterialTheme.typography.labelSmall, color = TextForestMuted, fontWeight = FontWeight.Medium)
+                    names.forEachIndexed { i, name ->
+                        FilterChip(
+                            selected = i !in hiddenScenarios,
+                            onClick = { onHiddenScenariosChange(if (i in hiddenScenarios) hiddenScenarios - i else hiddenScenarios + i) },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = BrandMintLight,
+                                selectedLabelColor = BrandDark
+                            ),
+                            label = { Text("$name: ${if (i in hiddenScenarios) "oculto" else "visible"}") }
+                        )
                     }
                 }
             }
 
-            if (chartMode == "trajectory") {
-                // CHART 1: Saldo de capital al cierre (Trayectoria)
-                val balances = results.mapIndexed { i, result ->
+            // CHART 2: Pagos mensuales por componente
+            val payments = results.flatMapIndexed { i, result ->
+                if (i in hiddenScenarios) emptyList() else visibleComponents.sorted().map { c ->
                     ChartSeries(
-                        names[i],
-                        if (i == 0) TextForestMuted else BrandEmerald,
+                        "${names[i]} ${componentLabels[c]}",
+                        componentColors[c],
                         i == 0,
-                        range.map { m -> resultBalance(result, m) }
+                        range.map { m ->
+                            if (m == 0) null
+                            else components[i][m]?.get(c) ?: if (result.complete && m > (result.rows.lastOrNull()?.month ?: 0)) "0.00" else null
+                        }
                     )
-                }.filterIndexed { i, _ -> i !in hiddenScenarios }
+                }
+            }
 
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    // Trajectory Legend
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Box(Modifier.width(14.dp).height(2.dp).background(TextForestMuted))
-                            Text("Original (${original.payoffMonth ?: horizon}m)", fontSize = 11.sp, color = TextForestMuted)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Box(Modifier.width(14.dp).height(3.dp).background(BrandEmerald))
-                            Text("Con abonos (${modified.payoffMonth ?: horizon}m)", fontSize = 11.sp, color = BrandForest, fontWeight = FontWeight.Bold)
-                        }
-                        if (hasExtinction) {
-                            Surface(
-                                color = BrandMintLight,
-                                shape = RoundedCornerShape(4.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, KpiMintBorder)
-                            ) {
-                                Text(
-                                    "LIBRE DE DEUDA",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = BrandSage,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                ResultLineChart(
+                    title = "Pagos mensuales por componente",
+                    currency = currency,
+                    range = range,
+                    month = month,
+                    hoveredMonth = hoveredMonth,
+                    onHoverMonth = { hoveredMonth = it },
+                    series = payments,
+                    onSelect = ::select,
+                    isTrajectoryChart = false,
+                    inspectionCard = {
+                        val curMonth = hoveredMonth ?: month
+                        SixComponentInspectionCard(
+                            subtitle = "Pagos por componente",
+                            month = curMonth,
+                            original = original,
+                            modified = modified,
+                            currency = currency
+                        )
                     }
-
-                    ResultLineChart(
-                        title = "Trayectoria del saldo de capital",
-                        currency = currency,
-                        range = range,
-                        month = month,
-                        hoveredMonth = hoveredMonth,
-                        onHoverMonth = { hoveredMonth = it },
-                        series = balances,
-                        onSelect = ::select,
-                        isTrajectoryChart = true,
-                        hasExtinction = hasExtinction,
-                        extinctionStartMonth = modified.payoffMonth,
-                        extinctionEndMonth = original.payoffMonth,
-                        prepaymentMonths = prepaymentMonths,
-                        inspectionCard = {
-                            val curMonth = hoveredMonth ?: month
-                            val origBal = resultBalance(original, curMonth)
-                            val modBal = resultBalance(modified, curMonth)
-                            SixComponentInspectionCard(
-                                subtitle = "Capital, intereses y seguros",
-                                month = curMonth,
-                                original = original,
-                                modified = modified,
-                                currency = currency,
-                                extraHeader = if (origBal != null && modBal != null) {
-                                    {
-                                        Text(
-                                            "· Saldo: Orig ${formatMoney(origBal, currency)} / Mod ${formatMoney(modBal, currency)}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color.White.copy(alpha = 0.85f)
-                                        )
-                                    }
-                                } else null
-                            )
-                        }
-                    )
-                    // Bottom Legend / Toggles for Chart 1
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Leyenda y filtros:", style = MaterialTheme.typography.labelSmall, color = TextForestMuted, fontWeight = FontWeight.Medium)
-                        names.forEachIndexed { i, name ->
+                )
+                // Bottom Legend / Toggles for Chart 2
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Componentes pagados por mes:", style = MaterialTheme.typography.labelSmall, color = TextForestMuted, fontWeight = FontWeight.Medium)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        available.forEach { c ->
                             FilterChip(
-                                selected = i !in hiddenScenarios,
-                                onClick = { onHiddenScenariosChange(if (i in hiddenScenarios) hiddenScenarios - i else hiddenScenarios + i) },
+                                selected = c in visibleComponents,
+                                onClick = { onHiddenComponentsChange(if (c in hiddenComponents) hiddenComponents - c else hiddenComponents + c) },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = BrandMintLight,
                                     selectedLabelColor = BrandDark
                                 ),
-                                label = { Text("$name: ${if (i in hiddenScenarios) "oculto" else "visible"}") }
-                            )
-                        }
-                    }
-                }
-            } else {
-                // CHART 2: Pagos mensuales por componente
-                val payments = results.flatMapIndexed { i, result ->
-                    if (i in hiddenScenarios) emptyList() else visibleComponents.sorted().map { c ->
-                        ChartSeries(
-                            "${names[i]} ${componentLabels[c]}",
-                            componentColors[c],
-                            i == 0,
-                            range.map { m ->
-                                if (m == 0) null
-                                else components[i][m]?.get(c) ?: if (result.complete && m > (result.rows.lastOrNull()?.month ?: 0)) "0.00" else null
-                            }
-                        )
-                    }
-                }
-
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ResultLineChart(
-                        title = "Pagos mensuales por componente",
-                        currency = currency,
-                        range = range,
-                        month = month,
-                        hoveredMonth = hoveredMonth,
-                        onHoverMonth = { hoveredMonth = it },
-                        series = payments,
-                        onSelect = ::select,
-                        isTrajectoryChart = false,
-                        inspectionCard = {
-                            val curMonth = hoveredMonth ?: month
-                            SixComponentInspectionCard(
-                                subtitle = "Pagos por componente",
-                                month = curMonth,
-                                original = original,
-                                modified = modified,
-                                currency = currency
-                            )
-                        }
-                    )
-                    // Bottom Legend / Toggles for Chart 2
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Componentes pagados por mes:", style = MaterialTheme.typography.labelSmall, color = TextForestMuted, fontWeight = FontWeight.Medium)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            available.forEach { c ->
-                                FilterChip(
-                                    selected = c in visibleComponents,
-                                    onClick = { onHiddenComponentsChange(if (c in hiddenComponents) hiddenComponents - c else hiddenComponents + c) },
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = BrandMintLight,
-                                        selectedLabelColor = BrandDark
-                                    ),
-                                    label = {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            Box(Modifier.size(10.dp).background(componentColors[c], RoundedCornerShape(2.dp)))
-                                            Text("${componentLabels[c]}: ${if (c in visibleComponents) "visible" else "oculto"}")
-                                        }
+                                label = {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Box(Modifier.size(10.dp).background(componentColors[c], RoundedCornerShape(2.dp)))
+                                        Text("${componentLabels[c]}: ${if (c in visibleComponents) "visible" else "oculto"}")
                                     }
-                                )
-                            }
+                                }
+                            )
                         }
                     }
                 }

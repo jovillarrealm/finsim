@@ -118,53 +118,6 @@ fun App(
                         }
                     }
                 }
-            },
-            bottomBar = {
-                Surface(
-                    color = SurfaceWarm.copy(alpha = 0.95f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
-                    shadowElevation = 8.dp,
-                    modifier = Modifier.fillMaxWidth().navigationBarsPadding()
-                ) {
-                    NavigationBar(
-                        containerColor = Color.Transparent,
-                        tonalElevation = 0.dp,
-                        modifier = Modifier.height(64.dp)
-                    ) {
-                        val navItems = listOf(
-                            Triple(0, "Simulador", "🧮"),
-                            Triple(1, "Conversor", "📈"),
-                            Triple(2, "Conciliar", "🔍"),
-                            Triple(3, "Ofertas", "📊")
-                        )
-                        navItems.forEach { (tabIndex, label, icon) ->
-                            val isSelected = selectedTab == tabIndex
-                            NavigationBarItem(
-                                selected = isSelected,
-                                onClick = {
-                                    FinsimLog.ui.d { "Barra inferior navegación: $selectedTab -> $tabIndex" }
-                                    selectedTab = tabIndex
-                                },
-                                icon = { Text(icon, fontSize = 18.sp) },
-                                label = {
-                                    Text(
-                                        label,
-                                        fontSize = 10.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        maxLines = 1
-                                    )
-                                },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = BrandForest,
-                                    selectedTextColor = BrandForest,
-                                    indicatorColor = BrandSageLight,
-                                    unselectedIconColor = TextForestMuted,
-                                    unselectedTextColor = TextForestMuted
-                                )
-                            )
-                        }
-                    }
-                }
             }
         ) { paddingValues ->
             Column(

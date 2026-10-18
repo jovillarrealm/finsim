@@ -30,10 +30,10 @@ fun MonthlyTable(
     selectedMonth: Int = 1,
     onSelectMonth: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    initialExpanded: Boolean = true,
+    initialExpanded: Boolean = false,
     scenarioName: String = "Modificado"
 ) {
-    var viewMode by remember { mutableStateOf("milestones") } // "milestones" or "table"
+    var viewMode by remember { mutableStateOf(if (initialExpanded) "table" else "milestones") } // "milestones" or "table"
     var exportMessage by remember { mutableStateOf("") }
     val downloader = rememberScheduleDownloader()
 
@@ -143,6 +143,16 @@ fun MonthlyTable(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                OutlinedButton(
+                    onClick = { viewMode = if (viewMode == "table") "milestones" else "table" },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = BrandForest
+                    )
+                ) {
+                    Text(if (viewMode == "table") "Ocultar tabla" else "Ver tabla")
+                }
+
                 Button(
                     onClick = {
                         val csv = generateScheduleCsv(result, scenarioName)
