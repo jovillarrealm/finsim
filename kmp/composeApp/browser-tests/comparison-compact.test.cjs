@@ -48,7 +48,7 @@ test('Tab leaves an input without losing keyboard activation at 360x800', async 
   try {
     await page.goto(process.env.FINSIM_WEB_URL || 'http://127.0.0.1:4174/');
     await page.getByRole('button', { name: 'Ofertas', exact: true }).waitFor();
-    await page.mouse.click(300, 92);
+    await click(page, 'Ofertas');
     const goal = page.getByRole('textbox', { name: 'Efectivo neto que necesitas', exact: true });
     await goal.waitFor();
     const box = await goal.boundingBox();

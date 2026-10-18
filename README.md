@@ -1,10 +1,10 @@
 # Finsim
 
-Simulador educativo de préstamos y comparación de ofertas. La versión para pruebas con audiencia usa Kotlin Multiplatform (Web y Android); la aplicación React anterior se conserva en `src/`.
+Simulador educativo de préstamos y comparación de ofertas construido sobre Kotlin Multiplatform (WebAssembly y Android).
 
 ## Desarrollo
 
-Requiere Node.js compatible con las versiones fijadas en `package-lock.json`.
+Requiere Node.js compatible con las versiones fijadas en `package-lock.json`, Java 21 y Gradle 8.11.1.
 
 ```sh
 npm ci
@@ -14,19 +14,20 @@ npm run dev
 ## Verificación
 
 ```sh
+# Verificación de TypeScript y scripts
 npm run typecheck
+
+# Pruebas de integración de navegador KMP (Playwright)
 npm test
+
+# Pruebas unitarias de Kotlin Multiplatform (Shared + Compose App)
+npm run test:kmp
+
+# Compilación WebAssembly
 npm run build
 ```
 
-Pruebas de navegador (instalación del navegador solo la primera vez):
-
-```sh
-npx playwright install chromium
-npm run test:e2e
-```
-
-El servidor de desarrollo abre `http://127.0.0.1:5173`. Para revisar la compilación usa `npm run preview`.
+El servidor local abre `http://127.0.0.1:5173`. Para servir la distribución WebAssembly usa `npm run preview`.
 
 ## Alcance actual
 
@@ -40,8 +41,8 @@ Los datos se guardan solo en el navegador. Exportar genera una copia portátil; 
 
 Sitio: https://jovillarrealm.github.io/finsim/
 
-`.github/workflows/pages.yml` se ejecuta manualmente desde Actions en https://github.com/jovillarrealm/finsim. No publica por cada commit. Construye la aplicación KMP con Java 21 y Gradle 8.11.1, ejecuta las pruebas shared/UI y los nueve recorridos de navegador bajo `/finsim/` antes de desplegar. `version.json` identifica el commit publicado. No requiere claves de firma Android para publicar Web; las compilaciones Android release conservan la validación de firma.
+`.github/workflows/pages.yml` se ejecuta en `push` a la rama `main` y soporta ejecución manual desde Actions. Construye la aplicación KMP con Java 21 y Gradle 8.11.1, ejecuta las pruebas shared/UI y los recorridos de navegador bajo `/finsim/` antes de desplegar. `version.json` identifica el commit publicado.
 
-La publicación para pruebas conserva pendientes la observación de audiencia y el lector real; no acredita aceptación completa ni fidelidad bancaria. Los comandos de desarrollo React anteriores siguen sirviendo a la aplicación anterior. Para construir KMP: `gradle -p kmp :composeApp:wasmJsBrowserDistribution`; para verificar: `gradle -p kmp :shared:jvmTest :composeApp:testDebugUnitTest` (Java 21, Gradle 8.11.1 y Android SDK 36).
+Para construir KMP directamente con Gradle: `gradle -p kmp :composeApp:wasmJsBrowserDistribution`; para verificar: `gradle -p kmp :shared:jvmTest :composeApp:testDebugUnitTest`.
 
 Consulta [el plan](docs/implementation-plan.md), [el tracking](docs/tracking.md) y [las convenciones financieras](docs/financial-conventions.md) antes de modificar cálculos.

@@ -50,7 +50,7 @@ async function open(browser, scenario, mobile = false) {
   await context.addInitScript(value => { if (!localStorage.getItem('finsim.scenario')) localStorage.setItem('finsim.scenario', JSON.stringify(value)); }, scenario);
   const page = await context.newPage();
   await page.goto(url);
-  await button(page, 'Copiar Cuota base Modificado').waitFor();
+  await button(page, 'Copiar Cuota base Modificado').waitFor({ state: 'attached' });
   return { context, page };
 }
 

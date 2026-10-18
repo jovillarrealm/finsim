@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-Actualizado: 2026-10-18. Despliegue de GitHub Pages restablecido con éxito en main **5b39a7d**, run **39139760144** (8m 11s build, 10s deploy). Verificación completa de 13/13 pruebas de navegador Playwright en Chromium, 54 vitest tests, typecheck limpio, 115 JVM tests y compilación WebAssembly sin regresiones. Corrección de relación de aspecto 1:1 en gráficos de trayectoria (eliminando distorsión anisotrópica y manteniendo textos nítidos en desktop y móvil) aceptada visualmente por el usuario e integrada en main. Sitio: https://jovillarrealm.github.io/finsim/?v=5b39a7d.
+Actualizado: 2026-10-18. Unificación definitiva de la arquitectura multiplataforma en Kotlin Multiplatform (Compose Wasm y Android). Paridad visual completa (diseño Warm Botanical Precision, Hero banner, badge de marca, escenario de demostración con zona de extinción y ahorro neto de COP 4.6M, y gráficos de trayectoria sin distorsión). Eliminación completa de la aplicación de prueba React en `src/` y de dependencias redundantes. Verificación de 13/13 pruebas de navegador Playwright en Chromium, 115 pruebas unitarias JVM y build de distribución WasmJs sin errores. Sitio: https://jovillarrealm.github.io/finsim/.
 
 Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md) define alcance, dependencias y criterios de cierre. Los registros por tarea guardan el detalle de continuidad.
 

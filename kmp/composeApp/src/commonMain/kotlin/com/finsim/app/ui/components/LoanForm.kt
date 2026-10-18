@@ -55,11 +55,38 @@ fun LoanForm(
 
             Column(modifier = Modifier.padding(18.dp)) {
                 Text(
-                    text = "Condiciones del préstamo",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = "PUNTO DE PARTIDA",
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    color = BrandDark
+                    color = TextForestMuted,
+                    letterSpacing = 1.sp
                 )
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Tu préstamo",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = BrandDark
+                    )
+                    Surface(
+                        color = BrandMintLight,
+                        shape = RoundedCornerShape(999.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, KpiMintBorder)
+                    ) {
+                        Text(
+                            text = "${draft.state.currency.name} · tasa fija",
+                            color = KpiMintText,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
                 Text(
                     text = "Configura el importe, plazo, tasas y amortización base.",
                     style = MaterialTheme.typography.bodySmall,

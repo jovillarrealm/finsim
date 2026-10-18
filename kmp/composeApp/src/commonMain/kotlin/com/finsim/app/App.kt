@@ -35,7 +35,7 @@ typealias Workspace = WorkspaceState
 @Composable
 fun App(
     storage: ScenarioStorage = remember { InMemoryScenarioStorage() },
-    store: WorkspaceStore = remember(storage) { WorkspaceStore(storage) }
+    store: WorkspaceStore = remember(storage) { WorkspaceStore(storage = storage, fallbackScenario = stitchDemoScenario) }
 ) {
     val comparisonStore = remember(storage) { com.finsim.comparison.ComparisonWorkspace(storage) }
     var workspace by remember(store) { mutableStateOf(store.state) }
@@ -101,19 +101,38 @@ fun App(
                                 }
                             }
 
-                            // Active currency chip with Radiant Chartreuse background
-                            Surface(
-                                color = BrandChartreuse,
-                                shape = RoundedCornerShape(999.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, BrandForest.copy(alpha = 0.2f))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text(
-                                    text = if (selectedTab == 3) "OFERTAS" else "${workspace.scenario.currency.name} $",
-                                    color = BrandForest,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
-                                )
+                                // Active currency chip with Radiant Chartreuse background
+                                Surface(
+                                    color = BrandChartreuse,
+                                    shape = RoundedCornerShape(999.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, BrandForest.copy(alpha = 0.2f))
+                                ) {
+                                    Text(
+                                        text = if (selectedTab == 3) "OFERTAS" else "${workspace.scenario.currency.name} $",
+                                        color = BrandForest,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                                    )
+                                }
+
+                                Surface(
+                                    color = BrandSageLight,
+                                    shape = RoundedCornerShape(999.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, KpiMintBorder)
+                                ) {
+                                    Text(
+                                        text = "Tu laboratorio financiero",
+                                        color = KpiMintText,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -129,6 +148,125 @@ fun App(
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // Warm Botanical Precision Hero Section
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val isWide = maxWidth >= 768.dp
+                    if (isWide) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 24.dp)) {
+                                Text(
+                                    text = "MENOS INCERTIDUMBRE. MÁS PERSPECTIVA.",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextForestMuted,
+                                    letterSpacing = 1.2.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Decide con\nlos números claros.",
+                                    fontSize = 34.sp,
+                                    lineHeight = 38.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = BrandDark,
+                                    letterSpacing = (-0.8).sp
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Explora tu préstamo, cambia un mes y entiende qué pasa con tu dinero.",
+                                    fontSize = 15.sp,
+                                    color = TextForestMuted,
+                                    lineHeight = 22.sp
+                                )
+                            }
+
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
+                                modifier = Modifier.widthIn(max = 300.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(18.dp)) {
+                                    androidx.compose.foundation.Canvas(modifier = Modifier.size(24.dp)) {
+                                        val sw = 2.5f.dp.toPx()
+                                        drawLine(
+                                            color = BrandForest,
+                                            start = androidx.compose.ui.geometry.Offset(2.dp.toPx(), size.height - 2.dp.toPx()),
+                                            end = androidx.compose.ui.geometry.Offset(size.width - 2.dp.toPx(), 2.dp.toPx()),
+                                            strokeWidth = sw
+                                        )
+                                        drawLine(
+                                            color = BrandForest,
+                                            start = androidx.compose.ui.geometry.Offset(size.width - 2.dp.toPx(), 2.dp.toPx()),
+                                            end = androidx.compose.ui.geometry.Offset(size.width - 10.dp.toPx(), 2.dp.toPx()),
+                                            strokeWidth = sw
+                                        )
+                                        drawLine(
+                                            color = BrandForest,
+                                            start = androidx.compose.ui.geometry.Offset(size.width - 2.dp.toPx(), 2.dp.toPx()),
+                                            end = androidx.compose.ui.geometry.Offset(size.width - 2.dp.toPx(), 10.dp.toPx()),
+                                            strokeWidth = sw
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Un pequeño cambio hoy.",
+                                        fontSize = 13.sp,
+                                        color = TextForestMuted
+                                    )
+                                    Text(
+                                        text = "Una historia distinta mañana.",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = BrandDark
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "${workspace.scenario.currency.name} · pagos mensuales · tasa fija",
+                                        fontSize = 11.sp,
+                                        color = TextForestMuted
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "MENOS INCERTIDUMBRE. MÁS PERSPECTIVA.",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextForestMuted,
+                                letterSpacing = 1.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Decide con los números claros.",
+                                fontSize = 24.sp,
+                                lineHeight = 28.sp,
+                                fontWeight = FontWeight.Black,
+                                color = BrandDark,
+                                letterSpacing = (-0.5).sp
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Explora tu préstamo, cambia un mes y entiende qué pasa con tu dinero.",
+                                fontSize = 13.sp,
+                                color = TextForestMuted,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+                }
+
                 // Navigation Segmented Pills
                 Surface(
                     color = Color(0xFFEBEFE5),
@@ -399,6 +537,26 @@ fun App(
                             onSelectMonth = { selectedMonth = it }
                         )
 
+                        // Loan Conditions Form
+                        LoanForm(
+                            scenario = workspace.scenario,
+                            onApplyScenario = { newScen ->
+                                val outcome = store.updateConditions(newScen)
+                                workspace = store.state
+                                when (outcome) {
+                                    is WorkspaceOutcome.Success -> {
+                                        noticeMessage = outcome.message
+                                        errorMessage = ""
+                                        true
+                                    }
+                                    is WorkspaceOutcome.Failure -> {
+                                        errorMessage = outcome.error
+                                        false
+                                    }
+                                }
+                            }
+                        )
+
                         // Event Editor
                         EventEditor(
                             currency = workspace.scenario.currency,
@@ -423,26 +581,6 @@ fun App(
                             onPendingChange = { pending ->
                                 store.setDraftPending(pending)
                                 workspace = store.state
-                            }
-                        )
-
-                        // Loan Conditions Form
-                        LoanForm(
-                            scenario = workspace.scenario,
-                            onApplyScenario = { newScen ->
-                                val outcome = store.updateConditions(newScen)
-                                workspace = store.state
-                                when (outcome) {
-                                    is WorkspaceOutcome.Success -> {
-                                        noticeMessage = outcome.message
-                                        errorMessage = ""
-                                        true
-                                    }
-                                    is WorkspaceOutcome.Failure -> {
-                                        errorMessage = outcome.error
-                                        false
-                                    }
-                                }
                             }
                         )
 
