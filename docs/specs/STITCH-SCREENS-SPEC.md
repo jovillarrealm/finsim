@@ -195,9 +195,10 @@ Para garantizar que la implementación conserve la exactitud matemática y la fi
 
 ---
 
-### 6.2 Suite Automatizada de Integración (`StitchScreensIntegration.test.tsx`)
+### 6.2 Suites Automatizadas de Integración
 
-La suite implementada en [`src/features/loan/StitchScreensIntegration.test.tsx`](file:///C:/Users/Lenovo/Documents/finsim/src/features/loan/StitchScreensIntegration.test.tsx) valida directamente contra los criterios de aceptación:
+#### Web (`StitchScreensIntegration.test.tsx`)
+La suite implementada en [`src/features/loan/StitchScreensIntegration.test.tsx`](file:///C:/Users/Lenovo/Documents/finsim/src/features/loan/StitchScreensIntegration.test.tsx) valida directamente contra los criterios de aceptación en el navegador:
 
 | Caso de Prueba | Componente Evaluado | Comprobaciones Clave |
 | :--- | :--- | :--- |
@@ -205,6 +206,17 @@ La suite implementada en [`src/features/loan/StitchScreensIntegration.test.tsx`]
 | `ScenarioComparison renders Trajectory Curve with extinction zone and active month card` | [`ScenarioComparison.tsx`](file:///C:/Users/Lenovo/Documents/finsim/src/features/loan/ScenarioComparison.tsx) | - Selector `Trayectoria de saldo`<br/>- SVG con clase `trajectory-svg` y gradiente `amortDeltaGradient`<br/>- Activación de zona `LIBRE DE DEUDA` y `$0 pagos requeridos`<br/>- Presencia de `active-month-card` con detalle del mes y botón `Modificar este mes`. |
 | `MonthlyTable renders curated Key Milestones with prepayments and full schedule toggle` | [`MonthlyTable.tsx`](file:///C:/Users/Lenovo/Documents/finsim/src/features/loan/MonthlyTable.tsx) | - Alternancia de vistas (`Hitos Clave` vs `Tabla Completa`)<br/>- Lista `milestones-schedule-list` con `Mes 01`<br/>- Badges `+X Extra` en meses de abono y `Fin de Crédito` en liquidación<br/>- Botón de exportación `Descargar cronograma completo (.CSV)`. |
 | `MonthlyTable renders clean fallback without prepayments when no events exist` | [`MonthlyTable.tsx`](file:///C:/Users/Lenovo/Documents/finsim/src/features/loan/MonthlyTable.tsx) | - Escenario sin eventos omite badges `badge-extra`<br/>- Conserva `Mes 01` e hito final de finalización pactada. |
+
+#### Compose Multiplatform (`StitchDesignRefreshParityTest.kt`)
+La suite implementada en [`kmp/composeApp/src/commonTest/kotlin/com/finsim/app/ui/components/StitchDesignRefreshParityTest.kt`](file:///C:/Users/Lenovo/Documents/finsim/kmp/composeApp/src/commonTest/kotlin/com/finsim/app/ui/components/StitchDesignRefreshParityTest.kt) valida la paridad idéntica en Compose (Android y Desktop):
+
+| Caso de Prueba | Componente Evaluado | Comprobaciones Clave |
+| :--- | :--- | :--- |
+| `testScheduleCsvGenerationIntegrity` | [`MonthlyTable.kt`](file:///C:/Users/Lenovo/Documents/finsim/kmp/composeApp/src/commonMain/kotlin/com/finsim/app/ui/components/MonthlyTable.kt) | - Cabecera con BOM UTF-8 y 18 columnas contables completas<br/>- Formateo estándar con precisión decimal exacta. |
+| `testKeyMilestonesCuratedFilteringWithPrepayments` | [`MonthlyTable.kt`](file:///C:/Users/Lenovo/Documents/finsim/kmp/composeApp/src/commonMain/kotlin/com/finsim/app/ui/components/MonthlyTable.kt) | - Inclusión curada de M01, meses previos, meses de abono y liquidación anticipada acelerada. |
+| `testKeyMilestonesFilteringWithoutPrepayments` | [`MonthlyTable.kt`](file:///C:/Users/Lenovo/Documents/finsim/kmp/composeApp/src/commonMain/kotlin/com/finsim/app/ui/components/MonthlyTable.kt) | - Fallback a M01, mes medio y mes final contractual sin badges residuales. |
+| `testMathematicalInvariantsAndSavingsDerivations` | [`LoanSummary.kt`](file:///C:/Users/Lenovo/Documents/finsim/kmp/composeApp/src/commonMain/kotlin/com/finsim/app/ui/components/LoanSummary.kt) | - Conservación de caja (`principal + interest + insurance == cashPaid`)<br/>- Decrecimiento monótono del saldo<br/>- Reducción de coste financiero y aceleración de plazo. |
+| `testZeroPrepaymentsFallbackState` | [`LoanSummary.kt`](file:///C:/Users/Lenovo/Documents/finsim/kmp/composeApp/src/commonMain/kotlin/com/finsim/app/ui/components/LoanSummary.kt) | - Deltas exactamente en 0 y badge de ahorro de interés nulo. |
 
 ---
 
@@ -221,9 +233,9 @@ npm run typecheck
 npm run build
 
 # 4. Pruebas de motor canónico Kotlin Multiplatform (115 tests JVM)
-gradle :shared:jvmTest
+gradle -p kmp :shared:jvmTest
 
 # 5. Pruebas unitarias de componentes Compose Multiplatform
-gradle :composeApp:testDebugUnitTest
+gradle -p kmp :composeApp:testDebugUnitTest
 ```
 
