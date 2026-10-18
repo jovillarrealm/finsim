@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-Actualizado: 2026-10-17. KMP y FS-17 integrados técnicamente en main **542c9f2** y publicados para pruebas con audiencia en **a22f0ff**, run **38777302454** exitoso. Android **1.0.3 (4)** generado, firmado y validado localmente desde **8fe3689**, sin subida a Play Console. Evidencia Web anterior: 115 shared, 7 UI, build Web, 9 recorridos CI y 2 JSON públicos; no repetidos para el AAB. Sesión coordinadora: /root. Pendientes: lector real, audiencia y deuda KMP; FS-07/FS-10 conservan aceptación pendiente. Sitio: https://jovillarrealm.github.io/finsim/?v=a22f0ff.
+Actualizado: 2026-10-18. Despliegue de GitHub Pages restablecido con éxito en main **4e5956b**, run **39103964464** (7m 31s build, 9s deploy). Verificación completa de 13/13 pruebas de navegador Playwright en Chromium (accesibilidad Skiko, modo compacto, foco y teclado, sincronización de saldo y pagos, exportación y persistencia), 54 vitest tests, typecheck limpio, 115 JVM tests y compilación WebAssembly sin regresiones. Sitio: https://jovillarrealm.github.io/finsim/?v=4e5956b.
 
 Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md) define alcance, dependencias y criterios de cierre. Los registros por tarea guardan el detalle de continuidad.
 
