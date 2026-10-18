@@ -33,6 +33,26 @@ val TextMain = Color(0xFF0F2922)          // High-contrast primary text
 val TextForestMuted = Color(0xFF52665D)   // Secondary text
 val BorderInput = Color(0xFFCBD5C6)       // Form input border
 
+// Thematic Semantic Tint Containers & Borders
+val KpiMintBg = Color(0xFFECFDF5)
+val KpiMintBorder = Color(0xFFA7F3D0)
+val KpiMintText = Color(0xFF065F46)
+
+val KpiSkyBg = Color(0xFFF0F9FF)
+val KpiSkyBorder = Color(0xFFBAE6FD)
+val KpiSkyText = Color(0xFF0369A1)
+
+val KpiAmberBg = Color(0xFFFFFBEB)
+val KpiAmberBorder = Color(0xFFFDE68A)
+val KpiAmberText = Color(0xFF92400E)
+
+val KpiPlumBg = Color(0xFFFAF5FF)
+val KpiPlumBorder = Color(0xFFE9D5FF)
+val KpiPlumText = Color(0xFF6B21A8)
+
+val TableZebraRow = Color(0xFFF9FBFA)
+val TableHeaderBg = Color(0xFFE6F4EA)
+
 // Aliases for seamless component compatibility
 val BrandNavy = BrandDark
 val BrandBlue = BrandForest

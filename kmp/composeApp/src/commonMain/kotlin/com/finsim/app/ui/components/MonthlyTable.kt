@@ -1,6 +1,7 @@
 package com.finsim.app.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -10,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -86,7 +88,7 @@ fun MonthlyTable(
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = BrandEmerald,
-                            contentColor = androidx.compose.ui.graphics.Color.White
+                            contentColor = Color.White
                         )
                     ) {
                         Text("Exportar CSV / Excel")
@@ -97,6 +99,7 @@ fun MonthlyTable(
                             downloader.downloadArrow("cronograma-$scenarioName.arrow", result) { exportMessage = it }
                         },
                         shape = RoundedCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, BrandEmerald),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = BrandForest
                         )
@@ -135,11 +138,11 @@ fun MonthlyTable(
                 ) {
                     // Container with Synchronized Horizontal Scroll and Sticky Header
                     Column(Modifier.horizontalScroll(horizontalScroll)) {
-                        // Sticky Header Row
+                        // Sticky Header Row with Mint Sage Background
                         Row(
                             Modifier
-                                .background(BrandForest.copy(alpha = 0.06f))
-                                .padding(vertical = 8.dp),
+                                .background(TableHeaderBg)
+                                .padding(vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             headers.forEach {
@@ -155,7 +158,7 @@ fun MonthlyTable(
 
                         HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
 
-                        // Vertically Scrollable Rows Body
+                        // Vertically Scrollable Rows Body with Zebra Striping
                         Column(
                             Modifier
                                 .heightIn(max = 480.dp)
@@ -168,7 +171,8 @@ fun MonthlyTable(
                                 Row(
                                     Modifier
                                         .fillMaxWidth()
-                                        .background(if (isSelected) BrandMintLight else if (rowIndex % 2 == 1) BackgroundClean else androidx.compose.ui.graphics.Color.Transparent)
+                                        .background(if (isSelected) Color(0xFFD1FAE5) else if (rowIndex % 2 == 1) TableZebraRow else Color.White)
+                                        .then(if (isSelected) Modifier.border(1.dp, BrandEmerald, RoundedCornerShape(4.dp)) else Modifier)
                                         .padding(vertical = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -194,16 +198,21 @@ fun MonthlyTable(
                                     val values = listOf(
                                         row.openingBalance, paid[0], paid[1], row.interestCharged, row.insuranceCharged,
                                         paid[2], paid[3], paid[4], row.cashPaid, row.closingBalance,
-                                        row.pendingInterest, row.pendingInsurance, row.overduePrincipal, row.arrears, row.debt,
-                                        unapplied
+                                        row.pendingInterest, row.pendingInsurance, row.overduePrincipal, row.arrears, row.debt, unapplied
+                                    )
+                                    val labels = listOf(
+                                        "saldo inicial", "Capital habitual", "Capital adicional", "interés generado", "seguro generado",
+                                        "intereses pagados", "seguros pagados", "otros cargos", "pago total", "saldo de capital",
+                                        "interés pendiente", "seguro pendiente", "capital vencido", "mora", "deuda", "excedente no aplicado"
                                     )
 
-                                    values.forEachIndexed { index, amount ->
+                                    values.forEachIndexed { colIndex, amount ->
                                         Box(Modifier.width(160.dp).padding(horizontal = 4.dp)) {
-                                            CopyMoney("tabla ${headers[index + 2]} $scenarioName mes ${row.month}", amount, currency)
+                                            CopyMoney("tabla ${labels[colIndex]} $scenarioName mes ${row.month}", amount, currency)
                                         }
                                     }
                                 }
+                                HorizontalDivider(color = BorderSubtle.copy(alpha = 0.5f), thickness = 0.5.dp)
                             }
                         }
                     }

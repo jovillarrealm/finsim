@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -92,7 +93,7 @@ fun HorizontalComparisonChart(
                 }
             }
 
-            // Summary Differences Row
+            // Summary Differences Row with Vibrant Badges
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -105,18 +106,20 @@ fun HorizontalComparisonChart(
                     Column(
                         Modifier
                             .background(BrandMintLight, RoundedCornerShape(8.dp))
+                            .border(1.dp, KpiMintBorder, RoundedCornerShape(8.dp))
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
-                        Text("Diferencia $label", style = MaterialTheme.typography.labelSmall, color = TextForestMuted)
+                        Text("Diferencia $label", style = MaterialTheme.typography.labelSmall, color = TextForestMuted, fontWeight = FontWeight.Medium)
                         CopyMoney("diferencia $label Modificado menos Original", difference(amounts.second, amounts.first), currency, signed = true)
                     }
                 }
                 Column(
                     Modifier
                         .background(BrandMintLight, RoundedCornerShape(8.dp))
+                        .border(1.dp, KpiMintBorder, RoundedCornerShape(8.dp))
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
-                    Text("Diferencia de plazo", style = MaterialTheme.typography.labelSmall, color = TextForestMuted)
+                    Text("Diferencia de plazo", style = MaterialTheme.typography.labelSmall, color = TextForestMuted, fontWeight = FontWeight.Medium)
                     val term = if (original.complete && modified.complete && original.payoffMonth != null && modified.payoffMonth != null)
                         "${if (modified.payoffMonth!! > original.payoffMonth!!) "+" else ""}${modified.payoffMonth!! - original.payoffMonth!!} meses" else "Incompleto"
                     CopyResult("diferencia de plazo", term)
@@ -142,7 +145,7 @@ fun HorizontalComparisonChart(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Leyenda y filtros:", style = MaterialTheme.typography.labelSmall, color = TextForestMuted)
+                    Text("Leyenda y filtros:", style = MaterialTheme.typography.labelSmall, color = TextForestMuted, fontWeight = FontWeight.Medium)
                     names.forEachIndexed { i, name ->
                         FilterChip(
                             selected = i !in hiddenScenarios,
@@ -177,7 +180,7 @@ fun HorizontalComparisonChart(
                 ResultLineChart("Pagos mensuales por componente", currency, range, month, payments, ::select)
                 // Bottom Legend / Toggles for Chart 2
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Componentes pagados por mes:", style = MaterialTheme.typography.labelSmall, color = TextForestMuted)
+                    Text("Componentes pagados por mes:", style = MaterialTheme.typography.labelSmall, color = TextForestMuted, fontWeight = FontWeight.Medium)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         available.forEach { c ->
                             FilterChip(
@@ -264,7 +267,7 @@ fun HorizontalComparisonChart(
                     val modBalance = resultBalance(modified, month)
                     if (origBalance != null && modBalance != null) {
                         Row(
-                            Modifier.background(BrandMintLight, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 4.dp),
+                            Modifier.background(BrandMintLight, RoundedCornerShape(8.dp)).border(1.dp, KpiMintBorder, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
@@ -289,11 +292,12 @@ fun HorizontalComparisonChart(
                     Column {
                         // Header Row
                         Row(
-                            Modifier.fillMaxWidth().background(BrandForest.copy(alpha = 0.05f)).padding(horizontal = 12.dp, vertical = 8.dp),
+                            Modifier.fillMaxWidth().background(TableHeaderBg).padding(horizontal = 12.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Métrica", Modifier.weight(1.2f), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = BrandForest)
                             Text("Original${origRow?.date?.let { " · ${formatMonth(it)}" } ?: ""}", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = BrandForest)
+                            Spacer(Modifier.width(6.dp))
                             Text("Modificado${modRow?.date?.let { " · ${formatMonth(it)}" } ?: ""}", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = BrandForest)
                         }
 
@@ -301,7 +305,7 @@ fun HorizontalComparisonChart(
                         val origBal = resultBalance(original, month)
                         val modBal = resultBalance(modified, month)
                         if (origBal != null && modBal != null) {
-                            DetailTableRow("Saldo de capital", origBal, modBal, currency, "saldo de capital", month)
+                            DetailTableRow("Saldo de capital", origBal, modBal, currency, "saldo de capital", month, dotColor = BrandForest)
                         }
 
                         if (month == 0) {
@@ -316,30 +320,30 @@ fun HorizontalComparisonChart(
                             val origTotalPaid = origRow?.cashPaid ?: if (original.complete) "0.00" else null
                             val modTotalPaid = modRow?.cashPaid ?: if (modified.complete) "0.00" else null
                             if (origTotalPaid != null && modTotalPaid != null) {
-                                DetailTableRow("Total pagado", origTotalPaid, modTotalPaid, currency, "total pagado", month, isHighlight = true)
+                                DetailTableRow("Total pagado", origTotalPaid, modTotalPaid, currency, "total pagado", month, isHighlight = true, dotColor = BrandEmerald)
                             }
 
                             // Payment Components
                             if (origPaid != null && modPaid != null) {
                                 componentLabels.forEachIndexed { c, title ->
-                                    DetailTableRow(title, origPaid[c], modPaid[c], currency, title, month)
+                                    DetailTableRow(title, origPaid[c], modPaid[c], currency, title, month, dotColor = componentColors[c])
                                 }
                             }
 
                             // Generated Amounts (Separated from Paid Amounts)
                             val origInterestCharged = origRow?.interestCharged ?: "0.00"
                             val modInterestCharged = modRow?.interestCharged ?: "0.00"
-                            DetailTableRow("Interés generado", origInterestCharged, modInterestCharged, currency, "Interés generado", month)
+                            DetailTableRow("Interés generado", origInterestCharged, modInterestCharged, currency, "Interés generado", month, dotColor = BrandAmber)
 
                             val origInsuranceCharged = origRow?.insuranceCharged ?: "0.00"
                             val modInsuranceCharged = modRow?.insuranceCharged ?: "0.00"
-                            DetailTableRow("Seguro generado", origInsuranceCharged, modInsuranceCharged, currency, "Seguro generado", month)
+                            DetailTableRow("Seguro generado", origInsuranceCharged, modInsuranceCharged, currency, "Seguro generado", month, dotColor = BrandPlum)
 
                             // Visible Sum if filtered
                             if (visibleComponents.isNotEmpty() && origPaid != null && modPaid != null) {
                                 val origVis = sumMoney(visibleComponents.map { origPaid[it] })
                                 val modVis = sumMoney(visibleComponents.map { modPaid[it] })
-                                DetailTableRow("Importe visible", origVis, modVis, currency, "importe visible", month)
+                                DetailTableRow("Importe visible", origVis, modVis, currency, "importe visible", month, dotColor = Color(0xFF0284C7))
                             }
 
                             // Accordion for Secondary / Accounting Details
@@ -364,21 +368,21 @@ fun HorizontalComparisonChart(
 
                             if (showAdvancedDetails) {
                                 val advancedMetrics = listOf(
-                                    "Comisión pagada" to { r: com.finsim.domain.MonthRow -> r.commissionPaid },
-                                    "IVA pagado" to { r: com.finsim.domain.MonthRow -> r.vatPaid },
-                                    "Interés pendiente" to { r: com.finsim.domain.MonthRow -> r.pendingInterest },
-                                    "Seguro pendiente" to { r: com.finsim.domain.MonthRow -> r.pendingInsurance },
-                                    "Capital vencido" to { r: com.finsim.domain.MonthRow -> r.overduePrincipal },
-                                    "Mora" to { r: com.finsim.domain.MonthRow -> r.arrears },
-                                    "Deuda total" to { r: com.finsim.domain.MonthRow -> r.debt },
-                                    "Excedente no aplicado" to { r: com.finsim.domain.MonthRow ->
+                                    Triple("Comisión pagada", { r: com.finsim.domain.MonthRow -> r.commissionPaid }, Color(0xFF0284C7)),
+                                    Triple("IVA pagado", { r: com.finsim.domain.MonthRow -> r.vatPaid }, Color(0xFF0284C7)),
+                                    Triple("Interés pendiente", { r: com.finsim.domain.MonthRow -> r.pendingInterest }, BrandAmber),
+                                    Triple("Seguro pendiente", { r: com.finsim.domain.MonthRow -> r.pendingInsurance }, BrandPlum),
+                                    Triple("Capital vencido", { r: com.finsim.domain.MonthRow -> r.overduePrincipal }, Color(0xFFDC2626)),
+                                    Triple("Mora", { r: com.finsim.domain.MonthRow -> r.arrears }, Color(0xFFDC2626)),
+                                    Triple("Deuda total", { r: com.finsim.domain.MonthRow -> r.debt }, BrandForest),
+                                    Triple("Excedente no aplicado", { r: com.finsim.domain.MonthRow ->
                                         sumMoney(listOf(r.scheduled.unapplied, r.catchup.unapplied, r.extra.unapplied))
-                                    }
+                                    }, BrandAmber)
                                 )
-                                advancedMetrics.forEach { (label, extractor) ->
+                                advancedMetrics.forEach { (label, extractor, dotColor) ->
                                     val valOrig = origRow?.let(extractor) ?: "0.00"
                                     val valMod = modRow?.let(extractor) ?: "0.00"
-                                    DetailTableRow(label, valOrig, valMod, currency, label, month)
+                                    DetailTableRow(label, valOrig, valMod, currency, label, month, dotColor = dotColor)
                                 }
                             }
                         }
@@ -397,26 +401,47 @@ private fun DetailTableRow(
     currency: Currency,
     copyLabel: String,
     month: Int,
-    isHighlight: Boolean = false
+    isHighlight: Boolean = false,
+    dotColor: Color? = null
 ) {
     Row(
         Modifier
             .fillMaxWidth()
-            .background(if (isHighlight) BrandMintLight.copy(alpha = 0.5f) else Color.Transparent)
+            .background(if (isHighlight) BrandMintLight else Color.Transparent)
             .padding(horizontal = 12.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            label,
+        Row(
             Modifier.weight(1.2f),
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.Normal,
-            color = if (isHighlight) BrandForest else TextMain
-        )
-        Box(Modifier.weight(1f)) {
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (dotColor != null) {
+                Box(Modifier.size(8.dp).background(dotColor, RoundedCornerShape(4.dp)))
+            }
+            Text(
+                label,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.Medium,
+                color = if (isHighlight) BrandForest else TextMain
+            )
+        }
+        Box(
+            Modifier
+                .weight(1f)
+                .background(Color(0xFFF8FAFC), RoundedCornerShape(6.dp))
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+        ) {
             CopyMoney("$copyLabel Original mes $month", origAmount, currency)
         }
-        Box(Modifier.weight(1f)) {
+        Spacer(Modifier.width(6.dp))
+        Box(
+            Modifier
+                .weight(1f)
+                .background(BrandMintLight, RoundedCornerShape(6.dp))
+                .border(0.5.dp, KpiMintBorder, RoundedCornerShape(6.dp))
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+        ) {
             CopyMoney("$copyLabel Modificado mes $month", modAmount, currency)
         }
     }
@@ -463,15 +488,42 @@ private fun ResultLineChart(
             if (series.isNotEmpty()) {
                 val pointValues = series.mapNotNull { s ->
                     val idx = currentInspectMonth - range.first
-                    if (idx in s.values.indices) s.values[idx]?.let { s.label to it } else null
+                    if (idx in s.values.indices) s.values[idx]?.let { s.label to (it to s.color) } else null
                 }
                 if (pointValues.isNotEmpty()) {
-                    Text(
-                        "M$currentInspectMonth: " + pointValues.take(2).joinToString(" · ") { "${it.first}: ${formatMoney(it.second, currency)}" },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = BrandEmerald,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Surface(
+                        color = BrandDark,
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "M$currentInspectMonth:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = BrandMint,
+                                fontWeight = FontWeight.Bold
+                            )
+                            pointValues.take(2).forEach { (label, data) ->
+                                val (valStr, color) = data
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(Modifier.size(6.dp).background(color, RoundedCornerShape(3.dp)))
+                                    Text(
+                                        "$label: ${formatMoney(valStr, currency)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -494,7 +546,7 @@ private fun ResultLineChart(
                 Text(formatScaleNumber(0.0, currency), style = MaterialTheme.typography.labelSmall, color = TextForestMuted, fontSize = 10.sp)
             }
 
-            // Canvas
+            // Canvas with Area Gradient Fills
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 Canvas(
                     Modifier.fillMaxSize()
@@ -543,6 +595,42 @@ private fun ResultLineChart(
                         )
                     }
 
+                    // Area Gradient Fills under continuous lines
+                    series.forEach { line ->
+                        if (!line.dashed) {
+                            val areaPath = Path()
+                            var areaStarted = false
+                            var firstPoint = Offset.Zero
+                            var lastPoint = Offset.Zero
+                            line.values.forEachIndexed { index, value ->
+                                if (value != null) {
+                                    val pt = Offset(x(index), size.height * (1 - (value.toDouble() / scale).toFloat().coerceIn(0f, 1f)))
+                                    if (!areaStarted) {
+                                        areaPath.moveTo(pt.x, pt.y)
+                                        firstPoint = pt
+                                        areaStarted = true
+                                    } else {
+                                        areaPath.lineTo(pt.x, pt.y)
+                                    }
+                                    lastPoint = pt
+                                }
+                            }
+                            if (areaStarted) {
+                                areaPath.lineTo(lastPoint.x, size.height)
+                                areaPath.lineTo(firstPoint.x, size.height)
+                                areaPath.close()
+                                drawPath(
+                                    areaPath,
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(line.color.copy(alpha = 0.22f), line.color.copy(alpha = 0.01f)),
+                                        startY = 0f,
+                                        endY = size.height
+                                    )
+                                )
+                            }
+                        }
+                    }
+
                     // Series Lines
                     series.forEach { line ->
                         val path = Path()
@@ -571,7 +659,7 @@ private fun ResultLineChart(
                     hoveredPoint?.let { hMonth ->
                         val hX = x(hMonth - range.first)
                         drawLine(
-                            BrandEmerald.copy(alpha = 0.5f),
+                            BrandEmerald.copy(alpha = 0.6f),
                             Offset(hX, 0f),
                             Offset(hX, size.height),
                             strokeWidth = 2f,
