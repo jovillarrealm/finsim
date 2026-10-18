@@ -26,14 +26,9 @@ async function reveal(page, target) {
   throw new Error('Unreachable control: ' + target);
 }
 async function click(page, target, touch = false) {
-  await page.waitForTimeout(100);
   const box = await reveal(page, target);
-  if (touch) {
-    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
-  } else {
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-    await target.click({ force: true }).catch(() => {});
-  }
+  if (touch) await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+  else await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await page.waitForTimeout(150);
 }
 const button = (page, name) => page.getByRole('button', { name, exact: true });
