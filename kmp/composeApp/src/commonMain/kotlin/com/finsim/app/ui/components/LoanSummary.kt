@@ -9,11 +9,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.finsim.app.theme.*
 import com.finsim.app.ui.formatMoney
 import com.finsim.app.ui.formatMonth
+import com.finsim.core.Decimal
 import com.finsim.domain.Currency
 import com.finsim.domain.LoanResult
 
@@ -21,8 +23,35 @@ import com.finsim.domain.LoanResult
 fun LoanSummary(
     currency: Currency,
     result: LoanResult,
+    original: LoanResult? = null,
     modifier: Modifier = Modifier
 ) {
+    val origInterest = original?.totals?.interest?.let { Decimal.parse(it) } ?: Decimal.ZERO
+    val resultInterest = Decimal.parse(result.totals.interest)
+    val interestDelta = if (original != null) resultInterest - origInterest else Decimal.ZERO
+
+    val origCash = original?.totals?.cashPaid?.let { Decimal.parse(it) } ?: Decimal.ZERO
+    val resultCash = Decimal.parse(result.totals.cashPaid)
+    val cashDelta = if (original != null) resultCash - origCash else Decimal.ZERO
+
+    val origInsurance = original?.totals?.insurance?.let { Decimal.parse(it) } ?: Decimal.ZERO
+    val resultInsurance = Decimal.parse(result.totals.insurance)
+    val insuranceDelta = if (original != null) resultInsurance - origInsurance else Decimal.ZERO
+
+    val origPayoff = original?.payoffMonth ?: original?.rows?.size ?: result.rows.size
+    val modPayoff = result.payoffMonth ?: result.rows.size
+    val monthsSaved = origPayoff - modPayoff
+
+    val interestPctSaved = if (original != null && origInterest > Decimal.ZERO && interestDelta < Decimal.ZERO) {
+        val ratio = ((-interestDelta) / origInterest) * Decimal.fromInt(100)
+        ratio.toFixed(0).toIntOrNull()
+    } else null
+
+    val firstRow = result.rows.firstOrNull()
+    val monthlyInstallment = if (firstRow != null) {
+        (Decimal.parse(result.basePayment) + Decimal.parse(firstRow.insuranceCharged)).toFixed(2)
+    } else result.basePayment
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -36,7 +65,7 @@ fun LoanSummary(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "Resumen del préstamo",
+                        text = "Tu préstamo en cifras",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = BrandDark
@@ -47,7 +76,7 @@ fun LoanSummary(
                         border = androidx.compose.foundation.BorderStroke(0.5.dp, if (result.complete) KpiMintBorder else KpiAmberBorder)
                     ) {
                         Text(
-                            text = if (result.complete) "Liquidado" else "En curso",
+                            text = if (result.complete) "Simulación completa" else "Simulación incompleta",
                             color = if (result.complete) BrandSage else BrandAmberText,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -83,17 +112,117 @@ fun LoanSummary(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 2x2 Modern KPI Grid with Thematic Semantic Tints
+            // Tarjeta Hero Principal: Ahorro Neto Proyectado
+            if (original != null) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = SurfaceHighlight,
+                    shape = RoundedCornerShape(14.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, KpiMintBorder)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Ahorro Neto Proyectado",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = BrandSage,
+                                letterSpacing = 0.5.sp
+                            )
+                            if (interestPctSaved != null && interestPctSaved > 0) {
+                                Surface(
+                                    color = BrandSageLight,
+                                    shape = RoundedCornerShape(999.dp),
+                                    border = androidx.compose.foundation.BorderStroke(0.5.dp, KpiMintBorder)
+                                ) {
+                                    Text(
+                                        text = "↓ -$interestPctSaved% intereses",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = BrandSage,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        val savingsText = when {
+                            cashDelta < Decimal.ZERO -> "- ${formatMoney((-cashDelta).toFixed(2), currency)}"
+                            cashDelta > Decimal.ZERO -> "+ ${formatMoney(cashDelta.toFixed(2), currency)}"
+                            else -> formatMoney("0.00", currency)
+                        }
+
+                        Text(
+                            text = savingsText,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Black,
+                            color = BrandSage,
+                            letterSpacing = (-0.5).sp
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("✓", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = BrandSage)
+                                Text(
+                                    text = if (monthsSaved > 0) {
+                                        "Tiempo ganado: $monthsSaved ${if (monthsSaved == 1) "mes" else "meses"}${
+                                            if (monthsSaved >= 12) " (${monthsSaved / 12} ${if (monthsSaved / 12 == 1) "año" else "años"})" else ""
+                                        }"
+                                    } else {
+                                        "Al día con el plazo contractual"
+                                    },
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = BrandForest
+                                )
+                            }
+                            Surface(
+                                color = Color.White.copy(alpha = 0.9f),
+                                shape = RoundedCornerShape(999.dp),
+                                border = androidx.compose.foundation.BorderStroke(0.5.dp, BorderSage)
+                            ) {
+                                Text(
+                                    text = if (result.complete && result.payoffMonth != null) {
+                                        "Libre en Mes ${result.payoffMonth}/$origPayoff"
+                                    } else {
+                                        "En curso · Mes ${result.rows.size}"
+                                    },
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = BrandForest,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // 2x2 Modern KPI Grid with Thematic Semantic Tints & Strikethrough
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 SummaryKpiCard(
                     modifier = Modifier.weight(1f),
-                    label = "Cuota base",
-                    value = formatMoney(result.basePayment, currency),
-                    clipboardValue = clipboardMoney(result.basePayment),
-                    caption = "Pago mensual habitual",
+                    label = "Cuota mensual fija",
+                    value = formatMoney(monthlyInstallment, currency),
+                    clipboardValue = clipboardMoney(monthlyInstallment),
+                    caption = "Capital + Intereses + Seguros",
                     containerColor = KpiMintBg,
                     borderColor = KpiMintBorder,
                     labelColor = KpiMintText,
@@ -101,14 +230,16 @@ fun LoanSummary(
                 )
                 SummaryKpiCard(
                     modifier = Modifier.weight(1f),
-                    label = "Liquidación",
-                    value = result.payoffDate?.let { formatMonth(it) } ?: "No alcanzada",
-                    copyCaptionLabel = "duración Modificado",
-                    caption = result.payoffMonth?.let { "Mes $it de amortización" } ?: "Sin fecha final",
-                    containerColor = KpiSkyBg,
-                    borderColor = KpiSkyBorder,
-                    labelColor = KpiSkyText,
-                    captionColor = KpiSkyText
+                    label = "Intereses acumulados",
+                    value = formatMoney(result.totals.interest, currency),
+                    clipboardValue = clipboardMoney(result.totals.interest),
+                    deltaBadge = if (interestDelta < Decimal.ZERO) "-${formatMoney((-interestDelta).toFixed(2), currency)}" else null,
+                    caption = if (original != null && interestDelta < Decimal.ZERO) "Pactados: ${formatMoney(original.totals.interest, currency)}" else "Costo neto de financiación",
+                    strikethroughCaption = if (original != null && interestDelta < Decimal.ZERO) "Pactados: ${formatMoney(original.totals.interest, currency)}" else null,
+                    containerColor = KpiAmberBg,
+                    borderColor = KpiAmberBorder,
+                    labelColor = KpiAmberText,
+                    captionColor = KpiAmberText
                 )
             }
 
@@ -118,23 +249,30 @@ fun LoanSummary(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                val insuranceCaption = when {
+                    monthsSaved > 0 -> "-$monthsSaved cuotas de seguro ahorradas"
+                    result.lastInsuranceMonth != null -> "Último cargo: mes ${result.lastInsuranceMonth}"
+                    else -> "Sin cargos de seguro"
+                }
                 SummaryKpiCard(
                     modifier = Modifier.weight(1f),
-                    label = "Total intereses",
-                    value = formatMoney(result.totals.interest, currency),
-                    clipboardValue = clipboardMoney(result.totals.interest),
-                    caption = "Costo financiero neto",
-                    containerColor = KpiAmberBg,
-                    borderColor = KpiAmberBorder,
-                    labelColor = KpiAmberText,
-                    captionColor = KpiAmberText
+                    label = "Seguros totales",
+                    value = formatMoney(result.totals.insurance, currency),
+                    clipboardValue = clipboardMoney(result.totals.insurance),
+                    deltaBadge = if (insuranceDelta < Decimal.ZERO) "-${formatMoney((-insuranceDelta).toFixed(2), currency)}" else null,
+                    caption = insuranceCaption,
+                    containerColor = KpiPlumBg,
+                    borderColor = KpiPlumBorder,
+                    labelColor = KpiPlumText,
+                    captionColor = KpiPlumText
                 )
                 SummaryKpiCard(
                     modifier = Modifier.weight(1f),
-                    label = "Caja total pagada",
+                    label = "Total desembolso",
                     value = formatMoney(result.totals.cashPaid, currency),
                     clipboardValue = clipboardMoney(result.totals.cashPaid),
-                    caption = "Capital, interés, seguros y otros cargos",
+                    caption = if (original != null && cashDelta < Decimal.ZERO) "Antes: ${formatMoney(original.totals.cashPaid, currency)}" else "Capital, intereses y seguros",
+                    strikethroughCaption = if (original != null && cashDelta < Decimal.ZERO) "Antes: ${formatMoney(original.totals.cashPaid, currency)}" else null,
                     containerColor = Color(0xFFD1FAE5),
                     borderColor = Color(0xFF6EE7B7),
                     labelColor = Color(0xFF064E3B),
@@ -188,6 +326,8 @@ private fun SummaryKpiCard(
     label: String,
     value: String,
     caption: String,
+    strikethroughCaption: String? = null,
+    deltaBadge: String? = null,
     clipboardValue: String = value,
     copyCaptionLabel: String? = null,
     containerColor: Color = Color.White,
@@ -208,27 +348,64 @@ private fun SummaryKpiCard(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                Text(
-                    text = label,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = labelColor,
-                    maxLines = 1,
-                    softWrap = true
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = label,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = labelColor,
+                        maxLines = 1,
+                        softWrap = true,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (deltaBadge != null) {
+                        Surface(
+                            color = BrandSageLight,
+                            shape = RoundedCornerShape(999.dp),
+                            border = androidx.compose.foundation.BorderStroke(0.5.dp, KpiMintBorder)
+                        ) {
+                            Text(
+                                text = deltaBadge,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = BrandSage,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 CopyResult("$label Modificado", value, clipboardValue)
             }
             Spacer(modifier = Modifier.height(6.dp))
-            if (copyCaptionLabel != null) CopyResult(copyCaptionLabel, caption) else Text(
-                text = caption,
-                fontSize = 10.sp,
-                lineHeight = 13.sp,
-                color = captionColor,
-                fontWeight = FontWeight.Medium,
-                maxLines = 2,
-                softWrap = true
-            )
+            if (strikethroughCaption != null) {
+                Text(
+                    text = strikethroughCaption,
+                    fontSize = 10.sp,
+                    lineHeight = 13.sp,
+                    color = captionColor,
+                    fontWeight = FontWeight.Medium,
+                    textDecoration = TextDecoration.LineThrough,
+                    maxLines = 1,
+                    softWrap = true
+                )
+            } else if (copyCaptionLabel != null) {
+                CopyResult(copyCaptionLabel, caption)
+            } else {
+                Text(
+                    text = caption,
+                    fontSize = 10.sp,
+                    lineHeight = 13.sp,
+                    color = captionColor,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    softWrap = true
+                )
+            }
         }
     }
 }

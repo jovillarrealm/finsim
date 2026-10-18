@@ -2,6 +2,7 @@ package com.finsim.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -16,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.finsim.app.theme.*
+import com.finsim.app.ui.formatMoney
 import com.finsim.app.ui.formatMonth
 import com.finsim.domain.Currency
 import com.finsim.domain.LoanResult
@@ -28,15 +30,45 @@ fun MonthlyTable(
     selectedMonth: Int = 1,
     onSelectMonth: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    initialExpanded: Boolean = false,
+    initialExpanded: Boolean = true,
     scenarioName: String = "Modificado"
 ) {
-    var expanded by remember { mutableStateOf(initialExpanded) }
+    var viewMode by remember { mutableStateOf("milestones") } // "milestones" or "table"
     var exportMessage by remember { mutableStateOf("") }
     val downloader = rememberScheduleDownloader()
 
     val horizontalScroll = rememberScrollState()
     val verticalScroll = rememberScrollState()
+
+    // Filtrado Curado de Hitos Decisivos (Ticket 04 / T10)
+    val rows = result.rows
+    val prepaymentMonths = remember(rows) {
+        rows.filter {
+            val ext = it.extra.principal.toDoubleOrNull() ?: 0.0
+            val cat = it.catchup.principal.toDoubleOrNull() ?: 0.0
+            ext + cat > 0.0
+        }.map { it.month }.toSet()
+    }
+
+    val milestoneRows = remember(rows, prepaymentMonths, result.payoffMonth) {
+        val set = mutableSetOf<Int>()
+        if (rows.isNotEmpty()) {
+            set.add(1) // Mes 01: Inicio
+            for (m in prepaymentMonths) {
+                if (m > 1) set.add(m - 1) // Mes previo al abono
+                set.add(m) // Mes de abono extraordinario
+            }
+            if (result.payoffMonth != null) {
+                set.add(result.payoffMonth!!)
+            } else {
+                set.add(rows.last().month)
+            }
+            if (prepaymentMonths.isEmpty() && rows.size > 2) {
+                set.add(rows.size / 2)
+            }
+        }
+        rows.filter { it.month in set }
+    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -52,60 +84,90 @@ fun MonthlyTable(
             ) {
                 Column {
                     Text(
-                        "Detalle mes a mes · $scenarioName",
+                        "Cronograma Clave · $scenarioName",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = BrandForest
                     )
                     Text(
-                        "${result.rows.size} meses simulados · Importes en ${currency.name}. Desplazamiento continuo en 2D.",
+                        "${result.rows.size} meses simulados · Importes en ${currency.name}.",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextForestMuted
                     )
                 }
             }
 
+            // Segmented View Toggle: Hitos Clave vs Tabla Completa
+            Surface(
+                color = Color(0xFFEBEFE5),
+                shape = RoundedCornerShape(10.dp),
+                border = androidx.compose.foundation.BorderStroke(0.5.dp, BorderSage),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    val viewOptions = listOf(
+                        "milestones" to "Hitos Clave (${milestoneRows.size})",
+                        "table" to "Tabla Completa (${result.rows.size})"
+                    )
+                    viewOptions.forEach { (modeKey, modeTitle) ->
+                        val isSelected = viewMode == modeKey
+                        Surface(
+                            color = if (isSelected) SurfaceCard else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp),
+                            shadowElevation = if (isSelected) 1.dp else 0.dp,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { viewMode = modeKey }
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = modeTitle,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) BrandForest else TextForestMuted
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Export Actions Row
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(
-                    onClick = { expanded = !expanded },
+                Button(
+                    onClick = {
+                        val csv = generateScheduleCsv(result, scenarioName)
+                        downloader.downloadCsv("cronograma-$scenarioName.csv", csv) { exportMessage = it }
+                    },
                     shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BrandEmerald,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text("Exportar CSV / Excel")
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        downloader.downloadArrow("cronograma-$scenarioName.arrow", result) { exportMessage = it }
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, BrandEmerald),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = BrandForest
                     )
                 ) {
-                    Text(if (expanded) "Ocultar tabla" else "Ver tabla")
-                }
-
-                if (expanded) {
-                    Button(
-                        onClick = {
-                            val csv = generateScheduleCsv(result, scenarioName)
-                            downloader.downloadCsv("cronograma-$scenarioName.csv", csv) { exportMessage = it }
-                        },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = BrandEmerald,
-                            contentColor = Color.White
-                        )
-                    ) {
-                        Text("Exportar CSV / Excel")
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            downloader.downloadArrow("cronograma-$scenarioName.arrow", result) { exportMessage = it }
-                        },
-                        shape = RoundedCornerShape(8.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.5.dp, BrandEmerald),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = BrandForest
-                        )
-                    ) {
-                        Text("Exportar Apache Arrow (.arrow)")
-                    }
+                    Text("Exportar Apache Arrow (.arrow)")
                 }
             }
 
@@ -118,7 +180,129 @@ fun MonthlyTable(
                 )
             }
 
-            if (expanded) {
+            // VISTA 1: Hitos Clave Curados
+            if (viewMode == "milestones") {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    milestoneRows.forEach { row ->
+                        val isPayoff = result.payoffMonth == row.month || row.closingBalance == "0.00"
+                        val isExtra = (row.extra.principal.toDoubleOrNull() ?: 0.0) + (row.catchup.principal.toDoubleOrNull() ?: 0.0) > 0.0
+                        val isSelected = row.month == selectedMonth
+
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelectMonth(row.month) },
+                            color = if (isPayoff) Color(0xFFF0FDF4) else if (isExtra) Color(0xFFF0FDF4) else if (isSelected) BrandMintLight else Color.White,
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(
+                                if (isSelected) 1.5.dp else 1.dp,
+                                if (isPayoff) Color(0xFF86EFAC) else if (isExtra) KpiMintBorder else if (isSelected) BrandEmerald else BorderSubtle
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                // Milestone Icon Badge
+                                Surface(
+                                    color = if (isPayoff) BrandEmerald else if (isExtra) BrandChartreuse else BrandSageLight,
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = if (isPayoff) "✓" else if (isExtra) "⚡" else "M${row.month.toString().padStart(2, '0')}",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isPayoff) Color.White else if (isExtra) BrandDark else BrandSage
+                                        )
+                                    }
+                                }
+
+                                // Info Column
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = "Mes ${row.month.toString().padStart(2, '0')} · ${formatMonth(row.date)}",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = BrandDark
+                                        )
+                                        if (isExtra) {
+                                            Surface(
+                                                color = BrandSageLight,
+                                                shape = RoundedCornerShape(999.dp),
+                                                border = androidx.compose.foundation.BorderStroke(0.5.dp, KpiMintBorder)
+                                            ) {
+                                                Text(
+                                                    text = "+${formatMoney(row.extra.principal, currency)} Extra",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = BrandSage,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                                                )
+                                            }
+                                        }
+                                        if (isPayoff) {
+                                            Surface(
+                                                color = BrandEmerald,
+                                                shape = RoundedCornerShape(999.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Fin de Crédito",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.White,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = if (isPayoff) {
+                                            "Deuda extinguida al 100%"
+                                        } else if (isExtra) {
+                                            "Salto directo de amortización a capital"
+                                        } else {
+                                            "Cuota: ${formatMoney(row.cashPaid, currency)} · Cap ${formatMoney(row.scheduled.principal, currency)} | Int ${formatMoney(row.interestCharged, currency)}"
+                                        },
+                                        fontSize = 11.sp,
+                                        color = TextForestMuted,
+                                        maxLines = 1
+                                    )
+                                }
+
+                                // Metrics Column (Right-aligned)
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        text = if (isPayoff) "SALDO $0,00" else formatMoney(row.cashPaid, currency),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = if (isPayoff) BrandEmerald else if (isExtra) BrandSage else BrandDark
+                                    )
+                                    Text(
+                                        text = if (isPayoff) "100% Amortizado" else "Saldo: ${formatMoney(row.closingBalance, currency)}",
+                                        fontSize = 10.sp,
+                                        color = TextForestMuted,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // VISTA 2: Tabla Completa Exhaustiva en 2D
+            if (viewMode == "table") {
                 Text(
                     "Desplaza horizontalmente para ver todas las columnas y verticalmente para explorar todos los meses:",
                     style = MaterialTheme.typography.bodySmall,
@@ -136,9 +320,7 @@ fun MonthlyTable(
                     color = SurfaceCard,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Container with Synchronized Horizontal Scroll and Sticky Header
                     Column(Modifier.horizontalScroll(horizontalScroll)) {
-                        // Sticky Header Row with Mint Sage Background
                         Row(
                             Modifier
                                 .background(TableHeaderBg)
@@ -158,7 +340,6 @@ fun MonthlyTable(
 
                         HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
 
-                        // Vertically Scrollable Rows Body with Zebra Striping
                         Column(
                             Modifier
                                 .heightIn(max = 480.dp)
@@ -176,7 +357,6 @@ fun MonthlyTable(
                                         .padding(vertical = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    // Month column + Select button
                                     Column(Modifier.width(160.dp).padding(horizontal = 4.dp)) {
                                         OutlinedButton(
                                             onClick = { onSelectMonth(row.month) },
@@ -188,12 +368,10 @@ fun MonthlyTable(
                                         CopyResult("mes $scenarioName mes ${row.month}", "M${row.month}")
                                     }
 
-                                    // Date column
                                     Box(Modifier.width(160.dp).padding(horizontal = 4.dp)) {
                                         CopyResult("fecha $scenarioName mes ${row.month}", formatMonth(row.date))
                                     }
 
-                                    // Metric values
                                     val unapplied = sumMoney(listOf(row.scheduled.unapplied, row.catchup.unapplied, row.extra.unapplied))
                                     val values = listOf(
                                         row.openingBalance, paid[0], paid[1], row.interestCharged, row.insuranceCharged,

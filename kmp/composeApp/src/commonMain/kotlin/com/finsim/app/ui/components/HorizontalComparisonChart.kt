@@ -3,6 +3,7 @@ package com.finsim.app.ui.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -64,6 +65,18 @@ fun HorizontalComparisonChart(
 
     var hoveredMonth by remember { mutableStateOf<Int?>(null) }
     var showAdvancedDetails by remember { mutableStateOf(false) }
+    var chartMode by remember { mutableStateOf("trajectory") } // "trajectory" or "stacked"
+    val hasExtinction = modified.complete && original.complete &&
+        modified.payoffMonth != null && original.payoffMonth != null &&
+        modified.payoffMonth!! < original.payoffMonth!!
+
+    val prepaymentMonths = remember(modified) {
+        modified.rows.filter {
+            val ext = it.extra.principal.toDoubleOrNull() ?: 0.0
+            val cat = it.catchup.principal.toDoubleOrNull() ?: 0.0
+            ext + cat > 0.0
+        }.map { it.month }.toSet()
+    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -133,121 +146,206 @@ fun HorizontalComparisonChart(
                 color = TextForestMuted
             )
 
-            // CHART 1: Saldo de capital al cierre
-            val balances = results.mapIndexed { i, result ->
-                ChartSeries(names[i], BrandForest, i == 0, range.map { m -> resultBalance(result, m) })
-            }.filterIndexed { i, _ -> i !in hiddenScenarios }
-
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                ResultLineChart(
-                    title = "Saldo de capital al cierre",
-                    currency = currency,
-                    range = range,
-                    month = month,
-                    hoveredMonth = hoveredMonth,
-                    onHoverMonth = { hoveredMonth = it },
-                    series = balances,
-                    onSelect = ::select,
-                    inspectionCard = {
-                        val curMonth = hoveredMonth ?: month
-                        val origBal = resultBalance(original, curMonth)
-                        val modBal = resultBalance(modified, curMonth)
-                        SixComponentInspectionCard(
-                            subtitle = "Capital, intereses y seguros",
-                            month = curMonth,
-                            original = original,
-                            modified = modified,
-                            currency = currency,
-                            extraHeader = if (origBal != null && modBal != null) {
-                                {
-                                    Text(
-                                        "· Saldo: Orig ${formatMoney(origBal, currency)} / Mod ${formatMoney(modBal, currency)}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White.copy(alpha = 0.85f)
-                                    )
-                                }
-                            } else null
-                        )
-                    }
-                )
-                // Bottom Legend / Toggles for Chart 1
+            // Mode Selector (Trayectoria de saldo vs Composición mensual)
+            Surface(
+                color = Color(0xFFEBEFE5),
+                shape = RoundedCornerShape(10.dp),
+                border = androidx.compose.foundation.BorderStroke(0.5.dp, BorderSage),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Text("Leyenda y filtros:", style = MaterialTheme.typography.labelSmall, color = TextForestMuted, fontWeight = FontWeight.Medium)
-                    names.forEachIndexed { i, name ->
-                        FilterChip(
-                            selected = i !in hiddenScenarios,
-                            onClick = { onHiddenScenariosChange(if (i in hiddenScenarios) hiddenScenarios - i else hiddenScenarios + i) },
+                    val modes = listOf(
+                        "trajectory" to "📈 Trayectoria de saldo",
+                        "stacked" to "📊 Composición mensual"
+                    )
+                    modes.forEach { (modeKey, modeTitle) ->
+                        val isSelected = chartMode == modeKey
+                        Surface(
+                            color = if (isSelected) SurfaceCard else Color.Transparent,
                             shape = RoundedCornerShape(8.dp),
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = BrandMintLight,
-                                selectedLabelColor = BrandDark
-                            ),
-                            label = { Text("$name: ${if (i in hiddenScenarios) "oculto" else "visible"}") }
-                        )
+                            shadowElevation = if (isSelected) 1.dp else 0.dp,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { chartMode = modeKey }
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = modeTitle,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) BrandForest else TextForestMuted
+                                )
+                            }
+                        }
                     }
                 }
             }
 
-            // CHART 2: Pagos mensuales por componente
-            val payments = results.flatMapIndexed { i, result ->
-                if (i in hiddenScenarios) emptyList() else visibleComponents.sorted().map { c ->
+            if (chartMode == "trajectory") {
+                // CHART 1: Saldo de capital al cierre (Trayectoria)
+                val balances = results.mapIndexed { i, result ->
                     ChartSeries(
-                        "${names[i]} ${componentLabels[c]}",
-                        componentColors[c],
+                        names[i],
+                        if (i == 0) TextForestMuted else BrandEmerald,
                         i == 0,
-                        range.map { m ->
-                            if (m == 0) null
-                            else components[i][m]?.get(c) ?: if (result.complete && m > (result.rows.lastOrNull()?.month ?: 0)) "0.00" else null
+                        range.map { m -> resultBalance(result, m) }
+                    )
+                }.filterIndexed { i, _ -> i !in hiddenScenarios }
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // Trajectory Legend
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Box(Modifier.width(14.dp).height(2.dp).background(TextForestMuted))
+                            Text("Original (${original.payoffMonth ?: horizon}m)", fontSize = 11.sp, color = TextForestMuted)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Box(Modifier.width(14.dp).height(3.dp).background(BrandEmerald))
+                            Text("Con abonos (${modified.payoffMonth ?: horizon}m)", fontSize = 11.sp, color = BrandForest, fontWeight = FontWeight.Bold)
+                        }
+                        if (hasExtinction) {
+                            Surface(
+                                color = BrandMintLight,
+                                shape = RoundedCornerShape(4.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, KpiMintBorder)
+                            ) {
+                                Text(
+                                    "LIBRE DE DEUDA",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = BrandSage,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    ResultLineChart(
+                        title = "Trayectoria del saldo de capital",
+                        currency = currency,
+                        range = range,
+                        month = month,
+                        hoveredMonth = hoveredMonth,
+                        onHoverMonth = { hoveredMonth = it },
+                        series = balances,
+                        onSelect = ::select,
+                        isTrajectoryChart = true,
+                        hasExtinction = hasExtinction,
+                        extinctionStartMonth = modified.payoffMonth,
+                        extinctionEndMonth = original.payoffMonth,
+                        prepaymentMonths = prepaymentMonths,
+                        inspectionCard = {
+                            val curMonth = hoveredMonth ?: month
+                            val origBal = resultBalance(original, curMonth)
+                            val modBal = resultBalance(modified, curMonth)
+                            SixComponentInspectionCard(
+                                subtitle = "Capital, intereses y seguros",
+                                month = curMonth,
+                                original = original,
+                                modified = modified,
+                                currency = currency,
+                                extraHeader = if (origBal != null && modBal != null) {
+                                    {
+                                        Text(
+                                            "· Saldo: Orig ${formatMoney(origBal, currency)} / Mod ${formatMoney(modBal, currency)}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color.White.copy(alpha = 0.85f)
+                                        )
+                                    }
+                                } else null
+                            )
                         }
                     )
-                }
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                ResultLineChart(
-                    title = "Pagos mensuales por componente",
-                    currency = currency,
-                    range = range,
-                    month = month,
-                    hoveredMonth = hoveredMonth,
-                    onHoverMonth = { hoveredMonth = it },
-                    series = payments,
-                    onSelect = ::select,
-                    inspectionCard = {
-                        val curMonth = hoveredMonth ?: month
-                        SixComponentInspectionCard(
-                            subtitle = "Pagos por componente",
-                            month = curMonth,
-                            original = original,
-                            modified = modified,
-                            currency = currency
-                        )
-                    }
-                )
-                // Bottom Legend / Toggles for Chart 2
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Componentes pagados por mes:", style = MaterialTheme.typography.labelSmall, color = TextForestMuted, fontWeight = FontWeight.Medium)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        available.forEach { c ->
+                    // Bottom Legend / Toggles for Chart 1
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Leyenda y filtros:", style = MaterialTheme.typography.labelSmall, color = TextForestMuted, fontWeight = FontWeight.Medium)
+                        names.forEachIndexed { i, name ->
                             FilterChip(
-                                selected = c in visibleComponents,
-                                onClick = { onHiddenComponentsChange(if (c in hiddenComponents) hiddenComponents - c else hiddenComponents + c) },
+                                selected = i !in hiddenScenarios,
+                                onClick = { onHiddenScenariosChange(if (i in hiddenScenarios) hiddenScenarios - i else hiddenScenarios + i) },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = BrandMintLight,
                                     selectedLabelColor = BrandDark
                                 ),
-                                label = {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Box(Modifier.size(10.dp).background(componentColors[c], RoundedCornerShape(2.dp)))
-                                        Text("${componentLabels[c]}: ${if (c in visibleComponents) "visible" else "oculto"}")
-                                    }
-                                }
+                                label = { Text("$name: ${if (i in hiddenScenarios) "oculto" else "visible"}") }
                             )
+                        }
+                    }
+                }
+            } else {
+                // CHART 2: Pagos mensuales por componente
+                val payments = results.flatMapIndexed { i, result ->
+                    if (i in hiddenScenarios) emptyList() else visibleComponents.sorted().map { c ->
+                        ChartSeries(
+                            "${names[i]} ${componentLabels[c]}",
+                            componentColors[c],
+                            i == 0,
+                            range.map { m ->
+                                if (m == 0) null
+                                else components[i][m]?.get(c) ?: if (result.complete && m > (result.rows.lastOrNull()?.month ?: 0)) "0.00" else null
+                            }
+                        )
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ResultLineChart(
+                        title = "Pagos mensuales por componente",
+                        currency = currency,
+                        range = range,
+                        month = month,
+                        hoveredMonth = hoveredMonth,
+                        onHoverMonth = { hoveredMonth = it },
+                        series = payments,
+                        onSelect = ::select,
+                        isTrajectoryChart = false,
+                        inspectionCard = {
+                            val curMonth = hoveredMonth ?: month
+                            SixComponentInspectionCard(
+                                subtitle = "Pagos por componente",
+                                month = curMonth,
+                                original = original,
+                                modified = modified,
+                                currency = currency
+                            )
+                        }
+                    )
+                    // Bottom Legend / Toggles for Chart 2
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Componentes pagados por mes:", style = MaterialTheme.typography.labelSmall, color = TextForestMuted, fontWeight = FontWeight.Medium)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            available.forEach { c ->
+                                FilterChip(
+                                    selected = c in visibleComponents,
+                                    onClick = { onHiddenComponentsChange(if (c in hiddenComponents) hiddenComponents - c else hiddenComponents + c) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = BrandMintLight,
+                                        selectedLabelColor = BrandDark
+                                    ),
+                                    label = {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Box(Modifier.size(10.dp).background(componentColors[c], RoundedCornerShape(2.dp)))
+                                            Text("${componentLabels[c]}: ${if (c in visibleComponents) "visible" else "oculto"}")
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -656,6 +754,11 @@ private fun ResultLineChart(
     onHoverMonth: (Int?) -> Unit,
     series: List<ChartSeries>,
     onSelect: (Int) -> Unit,
+    isTrajectoryChart: Boolean = false,
+    hasExtinction: Boolean = false,
+    extinctionStartMonth: Int? = null,
+    extinctionEndMonth: Int? = null,
+    prepaymentMonths: Set<Int> = emptySet(),
     inspectionCard: @Composable (() -> Unit)? = null
 ) {
     val maximum = series.flatMap { it.values }.filterNotNull().maxByOrNull { it.toDouble() } ?: "0.00"
@@ -752,43 +855,98 @@ private fun ResultLineChart(
                         )
                     }
 
-                    // Area Gradient Fills under continuous lines
-                    series.forEach { line ->
-                        if (!line.dashed) {
-                            val areaPath = Path()
-                            var areaStarted = false
-                            var firstPoint = Offset.Zero
-                            var lastPoint = Offset.Zero
-                            line.values.forEachIndexed { index, value ->
-                                if (value != null) {
-                                    val pt = Offset(x(index), y(value))
-                                    if (!areaStarted) {
-                                        areaPath.moveTo(pt.x, pt.y)
-                                        firstPoint = pt
-                                        areaStarted = true
-                                    } else {
-                                        areaPath.lineTo(pt.x, pt.y)
-                                    }
-                                    lastPoint = pt
-                                }
+                    // Zona de Extinción Anticipada (LIBRE DE DEUDA)
+                    if (isTrajectoryChart && hasExtinction && extinctionStartMonth != null && extinctionEndMonth != null) {
+                        val extStart = extinctionStartMonth.coerceIn(range.first, range.last)
+                        val extEnd = extinctionEndMonth.coerceIn(range.first, range.last)
+                        if (extStart < extEnd) {
+                            val x1 = x(extStart - range.first)
+                            val x2 = x(extEnd - range.first)
+                            drawRect(
+                                color = BrandMintLight.copy(alpha = 0.85f),
+                                topLeft = Offset(x1, 0f),
+                                size = androidx.compose.ui.geometry.Size(x2 - x1, size.height)
+                            )
+                            drawRect(
+                                color = KpiMintBorder,
+                                topLeft = Offset(x1, 0f),
+                                size = androidx.compose.ui.geometry.Size(x2 - x1, size.height),
+                                style = Stroke(width = 1.5f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 4f)))
+                            )
+                        }
+                    }
+
+                    // Amortization Gap Polygon between Original and Modified Curves
+                    if (isTrajectoryChart && series.size >= 2) {
+                        val origSeries = series.firstOrNull { it.dashed } ?: series[0]
+                        val modSeries = series.firstOrNull { !it.dashed } ?: series[1]
+                        val gapPath = Path()
+                        val ptsMod = mutableListOf<Offset>()
+                        val ptsOrig = mutableListOf<Offset>()
+                        val count = range.last - range.first + 1
+                        for (i in 0 until count) {
+                            val vMod = modSeries.values.getOrNull(i)
+                            val vOrig = origSeries.values.getOrNull(i)
+                            if (vMod != null && vOrig != null) {
+                                ptsMod.add(Offset(x(i), y(vMod)))
+                                ptsOrig.add(Offset(x(i), y(vOrig)))
                             }
-                            if (areaStarted) {
-                                areaPath.lineTo(lastPoint.x, size.height)
-                                areaPath.lineTo(firstPoint.x, size.height)
-                                areaPath.close()
-                                drawPath(
-                                    areaPath,
-                                    brush = Brush.verticalGradient(
-                                        colors = listOf(line.color.copy(alpha = 0.22f), line.color.copy(alpha = 0.01f)),
-                                        startY = 0f,
-                                        endY = size.height
-                                    )
+                        }
+                        if (ptsMod.isNotEmpty() && ptsOrig.isNotEmpty()) {
+                            gapPath.moveTo(ptsMod.first().x, ptsMod.first().y)
+                            for (pt in ptsMod) gapPath.lineTo(pt.x, pt.y)
+                            for (pt in ptsOrig.reversed()) gapPath.lineTo(pt.x, pt.y)
+                            gapPath.close()
+                            drawPath(
+                                gapPath,
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(BrandEmerald.copy(alpha = 0.22f), BrandMintLight.copy(alpha = 0.04f)),
+                                    startY = 0f,
+                                    endY = size.height
                                 )
+                            )
+                        }
+                    }
+
+                    // Area Gradient Fills under continuous lines for stacked mode
+                    if (!isTrajectoryChart) {
+                        series.forEach { line ->
+                            if (!line.dashed) {
+                                val areaPath = Path()
+                                var areaStarted = false
+                                var firstPoint = Offset.Zero
+                                var lastPoint = Offset.Zero
+                                line.values.forEachIndexed { index, value ->
+                                    if (value != null) {
+                                        val pt = Offset(x(index), y(value))
+                                        if (!areaStarted) {
+                                            areaPath.moveTo(pt.x, pt.y)
+                                            firstPoint = pt
+                                            areaStarted = true
+                                        } else {
+                                            areaPath.lineTo(pt.x, pt.y)
+                                        }
+                                        lastPoint = pt
+                                    }
+                                }
+                                if (areaStarted) {
+                                    areaPath.lineTo(lastPoint.x, size.height)
+                                    areaPath.lineTo(firstPoint.x, size.height)
+                                    areaPath.close()
+                                    drawPath(
+                                        areaPath,
+                                        brush = Brush.verticalGradient(
+                                            colors = listOf(line.color.copy(alpha = 0.22f), line.color.copy(alpha = 0.01f)),
+                                            startY = 0f,
+                                            endY = size.height
+                                        )
+                                    )
+                                }
                             }
                         }
                     }
 
-                    // Series Lines
+                    // Series Lines with Prepayment Milestone Rings
                     series.forEach { line ->
                         val path = Path()
                         var connected = false
@@ -799,7 +957,13 @@ private fun ResultLineChart(
                                 val point = Offset(x(index), y(value))
                                 if (connected) path.lineTo(point.x, point.y) else path.moveTo(point.x, point.y)
                                 connected = true
-                                drawCircle(line.color, if (line.dashed) 2.5f else 3.5f, point)
+                                val m = range.first + index
+                                if (isTrajectoryChart && !line.dashed && m in prepaymentMonths) {
+                                    drawCircle(BrandChartreuse, 6f, point)
+                                    drawCircle(BrandForest, 6f, point, style = Stroke(width = 2f))
+                                } else {
+                                    drawCircle(line.color, if (line.dashed) 2.5f else 3.5f, point)
+                                }
                             }
                         }
                         drawPath(

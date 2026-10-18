@@ -101,20 +101,67 @@ fun App(
                                 }
                             }
 
-                            // Active currency and scenario badge
+                            // Active currency chip with Radiant Chartreuse background
                             Surface(
-                                color = BrandSageLight.copy(alpha = 0.7f),
-                                shape = RoundedCornerShape(8.dp),
-                                border = androidx.compose.foundation.BorderStroke(0.5.dp, BorderSage)
+                                color = BrandChartreuse,
+                                shape = RoundedCornerShape(999.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, BrandForest.copy(alpha = 0.2f))
                             ) {
                                 Text(
-                                    text = if (selectedTab == 3) "Comparador" else "${workspace.scenario.currency.name} · ${workspace.scenario.termMonths}m",
+                                    text = if (selectedTab == 3) "OFERTAS" else "${workspace.scenario.currency.name} $",
                                     color = BrandForest,
-                                    fontSize = 12.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
                                 )
                             }
+                        }
+                    }
+                }
+            },
+            bottomBar = {
+                Surface(
+                    color = SurfaceWarm.copy(alpha = 0.95f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.fillMaxWidth().navigationBarsPadding()
+                ) {
+                    NavigationBar(
+                        containerColor = Color.Transparent,
+                        tonalElevation = 0.dp,
+                        modifier = Modifier.height(64.dp)
+                    ) {
+                        val navItems = listOf(
+                            Triple(0, "Simulador", "🧮"),
+                            Triple(1, "Conversor", "📈"),
+                            Triple(2, "Conciliar", "🔍"),
+                            Triple(3, "Ofertas", "📊")
+                        )
+                        navItems.forEach { (tabIndex, label, icon) ->
+                            val isSelected = selectedTab == tabIndex
+                            NavigationBarItem(
+                                selected = isSelected,
+                                onClick = {
+                                    FinsimLog.ui.d { "Barra inferior navegación: $selectedTab -> $tabIndex" }
+                                    selectedTab = tabIndex
+                                },
+                                icon = { Text(icon, fontSize = 18.sp) },
+                                label = {
+                                    Text(
+                                        label,
+                                        fontSize = 10.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        maxLines = 1
+                                    )
+                                },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = BrandForest,
+                                    selectedTextColor = BrandForest,
+                                    indicatorColor = BrandSageLight,
+                                    unselectedIconColor = TextForestMuted,
+                                    unselectedTextColor = TextForestMuted
+                                )
+                            )
                         }
                     }
                 }
@@ -382,7 +429,8 @@ fun App(
                         // Loan Summary Cards
                         LoanSummary(
                             currency = workspace.scenario.currency,
-                            result = workspace.modified
+                            result = workspace.modified,
+                            original = workspace.original
                         )
 
                         // Applied results share selection with the event draft and table.
