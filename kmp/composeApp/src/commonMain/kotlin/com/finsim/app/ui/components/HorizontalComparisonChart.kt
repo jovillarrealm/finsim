@@ -62,6 +62,7 @@ fun HorizontalComparisonChart(
     var monthInput by remember(month) { mutableStateOf(month.toString()) }
     fun select(value: Int) { onSelectMonth(value.coerceIn(0, horizon)) }
 
+    var hoveredMonth by remember { mutableStateOf<Int?>(null) }
     var showAdvancedDetails by remember { mutableStateOf(false) }
 
     Card(
@@ -93,7 +94,7 @@ fun HorizontalComparisonChart(
                 }
             }
 
-            // Summary Differences Row with Vibrant Badges
+            // Summary Differences Row with Delta Badges
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -138,7 +139,37 @@ fun HorizontalComparisonChart(
             }.filterIndexed { i, _ -> i !in hiddenScenarios }
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                ResultLineChart("Saldo de capital al cierre", currency, range, month, balances, ::select)
+                ResultLineChart(
+                    title = "Saldo de capital al cierre",
+                    currency = currency,
+                    range = range,
+                    month = month,
+                    hoveredMonth = hoveredMonth,
+                    onHoverMonth = { hoveredMonth = it },
+                    series = balances,
+                    onSelect = ::select,
+                    inspectionCard = {
+                        val curMonth = hoveredMonth ?: month
+                        val origBal = resultBalance(original, curMonth)
+                        val modBal = resultBalance(modified, curMonth)
+                        SixComponentInspectionCard(
+                            subtitle = "Capital, intereses y seguros",
+                            month = curMonth,
+                            original = original,
+                            modified = modified,
+                            currency = currency,
+                            extraHeader = if (origBal != null && modBal != null) {
+                                {
+                                    Text(
+                                        "· Saldo: Orig ${formatMoney(origBal, currency)} / Mod ${formatMoney(modBal, currency)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.85f)
+                                    )
+                                }
+                            } else null
+                        )
+                    }
+                )
                 // Bottom Legend / Toggles for Chart 1
                 Row(
                     Modifier.fillMaxWidth(),
@@ -177,7 +208,26 @@ fun HorizontalComparisonChart(
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                ResultLineChart("Pagos mensuales por componente", currency, range, month, payments, ::select)
+                ResultLineChart(
+                    title = "Pagos mensuales por componente",
+                    currency = currency,
+                    range = range,
+                    month = month,
+                    hoveredMonth = hoveredMonth,
+                    onHoverMonth = { hoveredMonth = it },
+                    series = payments,
+                    onSelect = ::select,
+                    inspectionCard = {
+                        val curMonth = hoveredMonth ?: month
+                        SixComponentInspectionCard(
+                            subtitle = "Pagos por componente",
+                            month = curMonth,
+                            original = original,
+                            modified = modified,
+                            currency = currency
+                        )
+                    }
+                )
                 // Bottom Legend / Toggles for Chart 2
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Componentes pagados por mes:", style = MaterialTheme.typography.labelSmall, color = TextForestMuted, fontWeight = FontWeight.Medium)
@@ -395,6 +445,137 @@ fun HorizontalComparisonChart(
     }
 }
 
+private data class MonthSixComponents(
+    val origCapital: String,
+    val origInterest: String,
+    val origInsurance: String,
+    val modCapital: String,
+    val modInterest: String,
+    val modInsurance: String
+)
+
+private fun getSixComponents(original: LoanResult, modified: LoanResult, month: Int): MonthSixComponents {
+    val origRow = original.rows.find { it.month == month }
+    val modRow = modified.rows.find { it.month == month }
+
+    fun capital(row: com.finsim.domain.MonthRow?): String {
+        if (row == null) return "0.00"
+        return sumMoney(listOf(row.scheduled.principal, row.catchup.principal, row.extra.principal))
+    }
+    fun interest(row: com.finsim.domain.MonthRow?): String {
+        if (row == null) return "0.00"
+        return sumMoney(listOf(row.scheduled.interest, row.catchup.interest, row.extra.interest))
+    }
+    fun insurance(row: com.finsim.domain.MonthRow?): String {
+        if (row == null) return "0.00"
+        return sumMoney(listOf(row.scheduled.insurance, row.catchup.insurance, row.extra.insurance))
+    }
+
+    return MonthSixComponents(
+        origCapital = capital(origRow),
+        origInterest = interest(origRow),
+        origInsurance = insurance(origRow),
+        modCapital = capital(modRow),
+        modInterest = interest(modRow),
+        modInsurance = insurance(modRow)
+    )
+}
+
+@Composable
+private fun HoverComponentBadge(name: String, amount: String, color: Color, currency: Currency) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(6.dp).background(color, RoundedCornerShape(3.dp)))
+        Text(
+            "$name: ${formatMoney(amount, currency)}",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SixComponentInspectionCard(
+    subtitle: String,
+    month: Int,
+    original: LoanResult,
+    modified: LoanResult,
+    currency: Currency,
+    extraHeader: @Composable (() -> Unit)? = null
+) {
+    val six = remember(original, modified, month) {
+        getSixComponents(original, modified, month)
+    }
+
+    Surface(
+        color = BrandDark,
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+    ) {
+        Column(
+            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    "Mes M$month",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = BrandMint,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "· $subtitle",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+                extraHeader?.invoke()
+            }
+
+            // Original (3 metrics: Capital, Intereses, Seguros)
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    "Original:",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF94A3B8),
+                    fontWeight = FontWeight.Bold
+                )
+                HoverComponentBadge("Capital", six.origCapital, Color(0xFF6EE7B7), currency)
+                HoverComponentBadge("Intereses", six.origInterest, BrandAmber, currency)
+                HoverComponentBadge("Seguros", six.origInsurance, Color(0xFFC084FC), currency)
+            }
+
+            // Modificado (3 metrics: Capital, Intereses, Seguros)
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    "Modificado:",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = BrandMint,
+                    fontWeight = FontWeight.Bold
+                )
+                HoverComponentBadge("Capital", six.modCapital, BrandEmerald, currency)
+                HoverComponentBadge("Intereses", six.modInterest, BrandAmber, currency)
+                HoverComponentBadge("Seguros", six.modInsurance, BrandPlum, currency)
+            }
+        }
+    }
+}
+
 @Composable
 private fun DetailTableRow(
     label: String,
@@ -471,65 +652,26 @@ private fun ResultLineChart(
     currency: Currency,
     range: IntRange,
     month: Int,
+    hoveredMonth: Int?,
+    onHoverMonth: (Int?) -> Unit,
     series: List<ChartSeries>,
-    onSelect: (Int) -> Unit
+    onSelect: (Int) -> Unit,
+    inspectionCard: @Composable (() -> Unit)? = null
 ) {
     val maximum = series.flatMap { it.values }.filterNotNull().maxByOrNull { it.toDouble() } ?: "0.00"
     val upperBound = if (maximum.toDouble() <= 0.0) "1.00" else maximum
     val scale = upperBound.toDouble()
 
-    var hoveredPoint by remember { mutableStateOf<Int?>(null) }
-
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        FlowRow(
+        Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = BrandForest)
-            val currentInspectMonth = hoveredPoint ?: month
-            if (series.isNotEmpty()) {
-                val pointValues = series.mapNotNull { s ->
-                    val idx = currentInspectMonth - range.first
-                    if (idx in s.values.indices) s.values[idx]?.let { s.label to (it to s.color) } else null
-                }
-                if (pointValues.isNotEmpty()) {
-                    Surface(
-                        color = BrandDark,
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier.padding(vertical = 2.dp)
-                    ) {
-                        FlowRow(
-                            Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            Text(
-                                "M$currentInspectMonth:",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = BrandMint,
-                                fontWeight = FontWeight.Bold
-                            )
-                            pointValues.forEach { (label, data) ->
-                                val (valStr, color) = data
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(Modifier.size(6.dp).background(color, RoundedCornerShape(3.dp)))
-                                    Text(
-                                        "$label: ${formatMoney(valStr, currency)}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
+
+        inspectionCard?.invoke()
 
         if (series.isEmpty()) {
             Text("Sin series visibles", style = MaterialTheme.typography.bodySmall, color = TextForestMuted)
@@ -577,10 +719,11 @@ private fun ResultLineChart(
                                     if (event.type == PointerEventType.Move) {
                                         val pos = event.changes.first().position
                                         if (pos.x in 0f..size.width.toFloat() && pos.y in 0f..size.height.toFloat()) {
-                                            hoveredPoint = range.first + (pos.x / size.width * (range.last - range.first)).roundToInt().coerceIn(0, range.last - range.first)
+                                            val m = range.first + (pos.x / size.width * (range.last - range.first)).roundToInt().coerceIn(0, range.last - range.first)
+                                            onHoverMonth(m)
                                         }
                                     } else if (event.type == PointerEventType.Exit) {
-                                        hoveredPoint = null
+                                        onHoverMonth(null)
                                     }
                                 }
                             }
@@ -669,21 +812,25 @@ private fun ResultLineChart(
                         )
                     }
 
-                    // Hover Tracking Line
-                    hoveredPoint?.let { hMonth ->
-                        val hX = x(hMonth - range.first)
-                        drawLine(
-                            BrandEmerald.copy(alpha = 0.6f),
-                            Offset(hX, 0f),
-                            Offset(hX, size.height),
-                            strokeWidth = 2f,
-                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 4f))
-                        )
+                    // Hover Tracking Line (synchronized across both charts)
+                    hoveredMonth?.let { hMonth ->
+                        if (hMonth in range) {
+                            val hX = x(hMonth - range.first)
+                            drawLine(
+                                BrandEmerald.copy(alpha = 0.6f),
+                                Offset(hX, 0f),
+                                Offset(hX, size.height),
+                                strokeWidth = 2f,
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 4f))
+                            )
+                        }
                     }
 
                     // Active Month Indicator Line
-                    val activeX = x(month - range.first)
-                    drawLine(BrandDark, Offset(activeX, 0f), Offset(activeX, size.height), strokeWidth = 2f)
+                    if (month in range) {
+                        val activeX = x(month - range.first)
+                        drawLine(BrandDark, Offset(activeX, 0f), Offset(activeX, size.height), strokeWidth = 2f)
+                    }
                 }
             }
         }
