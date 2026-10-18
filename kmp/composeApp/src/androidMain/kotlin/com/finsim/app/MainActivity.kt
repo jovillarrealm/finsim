@@ -24,6 +24,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         FinsimLog.ui.i { "MainActivity onCreate: Finsim Android iniciada en SDK ${android.os.Build.VERSION.SDK_INT}" }
         val storage = AndroidScenarioStorage(this)
+        if (storage.getItem(com.finsim.persistence.SCENARIO_STORAGE_KEY) == null) {
+            storage.setItem(
+                com.finsim.persistence.SCENARIO_STORAGE_KEY,
+                com.finsim.persistence.serializeScenario(com.finsim.domain.stitchDemoScenario)
+            )
+        }
         setContent {
             App(storage = storage)
         }

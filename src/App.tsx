@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
-import { exampleScenario, type Scenario } from './domain/scenario';
+import { exampleScenario, stitchDemoScenario, type Scenario } from './domain/scenario';
 import { simulateLoan } from './engine/loan';
 import LoanForm from './features/loan/LoanForm';
 import LoanSummary from './features/loan/LoanSummary';
@@ -18,9 +18,9 @@ export default function App() {
   const [initial] = useState(() => {
     try {
       const saved = typeof window === 'undefined' ? null : loadScenario();
-      return { workspace: workspace(saved ?? exampleScenario), notice: saved ? 'Escenario guardado recuperado.' : '' };
+      return { workspace: workspace(saved ?? stitchDemoScenario), notice: saved ? 'Escenario guardado recuperado.' : '' };
     } catch (error) {
-      return { workspace: workspace(exampleScenario), notice: error instanceof Error ? error.message : 'No se pudo cargar el escenario.' };
+      return { workspace: workspace(stitchDemoScenario), notice: error instanceof Error ? error.message : 'No se pudo cargar el escenario.' };
     }
   });
   const [current, setCurrent] = useState(initial.workspace);
@@ -82,7 +82,7 @@ export default function App() {
         {[['loan', 'Explorar préstamo'], ['rates', 'Convertir tasas'], ['reconcile', 'Comparar extracto']].map(([id, label]) => <button key={id} aria-current={page === id ? 'page' : undefined} onClick={() => setPage(id)}>{label}</button>)}
       </nav>
       <div className="scenario-toolbar"><div><p className="eyebrow">ESCENARIO ACTUAL</p><strong>{current.scenario.name}</strong></div><div className="toolbar-actions">
-        <button className="button ghost" disabled={pendingEvents} onClick={() => applyScenario(exampleScenario)}>Usar ejemplo</button>
+        <button className="button ghost" disabled={pendingEvents} onClick={() => applyScenario(stitchDemoScenario)}>Usar ejemplo</button>
         <button className="button ghost" disabled={pendingEvents} onClick={() => fileInput.current?.click()}>Importar</button>
         <input className="sr-only" aria-label="Archivo de escenario" ref={fileInput} disabled={pendingEvents} type="file" accept="application/json,.json" onChange={importFile} />
         <button className="button ghost" disabled={pendingEvents} onClick={exportFile}>Exportar</button><button className="button" disabled={pendingEvents} onClick={save}>Guardar escenario</button>
