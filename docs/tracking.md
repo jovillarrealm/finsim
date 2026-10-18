@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-Actualizado: 2026-10-18. Despliegue de GitHub Pages restablecido con éxito en main **4e5956b**, run **39103964464** (7m 31s build, 9s deploy). Verificación completa de 13/13 pruebas de navegador Playwright en Chromium (accesibilidad Skiko, modo compacto, foco y teclado, sincronización de saldo y pagos, exportación y persistencia), 54 vitest tests, typecheck limpio, 115 JVM tests y compilación WebAssembly sin regresiones. Sitio: https://jovillarrealm.github.io/finsim/?v=4e5956b.
+Actualizado: 2026-10-18. Despliegue de GitHub Pages restablecido con éxito en main **5b39a7d**, run **39139760144** (8m 11s build, 10s deploy). Verificación completa de 13/13 pruebas de navegador Playwright en Chromium, 54 vitest tests, typecheck limpio, 115 JVM tests y compilación WebAssembly sin regresiones. Corrección de relación de aspecto 1:1 en gráficos de trayectoria (eliminando distorsión anisotrópica y manteniendo textos nítidos en desktop y móvil) aceptada visualmente por el usuario e integrada en main. Sitio: https://jovillarrealm.github.io/finsim/?v=5b39a7d.
 
 Este tablero es la fuente de estado integrado. El [plan](implementation-plan.md) define alcance, dependencias y criterios de cierre. Los registros por tarea guardan el detalle de continuidad.
 
