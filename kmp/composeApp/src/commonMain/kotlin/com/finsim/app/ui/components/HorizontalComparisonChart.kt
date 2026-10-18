@@ -109,7 +109,7 @@ fun HorizontalComparisonChart(
                             .border(1.dp, KpiMintBorder, RoundedCornerShape(8.dp))
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
-                        Text("Diferencia $label", style = MaterialTheme.typography.labelSmall, color = TextForestMuted, fontWeight = FontWeight.Medium)
+                        Text("Diferencia $label (Δ)", style = MaterialTheme.typography.labelSmall, color = TextForestMuted, fontWeight = FontWeight.Medium)
                         CopyMoney("diferencia $label Modificado menos Original", difference(amounts.second, amounts.first), currency, signed = true)
                     }
                 }
@@ -259,10 +259,12 @@ fun HorizontalComparisonChart(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text("Detalle del mes $month", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = BrandForest)
-                        Text("El detalle conserva ambos escenarios y los importes reales aunque ocultes series.", style = MaterialTheme.typography.bodySmall, color = TextForestMuted)
-                    }
+                    Text(
+                        "Detalle del mes $month",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = BrandForest
+                    )
                     val origBalance = resultBalance(original, month)
                     val modBalance = resultBalance(modified, month)
                     if (origBalance != null && modBalance != null) {
@@ -462,6 +464,7 @@ private fun formatScaleNumber(value: Double, currency: Currency): String {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ResultLineChart(
     title: String,
@@ -478,10 +481,10 @@ private fun ResultLineChart(
     var hoveredPoint by remember { mutableStateOf<Int?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(
+        FlowRow(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = BrandForest)
             val currentInspectMonth = hoveredPoint ?: month
@@ -496,10 +499,10 @@ private fun ResultLineChart(
                         shape = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(vertical = 2.dp)
                     ) {
-                        Row(
+                        FlowRow(
                             Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
                             Text(
                                 "M$currentInspectMonth:",
@@ -507,7 +510,7 @@ private fun ResultLineChart(
                                 color = BrandMint,
                                 fontWeight = FontWeight.Bold
                             )
-                            pointValues.take(2).forEach { (label, data) ->
+                            pointValues.forEach { (label, data) ->
                                 val (valStr, color) = data
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -585,6 +588,17 @@ private fun ResultLineChart(
                 ) {
                     fun x(index: Int) = index.toFloat() / (range.last - range.first).coerceAtLeast(1) * size.width
 
+                    fun y(value: String): Float {
+                        val d = value.toDoubleOrNull() ?: 0.0
+                        if (d <= 0.0) return size.height
+                        val topPad = 14f
+                        val bottomPad = 6f
+                        val availableHeight = size.height - topPad - bottomPad
+                        val normalized = (d / scale).toFloat().coerceIn(0f, 1f)
+                        val elevation = maxOf(normalized * availableHeight, 10f)
+                        return size.height - bottomPad - elevation
+                    }
+
                     // Horizontal Grid Lines
                     for (i in 0..3) {
                         drawLine(
@@ -604,7 +618,7 @@ private fun ResultLineChart(
                             var lastPoint = Offset.Zero
                             line.values.forEachIndexed { index, value ->
                                 if (value != null) {
-                                    val pt = Offset(x(index), size.height * (1 - (value.toDouble() / scale).toFloat().coerceIn(0f, 1f)))
+                                    val pt = Offset(x(index), y(value))
                                     if (!areaStarted) {
                                         areaPath.moveTo(pt.x, pt.y)
                                         firstPoint = pt
@@ -639,7 +653,7 @@ private fun ResultLineChart(
                             if (value == null) {
                                 connected = false
                             } else {
-                                val point = Offset(x(index), size.height * (1 - (value.toDouble() / scale).toFloat().coerceIn(0f, 1f)))
+                                val point = Offset(x(index), y(value))
                                 if (connected) path.lineTo(point.x, point.y) else path.moveTo(point.x, point.y)
                                 connected = true
                                 drawCircle(line.color, if (line.dashed) 2.5f else 3.5f, point)
