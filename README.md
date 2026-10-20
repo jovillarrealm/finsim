@@ -23,9 +23,17 @@ npm test
 # Pruebas unitarias de Kotlin Multiplatform (Shared + Compose App)
 npm run test:kmp
 
+# Autocomprobaciones del reporte y estados del perfil financiero
+npm run test:verification
+
+# Perfil financiero PF: referencias del motor en JVM host, con evidencia por ejecución
+npm run verify:financial
+
 # Compilación WebAssembly
 npm run build
 ```
+
+`verify:financial` ejecuta casos identificados de tasas, préstamos, validación e invariantes mediante la interfaz pública de `kmp/shared`. Guarda un informe Markdown/JSON, logs y resultados JUnit nuevos en `~/.finsim/verification/financial/<run-id>/` (fuera del repositorio). El perfil sólo acredita los casos que realmente ejecutó en JVM host; Wasm, APK e interfaz quedan pendientes de sus perfiles de plataforma.
 
 El servidor local abre `http://127.0.0.1:5173`. Para servir la distribución WebAssembly usa `npm run preview`.
 
