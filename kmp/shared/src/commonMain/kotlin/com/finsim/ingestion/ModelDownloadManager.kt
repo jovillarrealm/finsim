@@ -64,7 +64,7 @@ class ModelDownloadManager(
     fun startDownload(simulateStep: Boolean = false) {
         if (!capabilityGate.isEligibleForVlm) {
             val reason = capabilityGate.ineligibilityReason
-                ?: "Memoria RAM insuficiente. Se requiere un mínimo de 6.0 GB de RAM para ejecutar el modelo de visión local y evitar cierres forzosos por LMKD."
+                ?: "Memoria RAM insuficiente. Se requiere un mínimo de 8.0 GB de RAM para ejecutar el modelo de visión local y evitar cierres forzosos por LMKD."
             _state.value = DownloadState.Error(reason)
             throw IllegalStateException(reason)
         }

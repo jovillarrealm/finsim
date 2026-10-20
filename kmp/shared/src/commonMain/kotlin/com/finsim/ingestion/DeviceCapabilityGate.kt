@@ -4,8 +4,8 @@ package com.finsim.ingestion
  * Interface and evaluation gate for host hardware capability before allowing
  * heavy local VLM (Vision-Language Model) inference.
  *
- * Devices with less than 6.0 GB of RAM are strictly gated out to prevent
- * Android Low Memory Killer (LMKD) crashes or browser tab OOM panics.
+ * Gemma requires at least 8 GiB of kernel-visible total RAM on Android.
+ * Total RAM alone does not guarantee enough available memory for inference.
  */
 interface DeviceCapabilityGate {
     val totalRamGb: Double
@@ -14,7 +14,7 @@ interface DeviceCapabilityGate {
     val hasHardwareAcceleration: Boolean
 
     companion object {
-        const val MINIMUM_RAM_GB_FOR_VLM: Double = 6.0
+        const val MINIMUM_RAM_GB_FOR_VLM: Double = 8.0
 
         operator fun invoke(
             totalRamGb: Double,
@@ -27,7 +27,7 @@ interface DeviceCapabilityGate {
             isEligibleForVlm = isEligible ?: (totalRamGb >= MINIMUM_RAM_GB_FOR_VLM),
             ineligibilityReason = ineligibilityReason ?: if ((isEligible ?: (totalRamGb >= MINIMUM_RAM_GB_FOR_VLM)).not()) {
                 val formatted = (totalRamGb * 10).toLong() / 10.0
-                "Memoria RAM insuficiente ($formatted GB). Se requiere un mínimo de 6.0 GB de RAM para ejecutar el modelo de visión local y evitar cierres forzosos por LMKD."
+                "Memoria RAM insuficiente ($formatted GiB). Se requiere un mínimo de 8.0 GiB de RAM para ejecutar el modelo de visión local y evitar cierres forzosos por LMKD."
             } else null
         )
     }
@@ -42,7 +42,7 @@ data class DefaultDeviceCapabilityGate(
     override val isEligibleForVlm: Boolean = totalRamGb >= DeviceCapabilityGate.MINIMUM_RAM_GB_FOR_VLM,
     override val ineligibilityReason: String? = if (totalRamGb < DeviceCapabilityGate.MINIMUM_RAM_GB_FOR_VLM) {
         val formatted = (totalRamGb * 10).toLong() / 10.0
-        "Memoria RAM insuficiente ($formatted GB). Se requiere un mínimo de 6.0 GB de RAM para ejecutar el modelo de visión local y evitar cierres forzosos por LMKD."
+        "Memoria RAM insuficiente ($formatted GiB). Se requiere un mínimo de 8.0 GiB de RAM para ejecutar el modelo de visión local y evitar cierres forzosos por LMKD."
     } else null
 ) : DeviceCapabilityGate
 
@@ -58,7 +58,7 @@ class FakeDeviceCapabilityGate(
     override val isEligibleForVlm: Boolean = isEligible ?: (totalRamGb >= DeviceCapabilityGate.MINIMUM_RAM_GB_FOR_VLM)
     override val ineligibilityReason: String? = ineligibilityReason ?: if (!this.isEligibleForVlm) {
         val formatted = (totalRamGb * 10).toLong() / 10.0
-        "Memoria RAM insuficiente ($formatted GB). Se requiere un mínimo de 6.0 GB de RAM para ejecutar el modelo de visión local y evitar cierres forzosos por LMKD."
+        "Memoria RAM insuficiente ($formatted GiB). Se requiere un mínimo de 8.0 GiB de RAM para ejecutar el modelo de visión local y evitar cierres forzosos por LMKD."
     } else null
 }
 

@@ -16,7 +16,7 @@ import com.finsim.app.theme.*
 import com.finsim.ingestion.DeviceCapabilityGate
 
 /**
- * Dialog alerting users when device RAM < 6 GB, explaining that on-device deep VLM (Tier 2)
+ * Dialog alerting users when device RAM < 8 GiB, explaining that on-device deep VLM (Tier 2)
  * cannot execute to prevent Low Memory Killer (LMKD) crashes.
  * Reassures that digital text extraction (Tier 1) remains 100% functional and private.
  */
@@ -56,7 +56,7 @@ fun HardwareGateWarningDialog(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
-                            text = "RAM < 6 GB",
+                            text = "RAM < 8 GiB",
                             color = BrandAmberText,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -81,7 +81,7 @@ fun HardwareGateWarningDialog(
                         ) {
                             Text("Memoria detectada:", fontSize = 12.sp, color = TextForestMuted)
                             Text(
-                                "${(gate.totalRamGb * 10).toLong() / 10.0} GB",
+                                "${(gate.totalRamGb * 10).toLong() / 10.0} GiB",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = BrandDark
@@ -94,7 +94,7 @@ fun HardwareGateWarningDialog(
                         ) {
                             Text("Requerimiento VLM (Tier 2):", fontSize = 12.sp, color = TextForestMuted)
                             Text(
-                                ">= 6.0 GB RAM",
+                                ">= ${DeviceCapabilityGate.MINIMUM_RAM_GB_FOR_VLM} GiB RAM",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = BrandAmber

@@ -80,11 +80,11 @@ class HybridDocumentOrchestrator(
             }
 
             // 2. Cascade to Tier 2 (Local VLM)
-            // A. Check Hardware Eligibility (< 6 GB RAM blocked)
+            // A. Check Hardware Eligibility (< 8 GiB RAM blocked)
             if (!capabilityGate.isEligibleForVlm) {
                 return OrchestrationResult.HardwareRestricted(
                     reason = capabilityGate.ineligibilityReason
-                        ?: "Memoria RAM insuficiente para ejecutar el modelo de visión local Gemma 4 E2B (se requieren >= 6.0 GB de RAM)."
+                        ?: "Memoria RAM insuficiente para ejecutar el modelo de visión local Gemma 4 E2B (se requieren >= 8.0 GB de RAM)."
                 )
             }
 

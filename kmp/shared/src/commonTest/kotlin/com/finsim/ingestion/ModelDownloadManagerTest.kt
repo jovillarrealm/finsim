@@ -34,7 +34,7 @@ class ModelDownloadManagerTest {
     }
 
     @Test
-    fun testIneligibilityRejectionWhenRamLessThan6Gb() {
+    fun testIneligibilityRejectionWhenRamLessThan8GiB() {
         val gate = FakeDeviceCapabilityGate(totalRamGb = 4.0)
         val storage = InMemoryModelStorage()
         val manager = ModelDownloadManager(storage = storage, capabilityGate = gate)
@@ -46,7 +46,7 @@ class ModelDownloadManagerTest {
             manager.startDownload(simulateStep = true)
         }
 
-        assertTrue(error.message?.contains("LMKD") == true || error.message?.contains("6") == true)
+        assertTrue(error.message?.contains("LMKD") == true || error.message?.contains("8") == true)
         val state = manager.state.value
         assertTrue(state is DownloadState.Error)
         assertFalse(manager.isModelDownloaded())

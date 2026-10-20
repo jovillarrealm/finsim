@@ -90,8 +90,8 @@ class HybridDocumentOrchestratorTest {
     }
 
     @Test
-    fun testHardwareGateBlocksTier2WhenRamLessThan6Gb() = runTest {
-        val gate = FakeDeviceCapabilityGate(totalRamGb = 4.0) // Ineligible device (< 6 GB)
+    fun testHardwareGateBlocksTier2WhenRamLessThan8GiB() = runTest {
+        val gate = FakeDeviceCapabilityGate(totalRamGb = 4.0) // Ineligible device (< 8 GiB)
         val storage = InMemoryModelStorage(downloaded = true, sizeBytes = 1100000000L)
         val rasterizer = InMemoryPageRasterizer()
         val vlmRunner = FakeVlmVisionRunner()
@@ -112,8 +112,8 @@ class HybridDocumentOrchestratorTest {
 
         assertTrue(result is OrchestrationResult.HardwareRestricted, "Expected HardwareRestricted but got $result")
         assertTrue(
-            result.reason.contains("LMKD") || result.reason.contains("6"),
-            "HardwareRestricted message should reference 6.0 GB or LMKD risk: '${result.reason}'"
+            result.reason.contains("LMKD") || result.reason.contains("8"),
+            "HardwareRestricted message should reference 8.0 GB or LMKD risk: '${result.reason}'"
         )
 
         // Must not invoke heavy vision pipeline on ineligible hardware
