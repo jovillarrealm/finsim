@@ -207,16 +207,11 @@ La suite implementada en [`src/features/loan/StitchScreensIntegration.test.tsx`]
 | `MonthlyTable renders curated Key Milestones with prepayments and full schedule toggle` | [`MonthlyTable.tsx`](file:///C:/Users/Lenovo/Documents/finsim/src/features/loan/MonthlyTable.tsx) | - Alternancia de vistas (`Hitos Clave` vs `Tabla Completa`)<br/>- Lista `milestones-schedule-list` con `Mes 01`<br/>- Badges `+X Extra` en meses de abono y `Fin de Crédito` en liquidación<br/>- Botón de exportación `Descargar cronograma completo (.CSV)`. |
 | `MonthlyTable renders clean fallback without prepayments when no events exist` | [`MonthlyTable.tsx`](file:///C:/Users/Lenovo/Documents/finsim/src/features/loan/MonthlyTable.tsx) | - Escenario sin eventos omite badges `badge-extra`<br/>- Conserva `Mes 01` e hito final de finalización pactada. |
 
-#### Compose Multiplatform (`StitchDesignRefreshParityTest.kt`)
-La suite implementada en [`kmp/composeApp/src/commonTest/kotlin/com/finsim/app/ui/components/StitchDesignRefreshParityTest.kt`](file:///C:/Users/Lenovo/Documents/finsim/kmp/composeApp/src/commonTest/kotlin/com/finsim/app/ui/components/StitchDesignRefreshParityTest.kt) valida la paridad idéntica en Compose (Android y Desktop):
+#### Pruebas Kotlin Multiplatform vigentes
 
-| Caso de Prueba | Componente Evaluado | Comprobaciones Clave |
-| :--- | :--- | :--- |
-| `testScheduleCsvGenerationIntegrity` | [`MonthlyTable.kt`](file:///C:/Users/Lenovo/Documents/finsim/kmp/composeApp/src/commonMain/kotlin/com/finsim/app/ui/components/MonthlyTable.kt) | - Cabecera con BOM UTF-8 y 18 columnas contables completas<br/>- Formateo estándar con precisión decimal exacta. |
-| `testKeyMilestonesCuratedFilteringWithPrepayments` | [`MonthlyTable.kt`](file:///C:/Users/Lenovo/Documents/finsim/kmp/composeApp/src/commonMain/kotlin/com/finsim/app/ui/components/MonthlyTable.kt) | - Inclusión curada de M01, meses previos, meses de abono y liquidación anticipada acelerada. |
-| `testKeyMilestonesFilteringWithoutPrepayments` | [`MonthlyTable.kt`](file:///C:/Users/Lenovo/Documents/finsim/kmp/composeApp/src/commonMain/kotlin/com/finsim/app/ui/components/MonthlyTable.kt) | - Fallback a M01, mes medio y mes final contractual sin badges residuales. |
-| `testMathematicalInvariantsAndSavingsDerivations` | [`LoanSummary.kt`](file:///C:/Users/Lenovo/Documents/finsim/kmp/composeApp/src/commonMain/kotlin/com/finsim/app/ui/components/LoanSummary.kt) | - Conservación de caja (`principal + interest + insurance == cashPaid`)<br/>- Decrecimiento monótono del saldo<br/>- Reducción de coste financiero y aceleración de plazo. |
-| `testZeroPrepaymentsFallbackState` | [`LoanSummary.kt`](file:///C:/Users/Lenovo/Documents/finsim/kmp/composeApp/src/commonMain/kotlin/com/finsim/app/ui/components/LoanSummary.kt) | - Deltas exactamente en 0 y badge de ahorro de interés nulo. |
+- [`ScheduleCsvGenerationTest.kt`](../../kmp/composeApp/src/commonTest/kotlin/com/finsim/app/ui/components/ScheduleCsvGenerationTest.kt) verifica el BOM, la cabecera y la primera fila de la exportación CSV.
+- [`LoanPrepaymentFinancialInvariantsTest.kt`](../../kmp/composeApp/src/commonTest/kotlin/com/finsim/app/LoanPrepaymentFinancialInvariantsTest.kt) verifica invariantes del motor y efectos financieros de los abonos.
+- Estas pruebas no verifican hitos visibles de la tabla ni el estado del resumen de ahorro; los tests tautológicos que afirmaban esa cobertura fueron retirados.
 
 ---
 
