@@ -14,7 +14,8 @@
 - Implementado: retiradas las dos pruebas que reconstruían hitos y la prueba de ahorro sin eventos; eliminada la derivación local del porcentaje de ahorro. Conservadas la integridad CSV y las comprobaciones financieras de caja, evolución del saldo y liquidación anticipada, con nombres que ya no afirman paridad visual.
 - Commit de código: `e9c176eaee85bb82ea19d1deeeb5458d08e2ee88` (`Ref #36`). Los dos tests resultantes y la sección documental coinciden con la solución local reutilizada; no se incorporó su historia de coordinación, toolchain ni ktlint.
 - Cambios sin commit al entregar: ninguno.
-- Siguiente paso exacto: incorporar la actualización exclusivamente documental `523f91d1feb330f5f8f8b947271a35ac1ce7bbc9` de la integración y pasar esta entrega y el resumen siguiente al segundo subagente, para revisión de Standards/Spec; la coordinadora decide integración y cierre después de verificar.
+- Coordinación incorporada: actualización exclusivamente documental `523f91d1feb330f5f8f8b947271a35ac1ce7bbc9`, merge local `debecd9`. No cambia el código probado.
+- Siguiente paso exacto: pasar esta entrega y el resumen siguiente al segundo subagente, para revisión de Standards/Spec; la coordinadora decide integración y cierre después de verificar.
 
 ## Resumen previo a revisión y evidencia de ejecución
 
@@ -43,3 +44,4 @@ Artefacto: distribución Wasm de producción construida por la coordinadora, bui
 
 - 2026-10-20 · Reserva por la coordinadora y lectura de AGENTS, plan, tracking, brief, convenciones, glosario, ADR 0002, #36 y decisiones de #37. No se modifica el tablero compartido.
 - 2026-10-20 · Código guardado en `e9c176e`; verificaciones Kotlin y navegador aprobadas. Resumen y límites registrados antes de la revisión independiente.
+- 2026-10-20 · Incorporada la última punta documental de integración solicitada por la coordinadora, sin conflictos ni repetición de builds por documentación.
