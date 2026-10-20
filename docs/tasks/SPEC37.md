@@ -19,8 +19,9 @@
 ## Traspaso actual
 
 - Once tickets #38–#48 publicados con etiqueta `ready-for-agent`, sub-issues y dependencias nativas verificadas. Autorización/corpus actualizados en el comentario de #37; columna19 moneda confirmada por el propietario en #37#issuecomment-6294154389.
-- #38 en implementación/revisión pendiente. Se reutiliza #36 (tests tautológicos) y se prepara #32 (Gemma), con sus propias parejas de agentes secuenciales; no se cierran antes de revisión e integración.
+- #38 tiene matriz canónica de 422 criterios en GitHub. Revisión: Standards sin hallazgos; dos enlaces de evidencia por corregir en Spec. El mismo implementador corrige antes de devolverla al mismo revisor.
+- #36 revisada (Standards 0 / Spec 0), integrada en `8ef5fe3ce71ffe4433342e56a4c452a7b84e2054` y cerrada en GitHub. Evidencia: 115 pruebas shared JVM + 5 host y 13 recorridos de navegador aprobados; sin cambios de producción. Informe publicado en #36#issuecomment-6301672098. Rama de integración publicada; todavía no integrada en main.
 - Base: `:shared:jvmTest` 115 y `:composeApp:testDebugUnitTest` 8 pruebas pasaron, sin fallos. Build Wasm de producción pasó. Estas comprobaciones describen la base publicada, no acreditan las entregas nuevas.
-- #32 encontró incompatibilidad de metadata Kotlin: runtime oficial requiere 2.4, base tiene2.2. Se coordina el prerrequisito de toolchain en #34, sin eludir comprobaciones de compatibilidad.
+- #32 encontró incompatibilidad de metadata Kotlin: runtime oficial requiere 2.4, base tiene2.2. Preparación parcial conservada en `06189148ece02951d43408b14ef56aab8b1245f9`; no acredita runtime real. #34 implementa el prerrequisito AGP9/Kotlin2.4.21 manteniendo Compose1.9.3 si resulta compatible. Una sola compilación pesada a la vez por memoria disponible.
 - Siguiente paso: terminar/revisar la matriz #38, integrar; continuar la frontera de dependencias. Las corridas de teléfono siguen separadas de la posibilidad de progresar/revisar código.
 - Referencia privada: ambos PDFs inspeccionados; trece pares del TXT contrastados con el PDF hipotecario y saldos del resumen de cuenta comprobados independientemente. Inferencia real no ejecutada.
