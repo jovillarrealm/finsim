@@ -1,5 +1,9 @@
 # Tracking de implementación
 
+## Coordinación activa — Spec #37
+
+2026-10-20 · /root. El propietario autoriza publicar e implementar el desglose de [#37](https://github.com/jovillarrealm/finsim/issues/37), con dos subagentes secuenciales por ticket (implementación y revisión). Rama `codex/spec37-verification`, base publicada `839c69c`, worktree `C:/Users/Lenovo/.codex/worktrees/spec37-verification/finsim`. GitHub es la fuente de verdad para alcance, decisiones, tickets y dependencias; el estado anterior de este documento es histórico. Continuidad auxiliar en [SPEC37](tasks/SPEC37.md). Las corridas móviles sin hardware pueden quedar pendientes documentadas sin bloquear desarrollo/revisión.
+
 ## Estado actual
 
 Actualizado: 2026-10-18.
