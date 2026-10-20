@@ -1,6 +1,6 @@
 [versions]
-kotlin = "2.2.20"
-agp = "8.7.3"
+kotlin = "2.4.21"
+agp = "9.1.1"
 compose = "1.9.3"
 serialization = "1.7.3"
 coroutines = "1.9.0"
@@ -21,5 +21,5 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 android-application = { id = "com.android.application", version.ref = "agp" }
-android-library = { id = "com.android.library", version.ref = "agp" }
+android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 compose = { id = "org.jetbrains.compose", version.ref = "compose" }
