@@ -4,7 +4,8 @@
 - Reserva: 2026-10-20, implementador `/root/t01_implement`, asignación de la coordinadora `/root`.
 - Rama/worktree: `codex/spec37-t01`, `C:/Users/Lenovo/.codex/worktrees/spec37-t01/finsim`.
 - Base inicial de implementación e inspección de producto: `0968ac92edf6acd859466b1f16d7fad1b1ebbbe5`, punta publicada de `codex/spec37-verification` al iniciar; contiene `main` publicado `839c69c6e8f7c114424acb6f3fa9b7aae91063a2` más coordinación.
-- Punto fijo actualizado de revisión, asignado por la coordinadora: `523f91d1feb330f5f8f8b947271a35ac1ce7bbc9`. Solo cambia `docs/tasks/SPEC37.md` respecto a la base inicial; el producto inspeccionado en la matriz sigue siendo idéntico. Se incorpora sin editar el contenido de coordinación.
+- Punto fijo de la primera revisión: `523f91d1feb330f5f8f8b947271a35ac1ce7bbc9`; solo actualizaba coordinación respecto a la base inicial.
+- Punto fijo actualizado para comprobar correcciones, asignado por la coordinadora: `8ef5fe3ce71ffe4433342e56a4c452a7b84e2054`, incorporado mediante merge local `8ad08153f2312f88c87d0024fd3c1f5fe853ceed`. Añade la limpieza revisada de tests #36 y su documentación. Las observaciones de la matriz conservan su procedencia histórica `0968ac92…`; no se atribuye el cambio de #36 a T01.
 - Estado: en revisión de rama; entrega documental preparada, pendiente de revisor independiente e integración. Sin modificar el tablero compartido ni la coordinación SPEC37.
 
 ## Alcance reservado
@@ -55,17 +56,28 @@ Hashes SHA-256 del texto público normalizado de cada parte (LF; sin salto final
 
 | Parte | SHA-256 |
 | --- | --- |
-| 1 | `a62881c0fe9b0f5a734bd319962d71b479810411f6db26844122b4ccdfc00a56` |
+| 1 | `0468bbe821bea19d632b39fa142fb9cce789570c4add65a2cc5b43e294dc2ecb` |
 | 2 | `9797d0a5c24c66e6d2a98ad38b89452574a17c78e3d9ee2764932b70f019ae92` |
 | 3 | `de6aa06176a6bae1aa1f454dfaeb6245fd69c38f9d56734812d5f8009e147dfa` |
 | 4 | `398481c0d06c2928639b99c4b979abefe539780eaa674d44dde4fc31f91147b0` |
-| 5 | `4edb1b2b93e0bec8c27d50b6b2932b4666c496a2ccde3516c2c65c59e3ff5d46` |
+| 5 | `c2541c0a80f624931d0be4fa924e12aa41ca507072e94457473d84be8dd1c1a3` |
+
+Los hashes de las partes 1 y 5 se actualizaron tras las correcciones de trazabilidad; los de las partes 2–4 permanecen iguales.
+
+## Correcciones solicitadas por revisión independiente
+
+La revisión inicial informó Standards sin hallazgos y dos P2 de Spec. Se aplica exclusivamente su corrección, manteniendo el estado en revisión; la aceptación de estas correcciones corresponde al mismo revisor, no al implementador.
+
+- **Conciliación:** #1 US26 y #8 AC01–AC06 apuntan a la nueva observación **O13**, en lugar de O5 (ofertas). O13 enlaza `ReconciliationView.kt`, `reconciliation/Reconciliation.kt` y `ReconciliationTest.kt` de la base inspeccionada: formulario que recibe el resultado original, comparación pública `reconcileRow` y referencias literales de coincidencia/discrepancia. Se conserva NE y la necesidad de ejecutar PF/PW/PA; código y pruebas presentes no acreditan navegación, validación, teclado o lectura accesible.
+- **Dos destinos de modelos:** #33 AC07 ahora termina en **NE→PDW/PDA**, conservando Docling web y Gemma Android. La corrida física continúa pendiente documentada; corregir el mapa no significa ejecutarla.
+
+Ejecución documental de corrección: **T01-20261020-1621-0500**. Se editaron los comentarios existentes de las partes 1 y 5 y el índice, sin volver a publicar la matriz. Lectura de vuelta exacta de los seis comentarios y hashes correctos; permanecen **422 filas, 192 AC, 170 US, 36 issues**. Exactamente ocho filas cambian sus referencias de observación/perfil, con los textos de criterio intactos. Los 34 enlaces de código del índice actualizado resuelven en el árbol observado. No se hicieron nuevas corridas funcionales, revisión independiente propia ni cambios de producto. La incorporación de #36 se preserva intacta y la observación O12 queda identificada como histórica en el índice.
 
 ## Omisiones, brechas y riesgos
 
 No se ejecutaron suites financieras, builds, recorridos web/APK, instalación/actualización, inferencia ni sesión de lector/audiencia: **NO EJECUTADA**, por alcance documental de T01. No se sondeó disponibilidad de teléfono/emulador/modelos y no se inventó un bloqueo de hardware. El índice público enumera procedimientos, prerrequisitos, expectativas y evidencia para reanudar cada perfil. No se necesitan pruebas artificiales ni TDD para esta ficha sin lógica nueva.
 
-Brechas observadas por inspección, conservadas explícitamente: nominal oculta cuota pactada y el formulario no expone seguros/perfil; Android Arrow devuelve CSV; fake de visión y descarga sintética siguen en commonMain; almacenamiento llamado persistente solo cuenta bytes; raster Wasm en memoria simulado y raster Android con archivo temporal; tema sin Typography tnum global; tests de hitos/ahorro reconstruyen resultados sin observar UI. No son fallos de una corrida nueva ni omisiones por falta de teléfono: son diferencias del código publicado frente a los requisitos.
+Brechas observadas por inspección de la base histórica `0968ac92…`, conservadas explícitamente: nominal oculta cuota pactada y el formulario no expone seguros/perfil; Android Arrow devuelve CSV; fake de visión y descarga sintética en commonMain; almacenamiento llamado persistente solo cuenta bytes; raster Wasm en memoria simulado y raster Android con archivo temporal; tema sin Typography tnum global; tests de hitos/ahorro reconstruían resultados sin observar UI. La integración posterior #36 sustituye esos tests y se conserva como entrega ajena revisada. Estas observaciones históricas no son resultados de una corrida nueva ni omisiones por falta de teléfono.
 
 Pendientes de decisión registrados: política mínima Android, IDs F01–F06 financieros reusados con significados distintos, fallback nativo automático, límite de páginas, paletas exactas y presupuesto base sin medición. La dirección de modelos sí está resuelta por #32/#33: Gemma Android/LiteRT-LM y Docling web/Transformers.js; gate Android ≥8 GiB y presión de memoria separada. El corpus vigente es de dos PDFs privados con TXT, frente a uno en el cuerpo inicial de #37; la referencia semántica todavía requiere revisión del propietario. Esta ficha no altera esos documentos ni crea una referencia financiera pública.
 
@@ -73,8 +85,8 @@ La [aclaración móvil](https://github.com/jovillarrealm/finsim/issues/37#issuec
 
 ## Traspaso y siguiente paso
 
-1. Revisor independiente: comparar esta entrega y comentarios con el punto fijo `523f91d1feb330f5f8f8b947271a35ac1ce7bbc9`; informar Standards y Spec por separado. Las observaciones de producto de la matriz conservan la procedencia `0968ac92…`, idéntica en código a ese punto actualizado. La implementación no se delegó.
+1. Mismo revisor independiente: comprobar ambas correcciones y esta entrega contra el punto fijo `8ef5fe3ce71ffe4433342e56a4c452a7b84e2054`; informar Standards y Spec por separado. La matriz conserva la procedencia de sus observaciones `0968ac92…` y distingue la limpieza integrada de #36. La implementación no se delegó.
 2. Coordinadora: corregir hallazgos justificados, integrar y verificar; solo entonces cerrar #38. Commit de entrega identificado por `Ref #38`; se comunica con hash exacto en el comentario de traspaso y al coordinador.
 3. Continuar únicamente con el ticket que asigne la coordinadora; los perfiles y brechas ya apuntan a #39–#48 y a #32–#36. No se inició ninguno durante T01.
 
-Sin push ni integración de la entrega a la rama coordinadora. La única actualización de rama autorizada al implementador es incorporar `523f91d…` después del commit de T01. El tablero y SPEC37 permanecen bajo control exclusivo de la coordinadora.
+Sin push ni integración de la entrega a la rama coordinadora. Se incorporaron únicamente las actualizaciones de integración `523f91d…` y `8ef5fe3…` autorizadas por la coordinadora. El tablero y SPEC37 permanecen bajo su control exclusivo.
