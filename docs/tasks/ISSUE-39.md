@@ -1,12 +1,13 @@
 # Issue #39 — perfil financiero invocable
 
 - Responsable: `/root/issue39_implement`; coordinación: `/root`.
-- Estado: corrección de revisión preparada y entregada; pendiente segunda revisión independiente Standards/Spec. Issue abierto, no integrado ni cerrado.
+- Estado: candidato integrado localmente por coordinación en `277fe3f`, aún no publicado ni cerrado; esta rama añade el arreglo de formato detectado en la comprobación del rango. Pendiente confirmar el delta con el mismo revisor.
 - Rama/worktree: `codex/spec37-issue39` · `C:/Users/Lenovo/.codex/worktrees/spec37-issue39/finsim`.
 - Base original de la tarea: `fe291ae76403d83e2cd50aec69a3b503c1c14d33` (`codex/spec37-verification`).
 - Integración de #34: `e06ebc0565dd500adcb1eaa265f2a873beaac4b5`, incorporada en `ec5eb89101d4819a8b16da14a825e13f345c06b7` (AGP 9, Kotlin 2.4.21, soporte Gradle 9.3.1 y tarea `test:kmp` `:composeApp:testAndroidHostTest`).
 - Perfil e implementación: `c0c700e0aa5859dc5b8f69e189094fbaa85a02a1`.
 - Corrección P2 de precisión nominal-12: `e1fd108979a48536715c57a0171814be2b9c7ecb`.
+- Corrección de espacios finales del template Markdown: `351acfc2f0ae50afdd825157817b5e5300662d87`.
 
 ## Entrega
 
@@ -19,7 +20,8 @@ El reporte JSON/Markdown, logs y JUnit se crean en un directorio único bajo `~/
 ## Comprobaciones
 
 - `npm run test:verification`: 4/4 selfchecks pasan; cubren parseo JUnit PASS/FAIL/skip, correspondencia de casos, sufijo `[jvm]`, ausencia de resultados, estado mixto y resumen no aprobable.
-- `node --check scripts/verify-financial.mjs` y `git diff --check`: pasan.
+- `node --check scripts/verify-financial.mjs`, `git diff --check` y la comprobación del rango de la tarea `git diff --check e06ebc0...HEAD`: pasan tras la corrección de formato.
+- Comprobación de integración: el `git diff --check e06ebc0...HEAD` original encontró seis espacios finales en las líneas 258–263 del template Markdown de `scripts/verify-financial.mjs`; la comprobación anterior del árbol limpio no recorría esos commits. Se sustituyeron por `<br>` explícitos para conservar los saltos de línea sin espacios finales. Cambio solo de formato; no altera criterios, estados ni ejecución del perfil.
 - Corrida diagnóstica `2026-10-20T21-34-46-728Z-1c8ad1d7`: Gradle terminó correctamente pero el reporte quedó **INCOMPLETE** porque el matcher inicial no contemplaba `[jvm]`. Se conserva como evidencia histórica sin reinterpretarla; sus XML solo se usaron para depurar el reporter.
 - Corrida confirmatoria original `2026-10-20T21-43-15-810Z-1b421421`: **PASS**, 17/17 casos en la base anterior a la integración de #34, Gradle 8.11.1/JVM 21.0.12.1.
 - Corrida confirmatoria posterior a la corrección `2026-10-21T00-50-07-419Z-f9b870dc`: **PASS**, 17/17 pruebas catalogadas más ejecución Gradle identificadas, salida `0`, commit `e1fd108979a48536715c57a0171814be2b9c7ecb`, árbol limpio. Gradle efectivo 9.3.1, JVM 21.0.12.1, Node v26.8.1 sobre Windows; un worker, compilador Kotlin in-process y heap máximo 2 GiB. Evidencia completa en `C:/Users/Lenovo/.finsim/verification/financial/2026-10-21T00-50-07-419Z-f9b870dc/`.
@@ -32,4 +34,4 @@ PASS cubre solo los casos seleccionados en JVM host. No acredita FIN-01 en Wasm 
 
 La ejecución emitió la advertencia deprecada de Node al lanzar Gradle en Windows y Gradle reportó advertencias de código Kotlin ya presentes en la base. Ninguna afectó el resultado confirmatorio.
 
-Próximo paso: segunda revisión independiente Standards/Spec del candidato `e1fd108`, usando el nuevo resumen publicado en #39. Mantener pendiente la cobertura Wasm/APK/UI; no integrar ni cerrar este issue desde esta rama.
+Próximo paso: comprobar con el mismo revisor el delta de formato `351acfc`; no hace falta repetir Gradle. Mantener pendiente la cobertura Wasm/APK/UI; no publicar ni cerrar este issue desde esta rama.
