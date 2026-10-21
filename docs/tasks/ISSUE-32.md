@@ -85,7 +85,7 @@ La validación conjunta de esta corrección se ejecutó en serie sobre árbol de
 
 OkHttp imprime en Android host test un aviso diagnóstico porque ese entorno no incluye Robolectric (`android.util.Log.isLoggable` no está implementado); el test pasa y no requiere AndroidX Startup manual en esta app. Este aviso no se contó como fallo. No se probaron descarga externa, el APK en Samsung, gate físico, consumo de memoria ni inferencia. La nueva revisión independiente de este delta queda pendiente; #32 sigue abierta.
 
-## Prueba física Samsung — intento anterior FAIL, repetición pendiente
+## Prueba física Samsung — fallo JNI anterior (historial)
 
 La ruta que consume la prueba es `DocumentImportDialog` → SAF `PdfDocumentPickerButton` → `DocumentIngestionRuntime.android` → `HybridDocumentOrchestrator(forceTier2 = true)` → `AndroidPdfRasterizer` (página 1, 150 DPI, solo memoria) → `AndroidGemmaVisionRunner`. En el diálogo se selecciona Colombia y el PDF sintético de una página; para el primer uso se descarga el modelo desde la tarjeta y se espera a que aparezca como instalado. En la repetición actual, el modelo ya está guardado y debe aparecer como instalado; no volver a descargarlo. Se pulsa **Analizar página 1 con Gemma** con el texto pegado vacío para que la entrada sea inequívocamente visual. El diálogo muestra los valores para revisión; el usuario confirma o corrige antes de importar.
 
@@ -95,7 +95,7 @@ El intento físico real usó el release firmado `6cf9f4a` (SHA-256 `e07a495085d6
 
 La lectura de memoria anterior a ese intento registró `MemTotal=11.910.616 kB`, `MemAvailable=2.287.496 kB` (~2,18 GiB), `TOTAL PSS=139.803 kB` y `RSS=255.584 kB`. `ApplicationExitInfo` informó `pss=0.00` (PSS no medido, no pico cero) y `rss=277 MB`. El fallo confirmado es JNI, no hay evidencia de OOM. No se obtuvo pico PSS, latencia de inicialización, latencia de inferencia ni resultado de extracción.
 
-La repetición debe usar el APK candidato descrito abajo, sin volver a descargar ni borrar los datos del teléfono. Debe conservar el fixture aprobado `C:/Users/Lenovo/AppData/Local/Temp/finsim-spec37/synthetic-fixture/synthetic-loan-cop-01.pdf` (2.391 bytes, SHA-256 `2324B53F2250C8627A5F30C4A115712D5E92A5B5C549114B20EF6C843F84C5A0`) y dejar vacío el texto pegado. Registrar gate, integridad/tamaño del modelo, memoria disponible y pico PSS, latencias, campos, revisión y cualquier error o cierre. El candidato nuevo no fue instalado por esta sesión; root coordina instalación y repetición después de la nueva revisión.
+En el momento de este registro, la repetición con el candidato R8 todavía quedaba pendiente. Debía conservarse el fixture aprobado `C:/Users/Lenovo/AppData/Local/Temp/finsim-spec37/synthetic-fixture/synthetic-loan-cop-01.pdf` (2.391 bytes, SHA-256 `2324B53F2250C8627A5F30C4A115712D5E92A5B5C549114B20EF6C843F84C5A0`) y dejar vacío el texto pegado. Después, `/root` ejecutó la primera repetición con ese APK y encontró la respuesta truncada que se analiza en la última actualización; esta sección conserva el fallo JNI inicial como historial.
 
 ## Integración y límites pendientes
 
@@ -142,6 +142,8 @@ try { $entry=$zip.GetEntry('classes.dex'); if (!$entry) { throw 'classes.dex not
 Fuentes de esta corrección: [`litertlm.cc` v0.18.0](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.18.0/kotlin/java/com/google/ai/edge/litertlm/jni/litertlm.cc), [`Config.kt` v0.18.0](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.18.0/kotlin/java/com/google/ai/edge/litertlm/Config.kt), [`LiteRtLmJniException.kt` v0.18.0](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.18.0/kotlin/java/com/google/ai/edge/litertlm/LiteRtLmJniException.kt) y [reglas keep de Android R8](https://developer.android.com/topic/performance/app-optimization/add-keep-rules?hl=en).
 
 ## Handoff del release temporal de observabilidad — estado histórico
+
+**Retirado: no instalar ni volver a usar este APK.** La captura cruda sintética ya se ejecutó; esta sección documenta su estado y comandos históricos. El candidato actual está en la actualización final y no contiene captura de respuesta cruda.
 
 Commit local `a909ec77cabe67015e862dcdcf0abb30e2cf646c` sobre `7ef7e3e914e897b73da5ca815f4b0bd089245eaf`, rama `codex/spec37-issue32`, subárbol `kmp` `69eeda5ae7e1c15d50b5886125aefb86c6d4d2de`. El cambio entrega `VlmJsonResponseInspection` sin valores privados y registra aun en fallo la etapa/resultado terminal, latencias, memoria disponible y pico PSS, tamaño de imagen/respuesta, cantidad de chunks y forma JSON (aceptación sintáctica, tipo raíz, claves reconocidas y campos no vacíos). El parser conserva su modo lenient; no se llama JSON estricto válido a un primitivo aceptado por ese parser. El éxito aún exige campos reconocidos utilizables.
 
