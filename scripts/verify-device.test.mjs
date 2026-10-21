@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { chooseDevice, compareInstalledApkCandidate, evaluateFinancialCase, evaluateFinancialObservation, financialRunReadiness, FINANCIAL_RECIPES, foregroundPackageFromDumpsys, isVisibleInDisplay, parseActivityStart, parseFontScale, parseHierarchy, parseMemoryInfo, parseMemoryPressure, parseOptions, runFinancialActionSequence, touchTargetDp } from './verify-device.mjs';
+import { chooseDevice, compareInstalledApkCandidate, evaluateFinancialCase, evaluateFinancialObservation, financialRunReadiness, FINANCIAL_RECIPES, foregroundPackageFromDumpsys, isVisibleInDisplay, parseActivityStart, parseFontScale, parseHierarchy, parseMemoryInfo, parseMemoryPressure, parseOptions, performFinancialAction, runFinancialActionSequence, savedStateRestartReadiness, touchTargetDp } from './verify-device.mjs';
 import { summarizeVerification } from './verification-status.mjs';
 
 test('Android hierarchy preserves semantic labels, parent click targets, focus, and pixel bounds', () => {
@@ -38,7 +38,9 @@ test('UI actions require an explicitly selected device and malformed options are
   assert.throws(() => parseOptions(['--device', 'emulator-5554', '--start-app']), /--allow-ui-actions/i);
   assert.equal(parseOptions(['--device', 'emulator-5554', '--allow-ui-actions', '--start-app']).startApp, true);
   assert.throws(() => parseOptions(['--device', 'emulator-5554', '--restart-app']), /--allow-ui-actions/i);
-  assert.equal(parseOptions(['--device', 'emulator-5554', '--allow-ui-actions', '--restart-app']).restartApp, true);
+  assert.equal(parseOptions(['--device', 'emulator-5554', '--allow-ui-actions', '--restart-app']).savedStateConfirmed, false);
+  assert.equal(parseOptions(['--device', 'emulator-5554', '--allow-ui-actions', '--restart-app', '--saved-state-confirmed']).savedStateConfirmed, true);
+  assert.throws(() => parseOptions(['--device', 'emulator-5554', '--allow-ui-actions', '--saved-state-confirmed']), /--restart-app/i);
   assert.throws(() => parseOptions(['--device', 'emulator-5554', '--allow-ui-actions', '--start-app', '--restart-app']), /ambos/i);
   assert.throws(() => parseOptions(['--device', 'emulator-5554', '--run-financial-cases']), /requiere/i);
   assert.throws(() => parseOptions(['--device', 'emulator-5554', '--allow-ui-actions', '--run-financial-cases']), /--restart-app/i);
@@ -46,6 +48,16 @@ test('UI actions require an explicitly selected device and malformed options are
   assert.equal(parseOptions(['--device', 'emulator-5554', '--apk', 'integrated.apk', '--allow-ui-actions', '--restart-app', '--run-financial-cases']).runFinancialCases, true);
   assert.throws(() => parseOptions(['--apk', 'app.apk']), /--device/i);
   assert.throws(() => parseOptions(['--unknown']), /opción/i);
+});
+
+test('a restart is blocked until the caller confirms the saved baseline has no draft to preserve', () => {
+  assert.equal(savedStateRestartReadiness({ restartApp: true, savedStateConfirmed: false }).ready, false);
+  assert.match(savedStateRestartReadiness({ restartApp: true, savedStateConfirmed: false }).reason, /borrador/i);
+  assert.equal(savedStateRestartReadiness({ restartApp: true, savedStateConfirmed: true }).ready, true);
+  assert.equal(savedStateRestartReadiness({ restartApp: false, savedStateConfirmed: false }).ready, true);
+  const options = parseOptions(['--device', 'controlled-device', '--allow-ui-actions', '--restart-app', '--apk', 'candidate.apk', '--run-financial-cases']);
+  assert.equal(options.savedStateConfirmed, false);
+  assert.equal(savedStateRestartReadiness(options).ready, false);
 });
 
 test('device memory records physical total and available pressure averages without inference', () => {
@@ -117,29 +129,56 @@ test('a financial case passes only after its action and every independent numeri
     { semantic: 'tabla saldo de capital Modificado mes 1', expected: 502.49 },
   ];
   assert.equal(evaluateFinancialCase({ actionPerformed: false, outputs, observed: [] }).status, 'NOT_RUN');
+  assert.equal(evaluateFinancialCase({ actionPerformed: false, scenarioEffectAttempted: true, outputs, observed: [] }).status, 'FAIL');
   assert.equal(evaluateFinancialCase({ actionPerformed: true, outputs, observed: [{ semantic: outputs[0].semantic, text: '$507,51' }] }).status, 'FAIL');
   assert.equal(evaluateFinancialCase({ actionPerformed: true, outputs, observed: outputs.map(output => ({ ...output, text: `$${output.expected.toFixed(2).replace('.', ',')}` })) }).status, 'PASS');
   assert.equal(evaluateFinancialCase({ actionPerformed: true, outputs, observed: outputs.map((output, index) => ({ ...output, text: `$${(output.expected + (index ? 1 : 0)).toFixed(2).replace('.', ',')}` })) }).status, 'FAIL');
   assert.equal(evaluateFinancialCase({ actionPerformed: true, actionsComplete: false, outputs, observed: outputs.map(output => ({ ...output, text: `$${output.expected.toFixed(2).replace('.', ',')}` })) }).status, 'FAIL');
 });
 
-test('a failed action after mutation still requires restart and cannot complete the recipe', async () => {
-  let calls = 0;
+test('the production financial field path marks a mutation before a post-tap hierarchy failure', async () => {
+  let taps = 0;
+  const [field] = parseHierarchy('<node text="Capital (COP)" class="android.widget.EditText" editable="true" clickable="true" bounds="[10,10][200,80]" />');
   const sequence = await runFinancialActionSequence([
-    { type: 'reset-example' }, { type: 'button', label: 'Aplicar comparación' },
-  ], async (_action, state) => {
-    calls += 1;
-    state.mutated = true;
-    throw new Error('falló la lectura después del toque');
-  });
-  assert.equal(calls, 1);
+    { type: 'field', label: 'Capital (COP)', value: '1000' },
+    { type: 'button', label: 'Aplicar comparación', primary: true },
+  ], (action, state) => performFinancialAction('controlled-device', {}, [field], action, { width: 480, height: 800 }, state, {
+    locateActionControl: async () => ({ node: field, nodes: [field] }),
+    delay: async () => {},
+    dumpHierarchy: async () => { throw new Error('falló la lectura después del toque'); },
+    adb: (_serial, args) => { if (args.includes('tap')) taps += 1; return ''; },
+  }));
+  assert.equal(taps, 1);
+  assert.equal(sequence.state.actionPerformed, false);
+  assert.equal(sequence.effectAttempted, true);
+  assert.equal(sequence.state.failedEffectAttempted, true);
+  assert.equal(sequence.state.mutated, true);
   assert.equal(sequence.restoreRequired, true);
   assert.equal(sequence.actionsComplete, false);
-  assert.equal(sequence.actions[0].status, 'NOT_RUN');
+  assert.equal(sequence.actions[0].status, 'FAIL');
   assert.equal(sequence.actions[1].status, 'NOT_RUN');
   assert.match(sequence.failure, /falló la lectura/);
   const allOutputsMatch = FINANCIAL_RECIPES[0].outputs.map(output => ({ ...output, text: `$${output.expected.toFixed(2).replace('.', ',')}` }));
-  assert.equal(evaluateFinancialCase({ actionPerformed: true, actionsComplete: sequence.actionsComplete, outputs: FINANCIAL_RECIPES[0].outputs, observed: allOutputsMatch }).status, 'FAIL');
+  assert.equal(evaluateFinancialCase({ actionPerformed: sequence.state.actionPerformed, scenarioEffectAttempted: sequence.state.mutated || sequence.state.actionPerformed, actionsComplete: sequence.actionsComplete, outputs: FINANCIAL_RECIPES[0].outputs, observed: allOutputsMatch }).status, 'FAIL');
+});
+
+test('a missing action prerequisite before any touch remains NOT_RUN without restoration', async () => {
+  let taps = 0;
+  const [field] = parseHierarchy('<node text="Capital (COP)" class="android.widget.EditText" editable="true" clickable="true" bounds="[10,10][200,80]" />');
+  const sequence = await runFinancialActionSequence([
+    { type: 'field', label: 'Capital (COP)', value: '1000' },
+  ], (action, state) => performFinancialAction('controlled-device', {}, [field], action, { width: 480, height: 800 }, state, {
+    locateActionControl: async () => { throw new Error('No se encontró el control antes de tocarlo.'); },
+    delay: async () => {},
+    dumpHierarchy: async () => [field],
+    adb: (_serial, args) => { if (args.includes('tap')) taps += 1; return ''; },
+  }));
+  assert.equal(taps, 0);
+  assert.equal(sequence.effectAttempted, false);
+  assert.equal(sequence.state.failedEffectAttempted, false);
+  assert.equal(sequence.restoreRequired, false);
+  assert.equal(sequence.actions[0].status, 'NOT_RUN');
+  assert.equal(evaluateFinancialCase({ actionPerformed: false, scenarioEffectAttempted: sequence.state.mutated || sequence.state.actionPerformed, outputs: FINANCIAL_RECIPES[0].outputs, observed: [] }).status, 'NOT_RUN');
 });
 
 test('APK candidate comparison accounts for the full installed base and split set', () => {
@@ -151,6 +190,9 @@ test('APK candidate comparison accounts for the full installed base and split se
   const splitResult = compareInstalledApkCandidate({ sha256: 'base-hash' }, [base, split]);
   assert.equal(splitResult.status, 'NOT_RUN');
   assert.equal(splitResult.baseMatches, true);
+  const mismatchedBaseAndUnknownSplits = compareInstalledApkCandidate({ sha256: 'other' }, [base, split]);
+  assert.equal(mismatchedBaseAndUnknownSplits.status, 'FAIL');
+  assert.equal(mismatchedBaseAndUnknownSplits.baseMatches, false);
   assert.equal(compareInstalledApkCandidate({ sha256: 'base-hash' }, []).status, 'BLOCKED');
 });
 

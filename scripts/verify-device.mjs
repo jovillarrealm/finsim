@@ -228,7 +228,7 @@ const reportRoot = path.join(os.homedir(), '.finsim', 'verification', 'android')
 const tabs = ['Préstamo', 'Conversor', 'Conciliación', 'Ofertas'];
 
 export function parseOptions(args) {
-  const options = { device: null, apk: null, allowUiActions: false, startApp: false, restartApp: false, runFinancialCases: false, help: false };
+  const options = { device: null, apk: null, allowUiActions: false, startApp: false, restartApp: false, savedStateConfirmed: false, runFinancialCases: false, help: false };
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (arg === '--device' || arg === '--apk') {
@@ -241,6 +241,8 @@ export function parseOptions(args) {
       options.startApp = true;
     } else if (arg === '--restart-app') {
       options.restartApp = true;
+    } else if (arg === '--saved-state-confirmed') {
+      options.savedStateConfirmed = true;
     } else if (arg === '--run-financial-cases') {
       options.runFinancialCases = true;
     } else if (arg === '--help' || arg === '-h') {
@@ -253,12 +255,21 @@ export function parseOptions(args) {
   if (options.startApp && (!options.device || !options.allowUiActions)) throw new Error('--start-app requiere --device y --allow-ui-actions explícitos.');
   if (options.restartApp && (!options.device || !options.allowUiActions)) throw new Error('--restart-app requiere --device y --allow-ui-actions explícitos.');
   if (options.startApp && options.restartApp) throw new Error('Usa --start-app o --restart-app, no ambos.');
+  if (options.savedStateConfirmed && !options.restartApp) throw new Error('--saved-state-confirmed requiere --restart-app.');
   if (options.runFinancialCases && (!options.device || !options.allowUiActions || !options.restartApp)) {
-    throw new Error('--run-financial-cases requiere --device, --allow-ui-actions y --restart-app explícitos para delimitar las acciones y reabrir la app sin limpiar almacenamiento.');
+    throw new Error('--run-financial-cases requiere --device, --allow-ui-actions y --restart-app explícitos; antes confirma el estado guardado con --saved-state-confirmed.');
   }
   if (options.runFinancialCases && !options.apk) throw new Error('--run-financial-cases requiere --apk para identificar el binario instalado antes de interactuar.');
   if (options.apk && !options.device) throw new Error('--apk requiere --device <serial> para comparar el candidato con el APK instalado.');
   return options;
+}
+
+export function savedStateRestartReadiness({ restartApp, savedStateConfirmed }) {
+  if (restartApp && !savedStateConfirmed) return {
+    ready: false,
+    reason: 'Antes de reiniciar, confirma que el estado persistido está al día y que no hay un borrador que quieras conservar.',
+  };
+  return { ready: true, reason: null };
 }
 
 export function chooseDevice(devices, serial) {
@@ -331,12 +342,14 @@ export function evaluateFinancialObservation({ actionPerformed, observedText, ex
   return { status, observed: observedText, parsed, expected, actual: `${observedText} (parseado ${parsed})` };
 }
 
-export function evaluateFinancialCase({ actionPerformed, actionsComplete = true, outputs, observed }) {
-  if (!actionPerformed) return {
-    status: 'NOT_RUN',
+export function evaluateFinancialCase({ actionPerformed, scenarioEffectAttempted = actionPerformed, actionsComplete = true, outputs, observed }) {
+  if (!actionPerformed || !actionsComplete) return {
+    status: scenarioEffectAttempted ? 'FAIL' : 'NOT_RUN',
     expected: outputs,
     observations: observed ?? [],
-    actual: 'No se confirmó la acción que genera las salidas financieras.',
+    actual: scenarioEffectAttempted
+      ? 'Se intentó una acción de la receta, pero la secuencia no llegó completa a la generación de salidas financieras.'
+      : 'No se intentó ningún efecto de la receta; la comprobación financiera no se ejecutó.',
   };
   const observations = outputs.map(output => {
     const match = (observed ?? []).find(item => item.semantic === output.semantic);
@@ -354,17 +367,20 @@ export function evaluateFinancialCase({ actionPerformed, actionsComplete = true,
 }
 
 export async function runFinancialActionSequence(actions, perform) {
-  const state = { actionPerformed: false, mutated: false };
+  const state = { actionPerformed: false, effectAttempted: false, effectCount: 0, failedEffectAttempted: false, mutated: false };
   const results = [];
   let failure = null;
   for (let index = 0; index < actions.length; index += 1) {
     const action = actions[index];
+    const effectCountBefore = state.effectCount;
     try {
       const result = await perform(action, state);
       results.push({ type: action.type, label: action.label ?? action.value ?? action.type, value: action.value ?? null, status: 'PASS', detail: result?.detail ?? '' });
     } catch (error) {
       failure = error instanceof Error ? error.message : String(error);
-      results.push({ type: action.type, label: action.label ?? action.value ?? action.type, value: action.value ?? null, status: state.actionPerformed ? 'FAIL' : 'NOT_RUN', detail: failure });
+      const failedEffectAttempted = state.effectCount > effectCountBefore;
+      if (failedEffectAttempted) state.failedEffectAttempted = true;
+      results.push({ type: action.type, label: action.label ?? action.value ?? action.type, value: action.value ?? null, status: failedEffectAttempted ? 'FAIL' : 'NOT_RUN', detail: failure });
       for (const remaining of actions.slice(index + 1)) {
         results.push({ type: remaining.type, label: remaining.label ?? remaining.value ?? remaining.type, value: remaining.value ?? null, status: 'NOT_RUN', detail: `No ejecutado después de: ${failure}` });
       }
@@ -376,6 +392,9 @@ export async function runFinancialActionSequence(actions, perform) {
     actions: results,
     actionsComplete: results.length === actions.length && results.every(item => item.status === 'PASS'),
     restoreRequired: state.mutated,
+    effectAttempted: state.effectAttempted,
+    effectCount: state.effectCount,
+    failedEffectAttempted: state.failedEffectAttempted,
     failure,
   };
 }
@@ -395,6 +414,11 @@ export function compareInstalledApkCandidate(candidate, installedApks) {
   }
   const baseMatches = candidate.sha256 === installedApks[0].sha256;
   if (installedApks.length > 1) {
+    if (!baseMatches) return {
+      status: 'FAIL', baseMatches,
+      expected: `El APK candidato representa el conjunto instalado completo, incluida cada división; base esperada ${installedApks[0].sha256}.`,
+      actual: `El APK candidato difiere de la base instalada (${installedApks[0].sha256}); además hay ${installedApks.length - 1} split(s) cuyo contenido no se comparó.`,
+    };
     return {
       status: 'NOT_RUN', baseMatches,
       expected: 'El artefacto candidato representa el conjunto instalado completo, incluida cada división.',
@@ -772,12 +796,22 @@ function observedTab(nodes, tab, size) {
   return findVisibleNode(nodes, tab, size, { exact: true });
 }
 
-function tapObservedNode(serial, node, size) {
+function tapObservedNode(serial, node, size, beforeEffect, runAdb = adb) {
   if (!node || !isVisibleInDisplay(node, size)) throw new Error('El control ya no está dentro del viewport observado.');
   const target = getInteractiveTarget(node);
   if (!parseBoundsFromNode(target) || !isVisibleInDisplay(target, size)) throw new Error('El control observado no tiene bounds interactivos visibles.');
   if (!target.enabled) throw new Error('El control observado está deshabilitado.');
-  adb(serial, ['shell', 'input', 'tap', String(Math.floor((target.bounds.left + target.bounds.right) / 2)), String(Math.floor((target.bounds.top + target.bounds.bottom) / 2))]);
+  beforeEffect?.();
+  runAdb(serial, ['shell', 'input', 'tap', String(Math.floor((target.bounds.left + target.bounds.right) / 2)), String(Math.floor((target.bounds.top + target.bounds.bottom) / 2))]);
+}
+
+function tapFinancialAction(serial, node, size, state, { mutated = false, primary = false } = {}, runAdb = adb) {
+  return tapObservedNode(serial, node, size, () => {
+    state.effectAttempted = true;
+    state.effectCount = (state.effectCount ?? 0) + 1;
+    if (mutated) state.mutated = true;
+    if (primary) state.actionPerformed = true;
+  }, runAdb);
 }
 
 async function swipeObservedContainer(serial, context, nodes, size, direction = 'down') {
@@ -935,84 +969,87 @@ function adbInputText(value) {
   return value.replace(/\s/g, '%s');
 }
 
-async function performFinancialAction(serial, context, nodes, action, size, state) {
+export async function performFinancialAction(serial, context, nodes, action, size, state, drivers = {}) {
+  const locate = drivers.locateActionControl ?? locateActionControl;
+  const wait = drivers.delay ?? delay;
+  const dump = drivers.dumpHierarchy ?? dumpHierarchy;
+  const keyboardShown = drivers.imeShown ?? imeShown;
+  const runAdb = drivers.adb ?? adb;
+  const tap = (node, effect = {}) => tapFinancialAction(serial, node, size, state, effect, runAdb);
+
   if (action.type === 'tab') {
     const tab = observedTab(nodes, action.value, size);
     if (!tab) throw new Error(`La pestaña «${action.value}» no está visible en la jerarquía observada.`);
-    if (!tab.selected) tapObservedNode(serial, tab, size);
-    await delay(250);
-    return { nodes: await dumpHierarchy(serial, context), detail: `pestaña ${action.value} observada${tab.selected ? ' ya seleccionada' : ' seleccionada'}` };
+    if (!tab.selected) tap(tab);
+    await wait(250);
+    return { nodes: await dump(serial, context), detail: `pestaña ${action.value} observada${tab.selected ? ' ya seleccionada' : ' seleccionada'}` };
   }
 
   if (action.type === 'field') {
-    const found = await locateActionControl(serial, context, nodes, action, size, 'field');
-    tapObservedNode(serial, found.node, size);
-    await delay(180);
-    const focusedNodes = await dumpHierarchy(serial, context);
+    const found = await locate(serial, context, nodes, action, size, 'field');
+    tap(found.node, { mutated: true, primary: !!action.primary });
+    await wait(180);
+    const focusedNodes = await dump(serial, context);
     const focused = semanticCandidates(focusedNodes, action.label, 'field')[actionOccurrence(action) - 1];
     if (!focused?.focused) throw new Error(`El campo «${action.label}» no confirmó foco; no se ingresó el valor.`);
-    if (imeShown(serial) !== true) throw new Error(`El teclado virtual no se confirmó para «${action.label}»; no se ingresó el valor.`);
-    adb(serial, ['shell', 'input', 'keyevent', '123']);
-    adb(serial, ['shell', 'input', 'keyevent', ...Array.from({ length: Math.min(120, Math.max(48, focused.text.length + 2)) }, () => '67')]);
-    if (action.value !== '') adb(serial, ['shell', 'input', 'text', adbInputText(action.value)]);
-    await delay(180);
-    const typedNodes = await dumpHierarchy(serial, context);
+    if (keyboardShown(serial) !== true) throw new Error(`El teclado virtual no se confirmó para «${action.label}»; no se ingresó el valor.`);
+    runAdb(serial, ['shell', 'input', 'keyevent', '123']);
+    runAdb(serial, ['shell', 'input', 'keyevent', ...Array.from({ length: Math.min(120, Math.max(48, focused.text.length + 2)) }, () => '67')]);
+    if (action.value !== '') runAdb(serial, ['shell', 'input', 'text', adbInputText(action.value)]);
+    await wait(180);
+    const typedNodes = await dump(serial, context);
     const typed = semanticCandidates(typedNodes, action.label, 'field')[actionOccurrence(action) - 1];
     const text = typed?.text ?? '';
     if (!typed || !expectedFieldValue(text, action.value)) {
       throw new Error(`«${action.label}» mostró «${text || 'vacío'}» después de ingresar «${action.value}».`);
     }
-    const keyboardAfterEntry = imeShown(serial);
+    const keyboardAfterEntry = keyboardShown(serial);
     let finalNodes = typedNodes;
     if (keyboardAfterEntry === null) throw new Error(`No se pudo consultar el estado del teclado tras «${action.label}».`);
     if (keyboardAfterEntry) {
-      adb(serial, ['shell', 'input', 'keyevent', '4']);
-      await delay(120);
-      finalNodes = await dumpHierarchy(serial, context);
+      runAdb(serial, ['shell', 'input', 'keyevent', '4']);
+      await wait(120);
+      finalNodes = await dump(serial, context);
     }
-    if (action.primary) state.actionPerformed = true;
-    state.mutated = true;
     return { nodes: finalNodes, detail: `campo verificado ${action.label}=${text}; teclado cerrado=${keyboardAfterEntry}` , primary: !!action.primary };
   }
 
   if (action.type === 'choice') {
-    const found = await locateActionControl(serial, context, nodes, action, size, 'control');
-    tapObservedNode(serial, found.node, size);
-    await delay(160);
-    const options = await dumpHierarchy(serial, context);
+    const found = await locate(serial, context, nodes, action, size, 'control');
+    tap(found.node, { mutated: true });
+    await wait(160);
+    const options = await dump(serial, context);
     const option = options.find(node => isVisibleInDisplay(node, size)
       && [node.text, node.contentDescription, node.hint].some(value => value.trim() === action.value));
     if (!option) throw new Error(`El selector «${action.label}» no expuso la opción «${action.value}».`);
-    tapObservedNode(serial, option, size);
-    await delay(160);
-    const selectedNodes = await dumpHierarchy(serial, context);
+    tap(option, { mutated: true });
+    await wait(160);
+    const selectedNodes = await dump(serial, context);
     const control = semanticCandidates(selectedNodes, action.label, 'control')[actionOccurrence(action) - 1];
     const selectedText = control ? nodeText(control).join(' ') : '';
     const selectedValue = action.selectedAs ?? action.value;
     const selected = selectedText.toLocaleLowerCase('es').includes(selectedValue.toLocaleLowerCase('es'))
       || selectedNodes.some(node => node.selected && node.text.trim() === action.value);
     if (!selected) throw new Error(`«${action.label}» no mostró la selección «${action.value}» después del toque observado.`);
-    state.mutated = true;
     return { nodes: selectedNodes, detail: `selección verificada ${action.label}=${action.value}` };
   }
 
   if (action.type === 'check') {
-    const found = await locateActionControl(serial, context, nodes, action, size, 'check');
-    if (!found.node.checked) tapObservedNode(serial, found.node, size);
-    const checkedNodes = await dumpHierarchy(serial, context);
+    const found = await locate(serial, context, nodes, action, size, 'check');
+    if (!found.node.checked) tap(found.node, { mutated: true });
+    const checkedNodes = await dump(serial, context);
     const checked = semanticCandidates(checkedNodes, action.label, 'check')[actionOccurrence(action) - 1];
     if (!checked?.checked) throw new Error(`La casilla «${action.label}» no confirmó checked=true.`);
-    state.mutated = true;
     return { nodes: checkedNodes, detail: `casilla verificada ${action.label}=true` };
   }
 
   if (action.type === 'table') {
     const alreadyOpen = semanticCandidates(nodes, 'Ocultar tabla', 'control').find(node => isVisibleInDisplay(node, size));
     if (alreadyOpen) return { nodes, detail: 'tabla ya visible según su control de cierre observado' };
-    const found = await locateActionControl(serial, context, nodes, { ...action, label: 'Ver tabla' }, size, 'control');
-    tapObservedNode(serial, found.node, size);
-    await delay(250);
-    const nextNodes = await dumpHierarchy(serial, context);
+    const found = await locate(serial, context, nodes, { ...action, label: 'Ver tabla' }, size, 'control');
+    tap(found.node);
+    await wait(250);
+    const nextNodes = await dump(serial, context);
     if (!semanticCandidates(nextNodes, 'Ocultar tabla', 'control').some(node => isVisibleInDisplay(node, size))) {
       throw new Error('Se tocó «Ver tabla», pero no se observó el control «Ocultar tabla».');
     }
@@ -1021,19 +1058,16 @@ async function performFinancialAction(serial, context, nodes, action, size, stat
 
   if (action.type === 'event-add' || action.type === 'button' || action.type === 'reset-example') {
     const label = action.type === 'reset-example' ? 'Ejemplo' : action.label;
-    const found = await locateActionControl(serial, context, nodes, { ...action, label }, size, 'control');
+    const found = await locate(serial, context, nodes, { ...action, label }, size, 'control');
     const addedKind = action.addedKind ?? 'field';
     const previousCount = action.addedField ? semanticCandidates(found.nodes, action.addedField, addedKind).length : null;
-    tapObservedNode(serial, found.node, size);
-    if (action.primary) state.actionPerformed = true;
-    if (action.type !== 'button' || label !== 'Ver tabla') state.mutated = true;
-    await delay(250);
-    const nextNodes = await dumpHierarchy(serial, context);
+    tap(found.node, { mutated: true, primary: !!action.primary });
+    await wait(250);
+    const nextNodes = await dump(serial, context);
     if (action.addedField) {
       const nextCount = semanticCandidates(nextNodes, action.addedField, addedKind).length;
       if (nextCount <= previousCount) throw new Error(`«${label}» se tocó, pero no apareció el control nuevo «${action.addedField}».`);
     }
-    if (action.primary && action.type === 'button') state.actionPerformed = true;
     return { nodes: nextNodes, detail: `${label} tocado con bounds observados`, primary: !!action.primary };
   }
 
@@ -1164,24 +1198,25 @@ async function restoreFinancialApp(report, serial, context, size) {
     const renderedContent = restored.some(node => isVisibleInDisplay(node, size) && (node.text.trim() || node.contentDescription.trim()));
     report.execution.financialAppReopen = {
       launchResult, storageCleared: false, saveButtonPressed: false,
+      savedStateConfirmed: true, userDraftBackup: false, testDraftsDiscarded: true,
       persistedScenarioCompared: false, renderedContent,
     };
     addCheck(report, {
       id: 'FINANCIAL-APP-REOPEN', requirement: 'VERIFY-02', platform: report.device.kind,
       status: renderedContent ? 'PASS' : 'FAIL',
-      expected: 'Después de las recetas, MainActivity vuelve a abrir y muestra contenido; el runner no limpia almacenamiento ni pulsa Guardar.',
-      actual: `force-stop/start confirmado=${launchResult.succeeded}; contenido visible=${renderedContent}; storageCleared=false; Guardar no pulsado; igualdad del escenario persistido no comparada.`,
+      expected: 'Después de las recetas, MainActivity vuelve a abrir y muestra contenido; se descartan los borradores de prueba sin limpiar almacenamiento ni pulsar Guardar.',
+      actual: `force-stop/start confirmado=${launchResult.succeeded}; contenido visible=${renderedContent}; borradores de prueba descartados=true; borradores previos no respaldados; storageCleared=false; Guardar no pulsado; igualdad del escenario persistido no comparada.`,
     });
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     report.execution.financialAppReopen = {
       error: reason, storageCleared: false, saveButtonPressed: false,
-      persistedScenarioCompared: false,
+      savedStateConfirmed: true, userDraftBackup: false, testDraftsDiscarded: null, persistedScenarioCompared: false,
     };
     addCheck(report, {
       id: 'FINANCIAL-APP-REOPEN', requirement: 'VERIFY-02', platform: report.device.kind,
       status: 'BLOCKED',
-      expected: 'MainActivity vuelve a abrir y muestra contenido después de las recetas sin limpiar almacenamiento ni pulsar Guardar.',
+      expected: 'MainActivity vuelve a abrir y muestra contenido después de las recetas; los borradores de prueba se descartan sin limpiar almacenamiento ni pulsar Guardar.',
       actual: reason,
       resume: 'Reabrir manualmente la app de prueba y confirmar que responde antes de entregar el dispositivo; este check no compara el escenario persistido.',
     });
@@ -1197,7 +1232,7 @@ async function runFinancialRecipes(report, serial, context) {
       context.activeFinancialCase = recipe.id;
       context.financialCaseDumps = 0;
       context.financialCaseScrolls = 0;
-      let state = { actionPerformed: false, mutated: false };
+      let state = { actionPerformed: false, effectAttempted: false, effectCount: 0, failedEffectAttempted: false, mutated: false };
       let actions = [];
       let actionsComplete = false;
       let nodes;
@@ -1220,7 +1255,7 @@ async function runFinancialRecipes(report, serial, context) {
           const result = await observeFinancialOutputs(serial, context, nodes, recipe, size);
           nodes = result.nodes;
           const reference = FINANCIAL_REFERENCES.find(item => item.id === recipe.id);
-          const evaluation = evaluateFinancialCase({ actionPerformed: true, actionsComplete, outputs: recipe.outputs, observed: result.observed });
+          const evaluation = evaluateFinancialCase({ actionPerformed: true, scenarioEffectAttempted: state.mutated || state.actionPerformed || state.failedEffectAttempted, actionsComplete, outputs: recipe.outputs, observed: result.observed });
           addCheck(report, {
             id: recipe.id, requirement: 'FIN-01/FIN-02/UI-01', platform: report.device.kind,
             status: evaluation.status, expected: reference?.expected ?? recipe.outputs.map(item => `${item.semantic}=${item.expected}`).join('; '),
@@ -1229,6 +1264,16 @@ async function runFinancialRecipes(report, serial, context) {
             resume: evaluation.status === 'FAIL' ? 'Revisar la cifra o salida observada en la evidencia del caso y repetir sobre el APK integrado con el mismo dispositivo explícito.' : undefined,
           });
           report.execution.financialCases.push({ id: recipe.id, status: evaluation.status, actionPerformed: true, actions, outputs: evaluation.observations, hierarchyDumps: context.financialCaseDumps, observedScrolls: context.financialCaseScrolls, stoppedReason: failure });
+        } else if (state.mutated || state.actionPerformed || state.failedEffectAttempted) {
+          const reason = failure ?? 'Se intentó una acción de la receta, pero no se alcanzó la acción que genera las salidas financieras.';
+          addCheck(report, {
+            id: recipe.id, requirement: 'FIN-01/FIN-02/UI-01', platform: report.device.kind,
+            status: 'FAIL', expected: FINANCIAL_REFERENCES.find(item => item.id === recipe.id)?.expected ?? recipe.id,
+            expectationSource: FINANCIAL_REFERENCES.find(item => item.id === recipe.id)?.source,
+            actual: `La receta comenzó una acción con efecto, pero falló antes de activar el cálculo financiero: ${reason}.`,
+            resume: 'Revisar la evidencia del control que falló y repetir sobre el APK integrado con el mismo dispositivo explícito.',
+          });
+          report.execution.financialCases.push({ id: recipe.id, status: 'FAIL', actionPerformed: false, actions, outputs: [], hierarchyDumps: context.financialCaseDumps, observedScrolls: context.financialCaseScrolls, stoppedReason: reason });
         } else {
           const reason = failure ?? 'No se confirmó la acción que genera las salidas financieras.';
           addCheck(report, pendingFinancialCheck(recipe, report.device.kind, reason));
@@ -1236,14 +1281,14 @@ async function runFinancialRecipes(report, serial, context) {
         }
       } catch (error) {
         failure = error instanceof Error ? error.message : String(error);
-        const evaluation = evaluateFinancialCase({ actionPerformed: state.actionPerformed, actionsComplete, outputs: recipe.outputs, observed: [] });
-        addCheck(report, state.actionPerformed ? {
+        const evaluation = evaluateFinancialCase({ actionPerformed: state.actionPerformed, scenarioEffectAttempted: state.mutated || state.actionPerformed || state.failedEffectAttempted, actionsComplete, outputs: recipe.outputs, observed: [] });
+        addCheck(report, evaluation.status === 'FAIL' ? {
           id: recipe.id, requirement: 'FIN-01/FIN-02/UI-01', platform: report.device.kind,
           status: 'FAIL', expected: FINANCIAL_REFERENCES.find(item => item.id === recipe.id)?.expected ?? recipe.id,
           expectationSource: FINANCIAL_REFERENCES.find(item => item.id === recipe.id)?.source,
-          actual: `La acción financiera se confirmó, pero se interrumpió la observación de sus cifras: ${failure}.`,
+          actual: `${state.actionPerformed ? 'La acción que genera salidas se intentó' : 'Una acción con efecto se intentó antes del cálculo'} y se interrumpió la receta: ${failure}.`,
         } : pendingFinancialCheck(recipe, report.device.kind, failure));
-        report.execution.financialCases.push({ id: recipe.id, status: evaluation.status === 'NOT_RUN' ? 'NOT_RUN' : 'FAIL', actionPerformed: state.actionPerformed, actions, outputs: [], hierarchyDumps: context.financialCaseDumps, observedScrolls: context.financialCaseScrolls, stoppedReason: failure });
+        report.execution.financialCases.push({ id: recipe.id, status: evaluation.status, actionPerformed: state.actionPerformed, actions, outputs: [], hierarchyDumps: context.financialCaseDumps, observedScrolls: context.financialCaseScrolls, stoppedReason: failure });
       } finally {
         shouldRestore ||= state.mutated;
         context.activeFinancialCase = null;
@@ -1259,7 +1304,7 @@ async function runFinancialRecipes(report, serial, context) {
 function pendingFinancialCheck(recipe, platform, reason) {
   return pendingCheck(recipe.id, 'FIN-01/FIN-02/UI-01',
     `${recipe.actions.length} acciones de entrada/aplicación observadas y todas las salidas numéricas literales de la receta.`, reason,
-    'Retomar con `npm run verify:device -- --device <serial explícito> --apk <APK integrado> --allow-ui-actions --restart-app --run-financial-cases`; el destino debe estar autorizado y controlado.');
+    'Guarda o descarta primero cualquier borrador que quieras conservar; luego confirma que el estado persistido está al día y retoma con `npm run verify:device -- --device <serial explícito> --apk <APK integrado> --allow-ui-actions --restart-app --saved-state-confirmed --run-financial-cases`. El runner no guarda ni respalda borradores.');
 }
 
 function financialPendingChecks(reason, platform = 'APK Android') {
@@ -1528,7 +1573,7 @@ ${checks || 'Sin comprobaciones.'}
 
 ${refs}
 
-El commit local y el hash del APK son identidades separadas; la coincidencia entre un candidato y el APK instalado no demuestra por sí sola qué revisión lo generó. Los metadatos laterales solo se presentan como declaración y se asocian al candidato cuando su SHA declarado coincide con los bytes. Se enumeran todas las rutas de pm path y sus hashes; un único --apk candidato solo puede demostrar coincidencia completa cuando el paquete instalado tiene un solo APK. El runner no instala ni borra datos. No inicia ni fuerza el cierre por defecto; --start-app abre explícitamente y --restart-app cierra/reabre MainActivity preservando almacenamiento, ambos requieren --allow-ui-actions. Las recetas financieras solo se ejecutan con --run-financial-cases junto a --device, --allow-ui-actions y --restart-app; cada caso tiene límite de 64 dumps y 24 desplazamientos observados, cada salida de tabla admite hasta cuatro gestos horizontales medidos. La suite no pulsa Guardar y reinicia MainActivity al terminar para descartar borradores de prueba sin limpiar almacenamiento. Las inspecciones y gestos requieren jerarquía reciente, bounds visibles y anclas semánticas observadas; si un control no aparece, el caso queda NOT_RUN antes de la acción financiera y propone cómo retomarlo. El perfil general usa un máximo de ${MAX_HIERARCHY_DUMPS} dumps. Sin --device no selecciona automáticamente un destino. Emulador y dispositivo físico se informan por separado; ninguna corrida de emulador acredita inferencia Gemma.
+El commit local y el hash del APK son identidades separadas; la coincidencia entre un candidato y el APK instalado no demuestra por sí sola qué revisión lo generó. Los metadatos laterales solo se presentan como declaración y se asocian al candidato cuando su SHA declarado coincide con los bytes. Se enumeran todas las rutas de pm path y sus hashes; un único --apk candidato solo puede demostrar coincidencia completa cuando el paquete instalado tiene un solo APK. El runner no instala, guarda ni borra datos. No inicia ni fuerza el cierre por defecto; --start-app abre explícitamente y --restart-app cierra/reabre MainActivity, ambos requieren --allow-ui-actions. Un reinicio descarta borradores en memoria; antes de --restart-app el operador debe pasar --saved-state-confirmed para declarar que el estado persistido está al día y que no hay un borrador que quiera conservar. Sin esa bandera, el informe queda BLOCKED y no se reinicia ni se interactúa con la UI. La bandera no respalda ni guarda borradores. Las recetas financieras solo se ejecutan con --run-financial-cases junto a --device, --allow-ui-actions, --restart-app y --saved-state-confirmed; cada caso tiene límite de 64 dumps y 24 desplazamientos observados, cada salida de tabla admite hasta cuatro gestos horizontales medidos. La suite no pulsa Guardar y, al terminar mutaciones de prueba, reinicia MainActivity para descartarlas sin limpiar almacenamiento ni restaurar un borrador previo. Las inspecciones y gestos requieren jerarquía reciente, bounds visibles y anclas semánticas observadas; si un control no aparece antes de tocarlo, el caso queda NOT_RUN; si un efecto se intenta y falla, queda FAIL. El perfil general usa un máximo de ${MAX_HIERARCHY_DUMPS} dumps. Sin --device no selecciona automáticamente un destino. Emulador y dispositivo físico se informan por separado; ninguna corrida de emulador acredita inferencia Gemma.
 `;
 }
 
@@ -1546,8 +1591,9 @@ async function main(args = process.argv.slice(2)) {
   try { options = parseOptions(args); }
   catch (error) { console.error(error.message); process.exitCode = 2; return; }
   if (options.help) {
-  console.log('Uso: npm run verify:device -- [--device <serial> [--allow-ui-actions [--start-app | --restart-app --apk <APK local> --run-financial-cases]]] [--apk <APK local>]');
-  console.log('Sin --device solo consulta el inventario ADB. --start-app abre MainActivity; --restart-app cierra/reabre sin limpiar almacenamiento. --run-financial-cases exige APK candidato coincidente, --allow-ui-actions y --restart-app.');
+  console.log('Uso: npm run verify:device -- [--device <serial> [--allow-ui-actions [--start-app | --restart-app --saved-state-confirmed --apk <APK local> --run-financial-cases]]] [--apk <APK local>]');
+  console.log('Sin --device solo consulta el inventario ADB. --start-app abre MainActivity. --restart-app requiere --saved-state-confirmed: confirma que no hay borrador que quieras conservar. Sin esa bandera el informe queda BLOCKED y no hay acciones UI.');
+  console.log('--run-financial-cases exige APK candidato coincidente, --allow-ui-actions, --restart-app y --saved-state-confirmed. El runner no guarda ni respalda borradores.');
     return;
   }
 
@@ -1564,6 +1610,7 @@ async function main(args = process.argv.slice(2)) {
     checks: [], execution: {
       targetSelected: !!options.device, uiActionsOptedIn: options.allowUiActions,
       financialCasesRequested: options.runFinancialCases,
+      savedStateConfirmed: options.savedStateConfirmed,
       install: false, launch: false, forceStop: false, clearData: false,
       uiautomatorDumpLimit: MAX_HIERARCHY_DUMPS, financialCaseDumpLimit: MAX_FINANCIAL_CASE_DUMPS,
       financialCaseScrollLimit: MAX_FINANCIAL_CASE_SCROLLS, uiautomatorDumps: uiContext.dumps,
@@ -1599,23 +1646,41 @@ async function main(args = process.argv.slice(2)) {
         addCheck(report, { id: 'APK-IDENTITY', requirement: 'VERIFY-02', platform: report.device.kind, status: 'PASS', expected: `Todas las rutas de APK instalado para ${PACKAGE_NAME} tienen versión y hash SHA-256 identificables.`, actual: `${report.device.versionName ?? 'versión desconocida'} (${report.device.versionCode ?? 'código desconocido'}); ${installedApkDetails}.` });
         const candidateComparison = compareInstalledApkCandidate(report.device.candidateApk, report.device.installedApks);
         addCheck(report, { id: 'APK-CANDIDATE-MATCH', requirement: 'VERIFY-02', platform: report.device.kind, ...candidateComparison, resume: candidateComparison.status === 'NOT_RUN' ? candidateComparison.baseMatches === undefined ? 'Construir el APK de la revisión que se quiere verificar y repetir con --apk <ruta del APK construido>.' : 'Proporcionar el conjunto completo de artefactos split para comparar cada componente.' : undefined });
-        if (options.restartApp) {
-          report.execution.forceStop = true;
-          report.execution.restart = true;
-          adb(options.device, ['shell', 'am', 'force-stop', PACKAGE_NAME], 15000);
-          report.execution.launch = true;
-          report.execution.launchResult = startApp(options.device);
-          if (!report.execution.launchResult.succeeded) throw new Error(`am start no confirmó MainActivity después del reinicio: ${report.execution.launchResult.status ?? 'sin Status'} / ${report.execution.launchResult.activity ?? 'sin Activity'}.`);
-        } else if (options.startApp) {
-          report.execution.launch = true;
-          report.execution.launchResult = startApp(options.device);
-          if (!report.execution.launchResult.succeeded) throw new Error(`am start no confirmó MainActivity: ${report.execution.launchResult.status ?? 'sin Status'} / ${report.execution.launchResult.activity ?? 'sin Activity'}.`);
+        const restartReadiness = savedStateRestartReadiness(options);
+        if (!restartReadiness.ready) {
+          addCheck(report, {
+            id: 'SAVED-STATE-CONFIRMATION', requirement: 'VERIFY-02', platform: report.device.kind,
+            status: 'BLOCKED',
+            expected: 'Antes de force-stop/start, el operador confirma que el estado guardado está al día y no hay un borrador que quiera conservar.',
+            actual: `Falta --saved-state-confirmed; ${restartReadiness.reason} El runner no reinició la app ni realizó acciones de UI. No guarda ni respalda borradores.`,
+            resume: 'Guarda o descarta en la app los borradores que quieras conservar y vuelve a ejecutar con --saved-state-confirmed. Esa bandera confirma el estado previo; no preserva borradores sin guardar.',
+          });
+          addMissingUiPending(report, 'Bloqueado antes de reiniciar o interactuar: no se confirmó que el estado persistido está al día y que no hay un borrador que deba conservarse.');
+        } else {
+          if (options.restartApp) {
+            addCheck(report, {
+              id: 'SAVED-STATE-CONFIRMATION', requirement: 'VERIFY-02', platform: report.device.kind,
+              status: 'PASS',
+              expected: 'El operador confirma que el estado guardado está al día y no hay un borrador que quiera conservar antes del reinicio.',
+              actual: 'Se proporcionó --saved-state-confirmed. Es una confirmación explícita; el runner no puede detectar ni respaldar borradores sin guardar.',
+            });
+            report.execution.forceStop = true;
+            report.execution.restart = true;
+            adb(options.device, ['shell', 'am', 'force-stop', PACKAGE_NAME], 15000);
+            report.execution.launch = true;
+            report.execution.launchResult = startApp(options.device);
+            if (!report.execution.launchResult.succeeded) throw new Error(`am start no confirmó MainActivity después del reinicio: ${report.execution.launchResult.status ?? 'sin Status'} / ${report.execution.launchResult.activity ?? 'sin Activity'}.`);
+          } else if (options.startApp) {
+            report.execution.launch = true;
+            report.execution.launchResult = startApp(options.device);
+            if (!report.execution.launchResult.succeeded) throw new Error(`am start no confirmó MainActivity: ${report.execution.launchResult.status ?? 'sin Status'} / ${report.execution.launchResult.activity ?? 'sin Activity'}.`);
+          }
+          if (options.allowUiActions) {
+            await runUiChecks(report, options.device, uiContext, options);
+            report.execution.restoredTab = uiContext.restoredTab;
+          }
+          else for (const check of uiPendingChecks('Se seleccionó el dispositivo, pero faltó el opt-in --allow-ui-actions; no se consultó ni manipuló la interfaz.')) addCheck(report, check);
         }
-        if (options.allowUiActions) {
-          await runUiChecks(report, options.device, uiContext, options);
-          report.execution.restoredTab = uiContext.restoredTab;
-        }
-        else for (const check of uiPendingChecks('Se seleccionó el dispositivo, pero faltó el opt-in --allow-ui-actions; no se consultó ni manipuló la interfaz.')) addCheck(report, check);
       } catch (error) {
         const message = error instanceof Error ? error.message.replaceAll(options.device, '[serial oculto]') : String(error);
         addCheck(report, { id: 'DEVICE-PROFILE-EXECUTION', requirement: 'VERIFY-02', platform: 'Android', status: 'BLOCKED', expected: 'Identidad del APK y perfil de UI completados en el destino seleccionado.', actual: message, resume: 'Resolver el prerequisito indicado y repetir; el reporte actual conserva el bloqueo.' });
