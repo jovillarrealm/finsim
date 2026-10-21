@@ -255,12 +255,12 @@ function renderMarkdown(report) {
   const evidenceFiles = report.evidenceFiles.map(file => `- [${safeText(file)}](${safeText(file)})`).join('\n');
   return `# PF — verificación financiera en JVM host
 
-**Estado del alcance PF:** ${report.result.status} (exit ${report.result.exitCode})  
-**Ejecución:** \`${report.runId}\` · ${report.startedAt}  
-**Origen:** \`${safeText(report.source.branch)}@${safeText(report.source.commit)}\`  
-**Cambios locales:** ${tree ? `${tree.hasLocalChanges ? 'sí' : 'no'} · SHA-256 \`${tree.sha256}\` · ${tree.trackedFilesChanged} archivos tracked y ${tree.untrackedFiles} no tracked` : `identidad no disponible: ${safeText(report.source.error)}`}  
-**Plataforma:** ${safeText(report.environment.os)} ${safeText(report.environment.arch)} · Node ${safeText(report.environment.node)} · Gradle ${safeText(report.environment.gradleVersion ?? 'no disponible')} · JVM ${safeText(report.environment.jvm ?? 'no disponible')}  
-**Comando:** \`${safeText(report.execution.command)}\`  
+**Estado del alcance PF:** ${report.result.status} (exit ${report.result.exitCode})<br>
+**Ejecución:** \`${report.runId}\` · ${report.startedAt}<br>
+**Origen:** \`${safeText(report.source.branch)}@${safeText(report.source.commit)}\`<br>
+**Cambios locales:** ${tree ? `${tree.hasLocalChanges ? 'sí' : 'no'} · SHA-256 \`${tree.sha256}\` · ${tree.trackedFilesChanged} archivos tracked y ${tree.untrackedFiles} no tracked` : `identidad no disponible: ${safeText(report.source.error)}`}<br>
+**Plataforma:** ${safeText(report.environment.os)} ${safeText(report.environment.arch)} · Node ${safeText(report.environment.node)} · Gradle ${safeText(report.environment.gradleVersion ?? 'no disponible')} · JVM ${safeText(report.environment.jvm ?? 'no disponible')}<br>
+**Comando:** \`${safeText(report.execution.command)}\`<br>
 **Evidencia:** \`${safeText(report.evidenceDirectory)}\`
 
 Este PASS, si se obtiene, cubre sólo los casos PF identificados que se ejecutaron de nuevo sobre JVM host. No acredita Wasm, interacción de APK, interfaz, rendimiento móvil ni inferencia documental.
