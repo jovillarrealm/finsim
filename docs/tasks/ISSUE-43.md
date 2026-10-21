@@ -3,7 +3,7 @@
 - Responsable: `/root/issue43_implement`; coordinadora `/root`.
 - Estado: checkpoint de implementación listo para revisión independiente; aceptación Android completa pendiente de un APK construido desde la integración de #40/#45. No cerrar issue.
 - Rama/worktree: `codex/spec37-issue43` · `C:/Users/Lenovo/.codex/worktrees/spec37-issue43/finsim`.
-- Base reservada: `e9317d83baaaebf0e3b4c4092e7543da916b3c1b`; #45 debe integrarse antes de entregar la punta.
+- Base reservada: `e9317d83baaaebf0e3b4c4092e7543da916b3c1b`; punta ya integra #45 mediante `89f4f6127be38bbf40e0e47a6cab77bf2e7adf1d` (merge local `7682cf8`).
 - Alcance: runner Android KMP invocable, identidad APK instalada/candidata, dispositivo y densidad real, arranque, navegación observada, controles táctiles, foco/teclado, scroll y criterios financieros independientes. No modifica el producto Kotlin ni código React.
 
 ## Implementación
