@@ -89,3 +89,9 @@
 - #32 código aprobado e integrado/publicado en `6cf9f4a27a6007738bda09565b9027fda73bb0ef`; Standards1P3 heurístico, Spec0. JVM144/host150 (144 comunes más6 específicas), APKdebug y sharedWasm aprobados. [Revisión e integración](https://github.com/jovillarrealm/finsim/issues/32#issuecomment-6320332425).
 - Release firmado de esa fuente construido e instalado con reemplazo en Samsung. #34 cerrada tras completar actualización con escenario distintivo preservado y comparación JSON completa; [prueba física](https://github.com/jovillarrealm/finsim/issues/34#issuecomment-6320519464). #44 conserva el resto del alcance abierto.
 - Ningún subagente activo en este momento. Coordinación ejecuta la prueba física32 con el fixture sintético existente antes de reactivar40/41. Descarga de modelo iniciada; inferencia/memoria/latencias pendientes. Los bloqueos web40 y los restantes tickets mantienen su estado anterior. Código todavía fuera de main, sin despliegue.
+
+## Corrida física #32: fallo y corrección en curso
+
+La descarga real terminó, se seleccionó el fixture sintético con texto pegado vacío y se intentó la inferencia. El APK release abortó en `nativeCreateConversation` por `NoSuchMethodError SamplerConfig.getTopK()I`; Android confirma crash nativo. Sin campos extraídos ni latencias/pico PSS completos. La corrida es FAIL, no NOT_RUN; [evidencia canónica](https://github.com/jovillarrealm/finsim/issues/32#issuecomment-6320720537). Se observaron además etiquetas comprimidas con fuente150%, conservada sin reducirla.
+
+El mismo implementador #32 volvió a trabajar como único subagente activo, Luna/max, para diagnosticar R8/JNI y corregir el layout mínimo del flujo. Después retomará el mismo revisor. El modelo descargado y el escenario guardado permanecen; no desinstalar, borrar datos ni repetir descarga. #40 y los demás siguen esperando. [Estado publicado en #37](https://github.com/jovillarrealm/finsim/issues/37#issuecomment-6320732829).
