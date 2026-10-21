@@ -13,6 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -386,13 +388,12 @@ fun DocumentImportDialog(
                     color = TextForestMuted
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     PdfDocumentPickerButton(
-                    enabled = !isAnalyzing && runtime.supportsGemma && runtime.capabilityGate.isEligibleForVlm,
+                        enabled = !isAnalyzing && runtime.supportsGemma && runtime.capabilityGate.isEligibleForVlm,
                         onPdfSelected = { name, bytes ->
                             selectedPdfName = name
                             selectedPdfBytes = bytes
@@ -403,16 +404,18 @@ fun DocumentImportDialog(
                     if (selectedPdfName != null) {
                         Text(
                             text = selectedPdfName!!,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.fillMaxWidth(),
                             style = MaterialTheme.typography.bodySmall,
                             color = BrandDark,
-                            maxLines = 2
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
                         TextButton(
                             onClick = {
                                 selectedPdfName = null
                                 selectedPdfBytes = null
                             },
+                            modifier = Modifier.align(Alignment.End),
                             enabled = !isAnalyzing
                         ) {
                             Text("Quitar")
@@ -490,25 +493,37 @@ fun DocumentImportDialog(
                                 downloadState is DownloadState.Completed,
                             colors = ButtonDefaults.buttonColors(containerColor = BrandForest, contentColor = Color.White),
                             shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth().height(46.dp)
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
                         ) {
-                            Text("Analizar página 1 con Gemma", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text(
+                                "Analizar página 1 con Gemma",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center
+                            )
                         }
                     }
                 }
 
                 // Actions: Cancel & Analyze
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     OutlinedButton(
                         onClick = onDismiss,
                         shape = RoundedCornerShape(10.dp),
                         border = BorderStroke(1.dp, BorderSage),
-                        modifier = Modifier.weight(1f).height(46.dp)
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
                     ) {
-                        Text("Cancelar", color = TextForestMuted, fontWeight = FontWeight.Medium)
+                        Text(
+                            "Cancelar",
+                            color = TextForestMuted,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center
+                        )
                     }
 
                     Button(
@@ -548,7 +563,8 @@ fun DocumentImportDialog(
                         enabled = !isAnalyzing,
                         colors = ButtonDefaults.buttonColors(containerColor = BrandForest, contentColor = Color.White),
                         shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.weight(1.5f).height(46.dp)
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
                     ) {
                         if (isAnalyzing) {
                             CircularProgressIndicator(
@@ -559,7 +575,12 @@ fun DocumentImportDialog(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Procesando...", fontSize = 12.sp, color = Color.White)
                         } else {
-                            Text("Analizar texto pegado", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text(
+                                "Analizar texto pegado",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center
+                            )
                         }
                     }
                 }
