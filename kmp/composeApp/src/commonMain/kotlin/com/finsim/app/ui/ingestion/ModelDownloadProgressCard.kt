@@ -9,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -106,66 +107,62 @@ fun ModelDownloadProgressCard(
         Column(modifier = Modifier.padding(14.dp)) {
             when (val state = downloadState) {
                 is DownloadState.Idle -> {
-                    Row(
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Modelo local Gemma 4 E2B INT4",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = BrandDark
-                            )
-                            Text(
-                                text = "Descarga de 2.58 GB · tus documentos se procesan en el dispositivo",
-                                fontSize = 11.sp,
-                                color = TextForestMuted
-                            )
-                        }
+                        Text(
+                            text = "Modelo local Gemma 4 E2B INT4",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = BrandDark
+                        )
+                        Text(
+                            text = "Descarga de 2.58 GB · tus documentos se procesan en el dispositivo",
+                            fontSize = 11.sp,
+                            color = TextForestMuted
+                        )
                         Button(
-                            onClick = {
-                                manager.startDownload()
-                            },
+                            onClick = { manager.startDownload() },
                             colors = ButtonDefaults.buttonColors(containerColor = BrandForest, contentColor = Color.White),
                             shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
-                            Text("Descargar (2.58 GB)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                "Descargar (2.58 GB)",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
                         }
                     }
                 }
 
                 is DownloadState.Downloading -> {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Row(
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Descargando Gemma 4 E2B INT4...",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = BrandDark
+                        )
+                        Text(
+                            text = "${formatBytesToMb(state.downloadedBytes)} de ${formatBytesToMb(state.totalBytes)}",
+                            fontSize = 11.sp,
+                            color = TextForestMuted
+                        )
+                        Text(
+                            text = "${(state.progress * 100).toInt()}%",
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = "Descargando Gemma 4 E2B INT4...",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = BrandDark
-                                )
-                                Text(
-                                    text = "${formatBytesToMb(state.downloadedBytes)} de ${formatBytesToMb(state.totalBytes)}",
-                                    fontSize = 11.sp,
-                                    color = TextForestMuted
-                                )
-                            }
-                            Text(
-                                text = "${(state.progress * 100).toInt()}%",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 14.sp,
-                                color = BrandForest
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
+                            textAlign = TextAlign.End,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp,
+                            color = BrandForest
+                        )
 
                         LinearProgressIndicator(
                             progress = { state.progress },
@@ -174,76 +171,62 @@ fun ModelDownloadProgressCard(
                             trackColor = BrandSageLight
                         )
 
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
+                        TextButton(
+                            onClick = { manager.cancelDownload() },
+                            modifier = Modifier.align(Alignment.End),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                         ) {
-                            TextButton(
-                                onClick = { manager.cancelDownload() },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                Text("Cancelar descarga", color = TextForestMuted, fontSize = 12.sp)
-                            }
+                            Text("Cancelar descarga", color = TextForestMuted, fontSize = 12.sp)
                         }
                     }
                 }
 
                 is DownloadState.Completed -> {
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Surface(
-                                    color = BrandLime.copy(alpha = 0.6f),
-                                    shape = RoundedCornerShape(6.dp)
-                                ) {
-                                    Text(
-                                        text = "✓ Instalado",
-                                        color = BrandForest,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text(
-                                        text = "Modelo local en dispositivo",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
-                                        color = BrandDark
-                                    )
-                                    Text(
-                                    text = "Gemma 4 E2B (${formatBytesToMb(state.totalSizeBytes)})",
-                                        fontSize = 11.sp,
-                                        color = TextForestMuted
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            OutlinedButton(
-                                onClick = { showDeleteConfirmDialog = true },
-                                shape = RoundedCornerShape(8.dp),
-                                border = BorderStroke(1.dp, BorderSage),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            Surface(
+                                color = BrandLime.copy(alpha = 0.6f),
+                                shape = RoundedCornerShape(6.dp)
                             ) {
                                 Text(
-                                    text = "Liberar espacio (2.58 GB)",
-                                    fontSize = 11.sp,
+                                    text = "✓ Instalado",
                                     color = BrandForest,
-                                    fontWeight = FontWeight.Medium
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
+                        }
+                        Text(
+                            text = "Modelo local en dispositivo",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = BrandDark
+                        )
+                        Text(
+                            text = "Gemma 4 E2B (${formatBytesToMb(state.totalSizeBytes)})",
+                            fontSize = 11.sp,
+                            color = TextForestMuted
+                        )
+                        OutlinedButton(
+                            onClick = { showDeleteConfirmDialog = true },
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, BorderSage),
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "Liberar espacio (2.58 GB)",
+                                fontSize = 11.sp,
+                                color = BrandForest,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                 }
@@ -255,18 +238,13 @@ fun ModelDownloadProgressCard(
                             color = MaterialTheme.colorScheme.error,
                             fontSize = 12.sp
                         )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
+                        Button(
+                            onClick = { manager.startDownload() },
+                            colors = ButtonDefaults.buttonColors(containerColor = BrandForest),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Button(
-                                onClick = { manager.startDownload() },
-                                colors = ButtonDefaults.buttonColors(containerColor = BrandForest),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text("Reintentar", fontSize = 11.sp)
-                            }
+                            Text("Reintentar", fontSize = 11.sp)
                         }
                     }
                 }
