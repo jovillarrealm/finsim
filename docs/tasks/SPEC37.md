@@ -117,3 +117,11 @@ El APK temporal de diagnóstico `a909ec77cabe67015e862dcdcf0abb30e2cf646c` (SHA2
 Candidato local `bba4bdb0f83a257f04bf1f71d5bd246a44cdadb6`, APK SHA256 `773d20c0fc7ed552b0a5bcb0472cccb9834a346ac32753d96f0cc3b0dbb34fdc`, instalado y verificado conservando escenario/modelo. Toda captura temporal de contenido fue retirada. Mismo fixture sintético, Colombia, texto pegado vacío y página1: **FAIL de extracción**. Ahora devuelve JSON válido de231caracteres,79fragmentos y0claves desconocidas, pero ninguno de los11campos reconocidos tiene valor utilizable. El cierre de contrato elimina la salida repetitiva/truncada, sin resolver extracción.
 
 CPU: inicialización639ms, inferencia12631ms, total18612ms y pico PSS muestreado2619242KiB. [Informe físico](https://github.com/jovillarrealm/finsim/issues/32#issuecomment-6326290835). No se probó el PDF privado ni se aumentó el presupuesto de salida. Mismo implementador de reemplazo Luna/max reactivado como único subagente para investigar imagen/instrucciones/runtime; luego mismo revisor. Candidato todavía sin integrar; #32 abierta y siguientes tickets esperando.
+
+
+## Repetición física con imagen antes del texto #32
+
+Fuente `391e158c23a71db050db4745c56f6770266cfdea`, APK instalado/verificado SHA256 `ad25a6ac0caae46a0f9ca06600f0de04e6ebe868dac6108fd26d68161e080945`. Mismo sintético/página1/Colombia/texto vacío: **FAIL**, JSON válido254caracteres,87fragmentos,12claves conocidas vacías y0desconocidas. Cambiar solo orden de imagen/texto no resuelve lectura. CPU inicialización610ms, inferencia13317ms, total19886ms, pico PSS2518965KiB. [Informe físico](https://github.com/jovillarrealm/finsim/issues/32#issuecomment-6326511573).
+
+Mismo reemplazo Luna/max reactivado, único subagente, para inspeccionar raster Android y entrega multimodal; fondo/transparencia siguen como hipótesis sin confirmar. Sin prueba privada, raw logging ni integración de candidatos; #32 permanece abierta. Modelo/escenario preservados y siguiente revisión con el mismo revisor pendiente.
+
