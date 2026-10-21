@@ -33,6 +33,7 @@ object AndroidIngestionContext {
 class AndroidPdfRasterizer(private val context: Context) : PageRasterizer {
     override suspend fun rasterizePage(pdfBytes: ByteArray, pageIndex: Int, dpi: Int): ByteArray =
         withContext(Dispatchers.IO) {
+            val sourcePdfSha256 = TemporarySyntheticRawCapture.beginPdf(pdfBytes)
             validatePdfForInMemoryRasterization(pdfBytes)
             require(pageIndex > 0) { "El número de página debe empezar en 1." }
             require(dpi > 0) { "La resolución debe ser positiva." }
@@ -52,7 +53,7 @@ class AndroidPdfRasterizer(private val context: Context) : PageRasterizer {
                     descriptor.close()
                     throw failure
                 }
-                renderer.use {
+                val rasterBytes = renderer.use {
                     require(pageIndex <= it.pageCount) {
                         "La página $pageIndex no existe; el PDF tiene ${it.pageCount} páginas."
                     }
@@ -88,6 +89,8 @@ class AndroidPdfRasterizer(private val context: Context) : PageRasterizer {
                         page.close()
                     }
                 }
+                TemporarySyntheticRawCapture.armAfterRaster(sourcePdfSha256, rasterBytes)
+                rasterBytes
             } finally {
                 callbackThread.quitSafely()
             }

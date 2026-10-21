@@ -17,6 +17,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -32,11 +33,25 @@ data class GemmaInferenceDiagnostics(
     val modelRevision: String,
     val modelSha256: String,
     val backend: String,
-    val totalRamBytes: Long,
-    val availableRamBytesBeforeLoad: Long,
-    val peakProcessPssKb: Long,
-    val modelInitializationLatencyMs: Long,
-    val inferenceLatencyMs: Long
+    val totalRamBytes: Long?,
+    val availableRamBytesBeforeLoad: Long?,
+    val availableRamBytesAfterInference: Long?,
+    val peakProcessPssKb: Long?,
+    val imageBytesLength: Int,
+    val responseLengthChars: Int?,
+    val messageChunks: Int,
+    val jsonSyntaxAccepted: Boolean?,
+    val jsonRootKind: String?,
+    val knownResponseKeys: List<String>,
+    val nonEmptyResponseKeys: List<String>,
+    val unknownResponseKeyCount: Int?,
+    val modelInitializationLatencyMs: Long?,
+    val inferenceLatencyMs: Long?,
+    val totalLatencyMs: Long,
+    val terminalStage: String,
+    val terminalOutcome: String,
+    val errorType: String?,
+    val temporaryRawCaptureEnabled: Boolean
 )
 
 class AndroidGemmaVisionRunner(
@@ -70,30 +85,51 @@ class AndroidGemmaVisionRunner(
     ): ExtractedDocumentData = inferenceMutex.withLock {
         lastDiagnostics = null
         withContext(Dispatchers.IO) {
-            require(imageBytes.isNotEmpty()) { "La página rasterizada está vacía." }
-            requireEligible()
-            check(modelStorage.isModelDownloaded()) { "Gemma 4 E2B no está descargado y verificado." }
-
-            val memoryBefore = readMemorySnapshot()
-            val pssSampler = ProcessPssSampler()
-            var initializationMs = 0L
+            val runStartedMs = System.nanoTime() / 1_000_000L
+            val messageChunks = AtomicInteger()
+            val temporaryRawCapture = TemporarySyntheticRawCapture.consumeForInference(imageBytes)
+            var stage = "input_validation"
+            var outcome = "in_progress"
+            var errorType: String? = null
+            var memoryBefore: MemorySnapshot? = null
+            var pssSampler: ProcessPssSampler? = null
+            var initializationStartedMs = 0L
+            var initializationMs: Long? = null
+            var inferenceStartedMs = 0L
+            var inferenceMs: Long? = null
+            var response: String? = null
+            var inspection: VlmJsonResponseInspection? = null
             try {
+                require(imageBytes.isNotEmpty()) { "La página rasterizada está vacía." }
+                stage = "eligibility_check"
+                requireEligible()
+                stage = "model_availability_check"
+                check(modelStorage.isModelDownloaded()) { "Gemma 4 E2B no está descargado y verificado." }
+                memoryBefore = readMemorySnapshot()
+                pssSampler = ProcessPssSampler()
+
+                stage = "model_initialization"
+                initializationStartedMs = System.nanoTime() / 1_000_000L
                 val (activeEngine, initTime) = getOrInitializeEngine()
                 initializationMs = initTime
                 requireEligible()
-                val start = System.nanoTime() / 1_000_000L
-                val response = activeEngine.createConversation(
+                stage = "conversation_creation"
+                val conversation = activeEngine.createConversation(
                     ConversationConfig(
                         samplerConfig = SamplerConfig(topK = 1, topP = 1.0, temperature = 0.0, seed = 7),
                         maxOutputToken = MAX_OUTPUT_TOKENS,
                         enableResponseFormat = true,
                         enableSpeculativeDecoding = false
                     )
-                ).use { conversation ->
+                )
+                stage = "inference"
+                val generatedResponse = conversation.use {
                     cancellableNativeConversationCall(
-                        cancelProcess = conversation::cancelProcess
+                        cancelProcess = it::cancelProcess,
+                        onMessageChunk = { messageChunks.incrementAndGet() }
                     ) { callback ->
-                        conversation.sendMessageAsync(
+                        inferenceStartedMs = System.nanoTime() / 1_000_000L
+                        it.sendMessageAsync(
                             com.google.ai.edge.litertlm.Contents.of(
                                 Content.Text(buildStatementPrompt(framework, targetMode)),
                                 Content.ImageBytes(imageBytes)
@@ -104,38 +140,84 @@ class AndroidGemmaVisionRunner(
                         )
                     }
                 }
+                response = generatedResponse
+                inferenceMs = System.nanoTime() / 1_000_000L - inferenceStartedMs
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
-                val inferenceMs = System.nanoTime() / 1_000_000L - start
+                stage = "response_inspection"
+                val responseInspection = VlmJsonGrammar.inspectResponse(generatedResponse)
+                inspection = responseInspection
+                if (!responseInspection.syntaxAccepted) outcome = "invalid_json"
+                stage = "post_inference_eligibility_check"
                 requireEligible()
-                check(response.isNotBlank()) { "LiteRT-LM devolvió una respuesta vacía." }
-                val extracted = VlmJsonGrammar.parseVlmResponse(response, framework, targetMode)
-                check(extracted.hasRecognizedValues()) { "Gemma no devolvió campos utilizables del documento." }
-
-                lastDiagnostics = GemmaInferenceDiagnostics(
-                    modelRevision = GemmaModelArtifact.revision,
-                    modelSha256 = GemmaModelArtifact.sha256,
-                    backend = "CPU",
-                    totalRamBytes = memoryBefore.totalRamBytes,
-                    availableRamBytesBeforeLoad = memoryBefore.availableRamBytes,
-                    peakProcessPssKb = pssSampler.peakPssKb,
-                    modelInitializationLatencyMs = initializationMs,
-                    inferenceLatencyMs = inferenceMs
-                )
-                Log.i(LOG_TAG, "Gemma real image inference complete: $lastDiagnostics")
+                stage = "response_validation"
+                check(generatedResponse.isNotBlank()) {
+                    outcome = "empty_response"
+                    "LiteRT-LM devolvió una respuesta vacía."
+                }
+                stage = "json_mapping"
+                val extracted = VlmJsonGrammar.parseVlmResponse(generatedResponse, framework, targetMode)
+                stage = "field_validation"
+                if (!extracted.hasRecognizedValues()) {
+                    outcome = "no_usable_fields"
+                    error("Gemma no devolvió campos utilizables del documento.")
+                }
+                outcome = "success"
                 extracted
             } catch (cancelled: CancellationException) {
+                outcome = "cancelled"
+                errorType = cancelled::class.simpleName
                 throw cancelled
             } catch (oom: OutOfMemoryError) {
+                outcome = "out_of_memory"
+                errorType = oom::class.simpleName
                 close()
                 throw IllegalStateException(
                     "Android se quedó sin memoria al cargar o ejecutar Gemma 4 E2B. Libera memoria y vuelve a intentar; 8 GiB de RAM total no garantizan espacio libre suficiente.",
                     oom
                 )
             } catch (failure: Exception) {
+                if (outcome == "in_progress") outcome = "error"
+                errorType = failure::class.simpleName
                 close()
                 throw IllegalStateException("Falló la inferencia real de Gemma 4 E2B: ${failure.message ?: failure::class.simpleName}.", failure)
             } finally {
-                pssSampler.close()
+                pssSampler?.close()
+                val memoryAfter = runCatching(::readMemorySnapshot).getOrNull()
+                val diagnostics = GemmaInferenceDiagnostics(
+                    modelRevision = GemmaModelArtifact.revision,
+                    modelSha256 = GemmaModelArtifact.sha256,
+                    backend = "CPU",
+                    totalRamBytes = memoryBefore?.totalRamBytes ?: memoryAfter?.totalRamBytes,
+                    availableRamBytesBeforeLoad = memoryBefore?.availableRamBytes,
+                    availableRamBytesAfterInference = memoryAfter?.availableRamBytes,
+                    peakProcessPssKb = pssSampler?.peakPssKb,
+                    imageBytesLength = imageBytes.size,
+                    responseLengthChars = response?.length,
+                    messageChunks = messageChunks.get(),
+                    jsonSyntaxAccepted = inspection?.syntaxAccepted,
+                    jsonRootKind = inspection?.rootKind,
+                    knownResponseKeys = inspection?.knownKeys.orEmpty(),
+                    nonEmptyResponseKeys = inspection?.nonEmptyKnownKeys.orEmpty(),
+                    unknownResponseKeyCount = inspection?.unknownKeyCount,
+                    modelInitializationLatencyMs = initializationMs ?: initializationStartedMs.takeIf { it > 0L }?.let {
+                        System.nanoTime() / 1_000_000L - it
+                    },
+                    inferenceLatencyMs = inferenceMs ?: inferenceStartedMs.takeIf { it > 0L }?.let {
+                        System.nanoTime() / 1_000_000L - it
+                    },
+                    totalLatencyMs = System.nanoTime() / 1_000_000L - runStartedMs,
+                    terminalStage = stage,
+                    terminalOutcome = outcome,
+                    errorType = errorType,
+                    temporaryRawCaptureEnabled = temporaryRawCapture
+                )
+                lastDiagnostics = diagnostics
+                if (temporaryRawCapture && response != null) logTemporarySyntheticResponse(response)
+                if (outcome == "success") {
+                    Log.i(LOG_TAG, "Gemma real image inference complete: $diagnostics")
+                } else {
+                    Log.w(LOG_TAG, "Gemma real image inference ended without success: $diagnostics")
+                }
             }
         }
     }
@@ -214,6 +296,14 @@ class AndroidGemmaVisionRunner(
     private fun buildStatementPrompt(framework: RegulatoryFramework, targetMode: ImportTargetMode): String =
         """Extrae solo valores visibles en esta página de estado financiero para ${framework.label} y destino ${targetMode.label}. No infieras, calcules ni completes datos ausentes. Usa null cuando un valor no aparezca o no sea legible. Conserva los dígitos decimales impresos y omite símbolos monetarios y separadores de miles en los campos numéricos. Devuelve únicamente el objeto JSON solicitado, sin explicación ni Markdown."""
 
+    private fun logTemporarySyntheticResponse(response: String) {
+        val parts = response.chunked(MAX_LOG_CHARS)
+        Log.i(LOG_TAG, "TEMP_SYNTHETIC_RAW_RESPONSE chars=${response.length} parts=${parts.size}")
+        parts.forEachIndexed { index, part ->
+            Log.i(LOG_TAG, "TEMP_SYNTHETIC_RAW_RESPONSE[$index/${parts.size}]:$part")
+        }
+    }
+
     private fun ExtractedDocumentData.hasRecognizedValues(): Boolean = listOf(
         bankNameCandidate, statementMonth?.toString(), statementCutDate, closingBalance, originalPrincipal,
         termMonths?.toString(), rate?.valuePercent, monthlyPayment, principalPaid, interestCharged, totalInsurance
@@ -261,6 +351,7 @@ class AndroidGemmaVisionRunner(
         const val LOG_TAG = "FinsimGemma"
         const val MAX_OUTPUT_TOKENS = 512
         const val HASH_BUFFER_BYTES = 128 * 1024
+        const val MAX_LOG_CHARS = 2_500
         const val BYTES_PER_GIB = 1024.0 * 1024.0 * 1024.0
     }
 }
@@ -268,6 +359,7 @@ class AndroidGemmaVisionRunner(
 /** Bridges LiteRT-LM's callback API to a suspending response string and waits for native shutdown. */
 internal suspend fun cancellableNativeConversationCall(
     cancelProcess: () -> Unit,
+    onMessageChunk: () -> Unit = {},
     sendMessage: (MessageCallback) -> Unit
 ): String {
     val nativeTerminal = CompletableDeferred<Unit>()
@@ -307,7 +399,10 @@ internal suspend fun cancellableNativeConversationCall(
             val callback = object : MessageCallback {
                 override fun onMessage(message: Message) {
                     synchronized(callbackMonitor) {
-                        if (!callbackCompleted) response.append(message.toString())
+                        if (!callbackCompleted) {
+                            response.append(message.toString())
+                            onMessageChunk()
+                        }
                     }
                 }
 
