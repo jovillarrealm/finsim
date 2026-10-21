@@ -44,7 +44,12 @@ class RatesTest {
     fun testNominalFrequencies() {
         val nominal = Rate.Nominal("0.12", frequency = 12)
         val em = convertRate(nominal, "monthly")
-        assertEquals("0.01", Decimal.parse(em).toFixed(2))
+        val monthlyDiff = (Decimal.parse(em) - Decimal.parse("0.01")).abs()
+        assertTrue(monthlyDiff < Decimal.parse("0.000000000001"), "Nominal 12 debe convertir a EM 0.01 con error < 1e-12; error $monthlyDiff")
+
+        val roundtripNominal12 = convertRate(Rate.Monthly(em), "nominal", frequency = 12)
+        val nominal12Diff = (Decimal.parse(roundtripNominal12) - Decimal.parse("0.12")).abs()
+        assertTrue(nominal12Diff < Decimal.parse("0.000000000001"), "Nominal 12 debe volver a 0.12 con error < 1e-12; error $nominal12Diff")
 
         val nominal4 = Rate.Nominal("0.12", frequency = 4)
         val quarterlyEm = convertRate(nominal4, "monthly")
@@ -73,7 +78,13 @@ class RatesTest {
         val nom12 = convertRate(monthly, TargetRate.Nominal(frequency = 12))
         assertIs<Rate.Nominal>(nom12)
         assertEquals(12, nom12.frequency)
-        assertEquals("0.12", Decimal.parse(nom12.value).toFixed(2))
+        val nominal12Diff = (Decimal.parse(nom12.value) - Decimal.parse("0.12")).abs()
+        assertTrue(nominal12Diff < Decimal.parse("0.000000000001"), "Nominal 12 debe ser 0.12 con error < 1e-12; error $nominal12Diff")
+
+        val roundtripEm12 = convertRate(nom12, TargetRate.Monthly)
+        assertIs<Rate.Monthly>(roundtripEm12)
+        val monthly12Diff = (Decimal.parse(roundtripEm12.value) - Decimal.parse("0.01")).abs()
+        assertTrue(monthly12Diff < Decimal.parse("0.000000000001"), "Nominal 12 debe volver a EM 0.01 con error < 1e-12; error $monthly12Diff")
 
         val nom4 = convertRate(monthly, TargetRate.Nominal(frequency = 4))
         assertIs<Rate.Nominal>(nom4)
