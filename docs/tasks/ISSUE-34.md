@@ -39,3 +39,7 @@ Superficies editadas: catálogo/build Gradle raíz/shared/composeApp/androidApp,
 - 2026-10-20 · Implementación `a001654`; incorporación de integraciones coordinadas `97242848` y `16bca760`; builds y pruebas de toolchain correctos.
 
 - 2026-10-20 · Web 13/13 sobre artefacto nuevo; intento AVD aislado bloqueado antes de instalar. Evidencia, artefacto firmado y límites registrados para revisión.
+
+## Cierre de verificación física
+
+Actualización firmada y conservación completa del escenario verificadas en Samsung SM-S942B, Android17/API37. Se guardó y reabrió un escenario con nombre distintivo antes de actualizar; el release integrado `6cf9f4a27a6007738bda09565b9027fda73bb0ef` se instaló con reemplazo, misma firma y sin borrar datos. Tras arrancar, la exportación JSON coincidió en todos los campos con lo guardado. Evidencia y hashes en [GitHub #34](https://github.com/jovillarrealm/finsim/issues/34#issuecomment-6320519464). #34 cerrada después de completar este último criterio; el código sigue en la rama de integración, aún fuera de main. No acredita inferencia ni los demás flujos Android.

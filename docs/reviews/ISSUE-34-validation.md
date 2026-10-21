@@ -62,3 +62,7 @@ Para retomar launch: disponer de AVD que complete arranque y aparezca autorizado
 - Shared JS conserva su destino configurado; su ejecución en navegador no se repitió. La web oficial comprobada es Wasm. No se acredita ejecución de todos los destinos por un test JVM/host.
 - Quedan avisos existentes de API/interop experimental y deprecaciones al compilar, además de tamaño de bundle Webpack; no se suprimen ni se presentan como fallos. No se hace optimización de rendimiento ni actualización de dependencias fuera de #34.
 - Publicación CI remota, Play Console, push, integración de la entrega en la rama coordinadora y cierre: no ejecutados por este implementador.
+
+## Seguimiento físico final
+
+Arranque y actualización firmada: PASS en dispositivo Samsung. Certificado conservado; APK base SHA256 `c22ac17ee92887fe119e0d75a73e564d19a47ac4ebcb112d97c15cece72120bc`, APK integrado `e07a495085d6df1235f5ef26ac1a5fb7be60e3d0eca3c2f7fa1c7ff18ced1956`. Mismo applicationId/versionCode4; instalación con reemplazo, sin desinstalar ni limpiar datos. El escenario distintivo guardado sobrevivió a reinicio previo, actualización y nueva exportación; comparación estructural completa aprobada. [Informe canónico y límites](https://github.com/jovillarrealm/finsim/issues/34#issuecomment-6320519464). Esto resuelve los criterios parciales anteriores de #34, sin cambiar la revisión de código ni atribuir PASS a #43/#44 completos.
