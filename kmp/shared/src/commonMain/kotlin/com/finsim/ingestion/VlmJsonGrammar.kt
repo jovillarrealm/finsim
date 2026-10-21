@@ -105,11 +105,13 @@ object VlmJsonGrammar {
                   "amount": { "type": ["string", "number", "null"] },
                   "amountMeaning": { "type": ["string", "null"], "enum": ["PERIODIC_CHARGE", "INSURED_VALUE", "UNKNOWN", null] }
                 },
-                "required": ["name"]
+                "required": ["name"],
+                "additionalProperties": false
               }
             }
           },
-          "required": ["principal", "ratePercentage"]
+          "required": ["principal", "ratePercentage"],
+          "additionalProperties": false
         }
     """.trimIndent()
 

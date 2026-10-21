@@ -48,10 +48,10 @@ data class GemmaInferenceDiagnostics(
     val modelInitializationLatencyMs: Long?,
     val inferenceLatencyMs: Long?,
     val totalLatencyMs: Long,
+    val hasRecognizedValues: Boolean?,
     val terminalStage: String,
     val terminalOutcome: String,
-    val errorType: String?,
-    val temporaryRawCaptureEnabled: Boolean
+    val errorType: String?
 )
 
 class AndroidGemmaVisionRunner(
@@ -87,10 +87,10 @@ class AndroidGemmaVisionRunner(
         withContext(Dispatchers.IO) {
             val runStartedMs = System.nanoTime() / 1_000_000L
             val messageChunks = AtomicInteger()
-            val temporaryRawCapture = TemporarySyntheticRawCapture.consumeForInference(imageBytes)
             var stage = "input_validation"
             var outcome = "in_progress"
             var errorType: String? = null
+            var hasRecognizedValues: Boolean? = null
             var memoryBefore: MemorySnapshot? = null
             var pssSampler: ProcessPssSampler? = null
             var initializationStartedMs = 0L
@@ -157,7 +157,8 @@ class AndroidGemmaVisionRunner(
                 stage = "json_mapping"
                 val extracted = VlmJsonGrammar.parseVlmResponse(generatedResponse, framework, targetMode)
                 stage = "field_validation"
-                if (!extracted.hasRecognizedValues()) {
+                hasRecognizedValues = extracted.hasRecognizedValues()
+                if (hasRecognizedValues != true) {
                     outcome = "no_usable_fields"
                     error("Gemma no devolvió campos utilizables del documento.")
                 }
@@ -206,13 +207,12 @@ class AndroidGemmaVisionRunner(
                         System.nanoTime() / 1_000_000L - it
                     },
                     totalLatencyMs = System.nanoTime() / 1_000_000L - runStartedMs,
+                    hasRecognizedValues = hasRecognizedValues,
                     terminalStage = stage,
                     terminalOutcome = outcome,
-                    errorType = errorType,
-                    temporaryRawCaptureEnabled = temporaryRawCapture
+                    errorType = errorType
                 )
                 lastDiagnostics = diagnostics
-                if (temporaryRawCapture && response != null) logTemporarySyntheticResponse(response)
                 if (outcome == "success") {
                     Log.i(LOG_TAG, "Gemma real image inference complete: $diagnostics")
                 } else {
@@ -296,14 +296,6 @@ class AndroidGemmaVisionRunner(
     private fun buildStatementPrompt(framework: RegulatoryFramework, targetMode: ImportTargetMode): String =
         """Extrae solo valores visibles en esta página de estado financiero para ${framework.label} y destino ${targetMode.label}. No infieras, calcules ni completes datos ausentes. Usa null cuando un valor no aparezca o no sea legible. Conserva los dígitos decimales impresos y omite símbolos monetarios y separadores de miles en los campos numéricos. Devuelve únicamente el objeto JSON solicitado, sin explicación ni Markdown."""
 
-    private fun logTemporarySyntheticResponse(response: String) {
-        val parts = response.chunked(MAX_LOG_CHARS)
-        Log.i(LOG_TAG, "TEMP_SYNTHETIC_RAW_RESPONSE chars=${response.length} parts=${parts.size}")
-        parts.forEachIndexed { index, part ->
-            Log.i(LOG_TAG, "TEMP_SYNTHETIC_RAW_RESPONSE[$index/${parts.size}]:$part")
-        }
-    }
-
     private fun ExtractedDocumentData.hasRecognizedValues(): Boolean = listOf(
         bankNameCandidate, statementMonth?.toString(), statementCutDate, closingBalance, originalPrincipal,
         termMonths?.toString(), rate?.valuePercent, monthlyPayment, principalPaid, interestCharged, totalInsurance
@@ -351,7 +343,6 @@ class AndroidGemmaVisionRunner(
         const val LOG_TAG = "FinsimGemma"
         const val MAX_OUTPUT_TOKENS = 512
         const val HASH_BUFFER_BYTES = 128 * 1024
-        const val MAX_LOG_CHARS = 2_500
         const val BYTES_PER_GIB = 1024.0 * 1024.0 * 1024.0
     }
 }
