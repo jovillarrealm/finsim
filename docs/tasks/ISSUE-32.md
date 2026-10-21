@@ -3,7 +3,7 @@
 - Responsable de implementación: `/root/issue32_implement_luna`, reemplazo secuencial del implementador anterior.
 - Estado: la revisión independiente inicial encontró dos defectos de cancelación, corregidos en el seguimiento de este candidato. Las pruebas JVM y Android host, el APK debug y Wasm pasan sobre el árbol de código actual. Pendientes segunda revisión independiente y fixture sintético en Samsung. **#32 sigue abierta; no se descargó el modelo ni se ejecutó inferencia.**
 - Rama: `codex/spec37-issue32`.
-- Base del trabajo: checkpoint `3cf6f577` más merge de #45 `c1199b4` (sobre #34).
+- Base del trabajo: checkpoint `3cf6f577`, merge de #45 `c1199b4`, y coordinación integrada en `94627d9` y `0fcd8fb`.
 - Worktree: `C:/Users/Lenovo/.codex/worktrees/spec37-issue32/finsim`.
 - Alcance canónico: [#32](https://github.com/jovillarrealm/finsim/issues/32), aclaraciones de [#37](https://github.com/jovillarrealm/finsim/issues/37) y handoff en `C:/Users/Lenovo/AppData/Local/Temp/finsim-spec37/AGENT-CONTEXT.md` / `COORDINATION.md`.
 
@@ -72,7 +72,7 @@ La corrida real debe registrar dispositivo/Android/API, `totalRamGb`, estado `lo
 - Segunda revisión independiente Luna/max pendiente. El APK no se instaló ni ejecutó; la medición real del gate y del comportamiento con el modelo requiere coordinación física con #43/#47 y la actualización firmada de #44.
 - Después de la segunda revisión, `/root` coordina integración y estado de GitHub. Esta entrega no hace push ni cierra el issue.
 - Corrida física con el archivo real y fixture autorizado sigue pendiente; requiere coordinación separada de pesos/dispositivo. Nunca reportar PASS por omisión.
-- Sin push, merge, cierre de issue ni cambios a `docs/tracking.md`, SPEC37 o tablero compartido.
+- Los merges coordinadores `94627d9` y `0fcd8fb` están incorporados localmente. Sin push ni cierre del issue, y sin cambios a `docs/tracking.md`, SPEC37 o tablero compartido por esta implementación.
 
 ## Fuentes primarias
 
