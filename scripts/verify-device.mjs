@@ -46,12 +46,189 @@ export const FINANCIAL_REFERENCES = [
   },
 ];
 
+const rowCell = (label, month, expected) => ({
+  semantic: `Copiar tabla ${label} Modificado mes ${month}`,
+  expected,
+  tolerance: 0,
+});
+
+export const FINANCIAL_RECIPES = [
+  {
+    id: 'ANDROID-LOAN-ORIGINAL',
+    area: 'loan',
+    actions: [
+      { type: 'tab', value: 'Préstamo' }, { type: 'reset-example' },
+      { type: 'choice', label: 'Origen', value: 'Préstamo original' },
+      { type: 'field', label: 'Capital (COP)', value: '1000' },
+      { type: 'field', label: 'Plazo (meses)', value: '2' },
+      { type: 'choice', label: 'Tipo de tasa', value: 'Efectiva mensual (EM)' },
+      { type: 'field', label: 'Tasa de interés (%)', value: '1' },
+      { type: 'choice', label: 'Modalidad', value: 'Monto fijo mensual' },
+      { type: 'field', label: 'Monto mensual (COP)', value: '0' },
+      { type: 'button', label: 'Actualizar condiciones del préstamo', primary: true },
+      { type: 'table', label: 'Ver tabla' },
+    ],
+    outputs: [rowCell('Capital habitual', 1, 497.51), rowCell('interés generado', 1, 10),
+      rowCell('pago total', 1, 507.51), rowCell('saldo de capital', 1, 502.49),
+      rowCell('interés generado', 2, 5.02), rowCell('pago total', 2, 507.51),
+      rowCell('saldo de capital', 2, 0)],
+  },
+  {
+    id: 'ANDROID-LOAN-CURRENT',
+    area: 'loan',
+    actions: [
+      { type: 'tab', value: 'Préstamo' }, { type: 'reset-example' },
+      { type: 'choice', label: 'Origen', value: 'Saldo actual' },
+      { type: 'field', label: 'Capital (COP)', value: '502.49' },
+      { type: 'field', label: 'Plazo (meses)', value: '1' },
+      { type: 'choice', label: 'Tipo de tasa', value: 'Efectiva mensual (EM)' },
+      { type: 'field', label: 'Tasa de interés (%)', value: '1' },
+      { type: 'choice', label: 'Modalidad', value: 'Monto fijo mensual' },
+      { type: 'field', label: 'Monto mensual (COP)', value: '0' },
+      { type: 'button', label: 'Actualizar condiciones del préstamo', primary: true },
+      { type: 'table', label: 'Ver tabla' },
+    ],
+    outputs: [rowCell('interés generado', 1, 5.02), rowCell('Capital habitual', 1, 502.49),
+      rowCell('pago total', 1, 507.51), rowCell('saldo de capital', 1, 0)],
+  },
+  {
+    id: 'ANDROID-INSURANCE',
+    area: 'loan',
+    actions: [
+      { type: 'tab', value: 'Préstamo' }, { type: 'reset-example' },
+      { type: 'choice', label: 'Origen', value: 'Préstamo original' },
+      { type: 'field', label: 'Capital (COP)', value: '1000' },
+      { type: 'field', label: 'Plazo (meses)', value: '12' },
+      { type: 'choice', label: 'Tipo de tasa', value: 'Efectiva mensual (EM)' },
+      { type: 'field', label: 'Tasa de interés (%)', value: '0' },
+      { type: 'field', label: 'Cuota pactada (opcional)', value: '100' },
+      { type: 'field', label: 'Nombre del seguro', value: 'Seguro de prueba' },
+      { type: 'choice', label: 'Modalidad', value: '% del saldo mensual', selectedAs: '% del saldo' },
+      { type: 'field', label: 'Tasa mensual (% saldo)', value: '0.1' },
+      { type: 'button', label: 'Actualizar condiciones del préstamo' },
+      { type: 'event-add', label: 'Añadir mes', addedField: 'Tipo', addedKind: 'control' },
+      { type: 'choice', label: 'Tipo', value: 'Abono a capital' },
+      { type: 'field', label: 'Mes', value: '1' },
+      { type: 'field', label: 'Importe (COP)', value: '1000' },
+      { type: 'button', label: 'Aplicar cambios', primary: true },
+      { type: 'table', label: 'Ver tabla' },
+    ],
+    outputs: [rowCell('Capital habitual', 1, 100), rowCell('Capital adicional', 1, 900),
+      rowCell('seguros pagados', 1, 1), rowCell('pago total', 1, 1001),
+      rowCell('excedente no aplicado', 1, 100)],
+  },
+  {
+    id: 'ANDROID-EVENTS',
+    area: 'loan',
+    actions: [
+      { type: 'tab', value: 'Préstamo' }, { type: 'reset-example' },
+      { type: 'choice', label: 'Origen', value: 'Préstamo original' },
+      { type: 'field', label: 'Capital (COP)', value: '1000' },
+      { type: 'field', label: 'Plazo (meses)', value: '12' },
+      { type: 'choice', label: 'Tipo de tasa', value: 'Efectiva mensual (EM)' },
+      { type: 'field', label: 'Tasa de interés (%)', value: '1' },
+      { type: 'field', label: 'Cuota pactada (opcional)', value: '100' },
+      { type: 'field', label: 'Nombre del seguro', value: 'Seguro de prueba' },
+      { type: 'choice', label: 'Modalidad', value: 'Monto fijo mensual' },
+      { type: 'field', label: 'Monto mensual (COP)', value: '5' },
+      { type: 'button', label: 'Actualizar condiciones del préstamo' },
+      { type: 'event-add', label: 'Añadir mes', addedField: 'Tipo', addedKind: 'control' },
+      { type: 'choice', label: 'Tipo', value: 'Omitir cuota' },
+      { type: 'field', label: 'Mes', value: '1' },
+      { type: 'event-add', label: 'Añadir mes', addedField: 'Tipo', addedKind: 'control' },
+      { type: 'choice', label: 'Tipo', value: 'Recuperación', occurrence: 2 },
+      { type: 'field', label: 'Mes', value: '2', occurrence: 2 },
+      { type: 'field', label: 'Importe (COP)', value: '105' },
+      { type: 'button', label: 'Aplicar cambios', primary: true },
+      { type: 'table', label: 'Ver tabla' },
+    ],
+    outputs: [rowCell('Capital habitual', 2, 75), rowCell('Capital adicional', 2, 105),
+      rowCell('intereses pagados', 2, 20), rowCell('seguros pagados', 2, 10),
+      rowCell('saldo de capital', 2, 820)],
+  },
+  {
+    id: 'ANDROID-RATE',
+    area: 'rate',
+    actions: [
+      { type: 'tab', value: 'Conversor' },
+      { type: 'choice', label: 'Tasa de origen', value: 'Efectiva mensual (EM)' },
+      { type: 'field', label: 'Tasa (%)', value: '1', primary: true },
+    ],
+    outputs: [{ semantic: 'Efectiva Anual (EA)', expected: 12.6825030131969720661201, tolerance: 1e-12 }],
+  },
+  {
+    id: 'ANDROID-RECONCILIATION',
+    area: 'reconciliation',
+    actions: [
+      { type: 'tab', value: 'Préstamo' }, { type: 'reset-example' },
+      { type: 'choice', label: 'Origen', value: 'Préstamo original' },
+      { type: 'field', label: 'Capital (COP)', value: '1000' },
+      { type: 'field', label: 'Plazo (meses)', value: '2' },
+      { type: 'choice', label: 'Tipo de tasa', value: 'Efectiva mensual (EM)' },
+      { type: 'field', label: 'Tasa de interés (%)', value: '1' },
+      { type: 'choice', label: 'Modalidad', value: 'Monto fijo mensual' },
+      { type: 'field', label: 'Monto mensual (COP)', value: '0' },
+      { type: 'button', label: 'Actualizar condiciones del préstamo' },
+      { type: 'tab', value: 'Conciliación' },
+      { type: 'field', label: 'Número de mes del extracto', value: '1' },
+      { type: 'field', label: 'Interés cobrado (COP)', value: '10' },
+      { type: 'field', label: 'Seguro cobrado (COP)', value: '0' },
+      { type: 'field', label: 'Capital pagado (COP)', value: '497.51' },
+      { type: 'field', label: 'Saldo final (COP)', value: '502.49' },
+      { type: 'button', label: 'Comparar con cronograma simulado', primary: true },
+    ],
+    outputs: [
+      { semantic: 'diferencia|Interés cobrado', expected: 0 },
+      { semantic: 'diferencia|Seguro cobrado', expected: 0 },
+      { semantic: 'diferencia|Capital pagado', expected: 0 },
+      { semantic: 'diferencia|Saldo final', expected: 0 },
+    ],
+  },
+  {
+    id: 'ANDROID-OFFERS',
+    area: 'offers',
+    actions: [
+      { type: 'tab', value: 'Ofertas' },
+      { type: 'choice', label: 'País de la operación', value: 'Colombia' },
+      { type: 'choice', label: 'Moneda común', value: 'COP' },
+      { type: 'choice', label: 'Necesidad', value: 'Misma compra' },
+      { type: 'field', label: 'Identifica la misma compra', value: 'Bicicleta' },
+      { type: 'choice', label: 'Modo A', value: 'Simulación mensual' },
+      { type: 'field', label: 'Capital contractual A (opcional en cotización)', value: '700' },
+      { type: 'field', label: 'Precio de esta oferta A', value: '900' },
+      { type: 'field', label: 'Aporte propio A', value: '200' },
+      { type: 'field', label: 'Tasa de interés % A', value: '0' },
+      { type: 'field', label: 'Cantidad de cuotas A', value: '2' },
+      { type: 'event-add', label: 'Añadir cargo A', addedField: 'Importe del cargo A #1' },
+      { type: 'choice', label: 'Tratamiento A #1', value: 'Con dinero propio al inicio' },
+      { type: 'field', label: 'Importe del cargo A #1', value: '10' },
+      { type: 'check', label: 'Confirmar todos los cargos de la oferta A' },
+      { type: 'button', label: 'Editar oferta B' },
+      { type: 'choice', label: 'Modo B', value: 'Cotización' },
+      { type: 'choice', label: 'Producto B', value: 'Tarjeta existente' },
+      { type: 'field', label: 'Precio de esta oferta B', value: '1000' },
+      { type: 'field', label: 'Aporte propio B', value: '0' },
+      { type: 'field', label: 'Cantidad de cuotas B', value: '4' },
+      { type: 'field', label: 'Importe por cuota B', value: '250' },
+      { type: 'check', label: 'Confirmar todos los cargos de la oferta B' },
+      { type: 'button', label: 'Aplicar comparación', primary: true },
+    ],
+    outputs: [
+      { semantic: 'Oferta A|Salidas nuevas conocidas', expected: 910 },
+      { semantic: 'Oferta A|Costo nominal', expected: 10 },
+      { semantic: 'Oferta B|Salidas nuevas conocidas', expected: 1000 },
+      { semantic: 'Oferta B|Costo nominal', expected: 0 },
+      { semantic: 'B − A|Total pagado', expected: 90 },
+    ],
+  },
+];
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const reportRoot = path.join(os.homedir(), '.finsim', 'verification', 'android');
 const tabs = ['Préstamo', 'Conversor', 'Conciliación', 'Ofertas'];
 
 export function parseOptions(args) {
-  const options = { device: null, apk: null, allowUiActions: false, startApp: false, restartApp: false, help: false };
+  const options = { device: null, apk: null, allowUiActions: false, startApp: false, restartApp: false, runFinancialCases: false, help: false };
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (arg === '--device' || arg === '--apk') {
@@ -64,6 +241,8 @@ export function parseOptions(args) {
       options.startApp = true;
     } else if (arg === '--restart-app') {
       options.restartApp = true;
+    } else if (arg === '--run-financial-cases') {
+      options.runFinancialCases = true;
     } else if (arg === '--help' || arg === '-h') {
       options.help = true;
     } else {
@@ -74,6 +253,10 @@ export function parseOptions(args) {
   if (options.startApp && (!options.device || !options.allowUiActions)) throw new Error('--start-app requiere --device y --allow-ui-actions explícitos.');
   if (options.restartApp && (!options.device || !options.allowUiActions)) throw new Error('--restart-app requiere --device y --allow-ui-actions explícitos.');
   if (options.startApp && options.restartApp) throw new Error('Usa --start-app o --restart-app, no ambos.');
+  if (options.runFinancialCases && (!options.device || !options.allowUiActions || !options.restartApp)) {
+    throw new Error('--run-financial-cases requiere --device, --allow-ui-actions y --restart-app explícitos para delimitar las acciones y reabrir la app sin limpiar almacenamiento.');
+  }
+  if (options.runFinancialCases && !options.apk) throw new Error('--run-financial-cases requiere --apk para identificar el binario instalado antes de interactuar.');
   if (options.apk && !options.device) throw new Error('--apk requiere --device <serial> para comparar el candidato con el APK instalado.');
   return options;
 }
@@ -97,7 +280,8 @@ function parseNodeAttributes(raw) {
     hint: attrs.hint ?? '', className: attrs.class ?? '', clickable: attrs.clickable === 'true',
     selected: attrs.selected === 'true', enabled: attrs.enabled !== 'false', focusable: attrs.focusable === 'true',
     focused: attrs.focused === 'true', editable: attrs.editable === 'true' || /EditText/.test(attrs.class ?? ''),
-    scrollable: attrs.scrollable === 'true', visibleToUser: attrs['visible-to-user'] !== 'false',
+    scrollable: attrs.scrollable === 'true', checkable: attrs.checkable === 'true', checked: attrs.checked === 'true',
+    visibleToUser: attrs['visible-to-user'] !== 'false',
     bounds: { left, top, right, bottom, width: right - left, height: bottom - top }, parent: null, children: [],
   };
 }
@@ -147,6 +331,60 @@ export function evaluateFinancialObservation({ actionPerformed, observedText, ex
   return { status, observed: observedText, parsed, expected, actual: `${observedText} (parseado ${parsed})` };
 }
 
+export function evaluateFinancialCase({ actionPerformed, actionsComplete = true, outputs, observed }) {
+  if (!actionPerformed) return {
+    status: 'NOT_RUN',
+    expected: outputs,
+    observations: observed ?? [],
+    actual: 'No se confirmó la acción que genera las salidas financieras.',
+  };
+  const observations = outputs.map(output => {
+    const match = (observed ?? []).find(item => item.semantic === output.semantic);
+    const text = match?.text ?? null;
+    const parsed = typeof text === 'string' ? parseNumericText(text) : null;
+    const passes = parsed !== null && Math.abs(parsed - output.expected) <= (output.tolerance ?? 0);
+    return { semantic: output.semantic, expected: output.expected, tolerance: output.tolerance ?? 0, observed: text, parsed, status: passes ? 'PASS' : 'FAIL' };
+  });
+  return {
+    status: actionsComplete && observations.every(item => item.status === 'PASS') && observations.length > 0 ? 'PASS' : 'FAIL',
+    expected: outputs,
+    observations,
+    actual: `${actionsComplete ? 'secuencia de acciones completa' : 'secuencia de acciones incompleta'}; ${observations.map(item => `${item.semantic}: observado=${item.observed ?? 'ausente'}, parseado=${item.parsed ?? 'no numérico'}, esperado=${item.expected} ± ${item.tolerance}`).join('; ')}`,
+  };
+}
+
+export async function runFinancialActionSequence(actions, perform) {
+  const state = { actionPerformed: false, mutated: false };
+  const results = [];
+  let failure = null;
+  for (let index = 0; index < actions.length; index += 1) {
+    const action = actions[index];
+    try {
+      const result = await perform(action, state);
+      results.push({ type: action.type, label: action.label ?? action.value ?? action.type, value: action.value ?? null, status: 'PASS', detail: result?.detail ?? '' });
+    } catch (error) {
+      failure = error instanceof Error ? error.message : String(error);
+      results.push({ type: action.type, label: action.label ?? action.value ?? action.type, value: action.value ?? null, status: state.actionPerformed ? 'FAIL' : 'NOT_RUN', detail: failure });
+      for (const remaining of actions.slice(index + 1)) {
+        results.push({ type: remaining.type, label: remaining.label ?? remaining.value ?? remaining.type, value: remaining.value ?? null, status: 'NOT_RUN', detail: `No ejecutado después de: ${failure}` });
+      }
+      break;
+    }
+  }
+  return {
+    state,
+    actions: results,
+    actionsComplete: results.length === actions.length && results.every(item => item.status === 'PASS'),
+    restoreRequired: state.mutated,
+    failure,
+  };
+}
+
+export function parseFontScale(value) {
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 export function compareInstalledApkCandidate(candidate, installedApks) {
   if (!candidate) return {
     status: 'NOT_RUN', expected: 'El artefacto candidato coincide byte a byte con la instalación.',
@@ -168,6 +406,14 @@ export function compareInstalledApkCandidate(candidate, installedApks) {
     expected: `SHA-256 candidato ${candidate.sha256} coincide con el APK instalado.`,
     actual: baseMatches ? 'Coincidencia byte a byte; el commit de construcción del candidato no queda demostrado por el hash.' : `Diferencia: instalado ${installedApks[0].sha256}, candidato ${candidate.sha256}.`,
   };
+}
+
+export function financialRunReadiness({ candidateStatus, producerIdentity }) {
+  if (candidateStatus !== 'PASS') return { ready: false, reason: 'Los bytes del APK candidato no coinciden con el conjunto instalado; no se ejecutaron recetas financieras.' };
+  if (producerIdentity?.matchesApkHash !== true || typeof producerIdentity.sourceCommit !== 'string' || producerIdentity.sourceCommit.length === 0) {
+    return { ready: false, reason: 'identity.json no vincula los bytes del candidato con un commit productor; no se ejecutaron recetas financieras.' };
+  }
+  return { ready: true, reason: null };
 }
 
 export function foregroundPackageFromDumpsys(output) {
@@ -316,6 +562,9 @@ function hashRemoteFile(serial, remotePath) {
 function getDeviceDisplay(serial) {
   const sizeText = adb(serial, ['shell', 'wm', 'size']);
   const densityText = adb(serial, ['shell', 'wm', 'density']);
+  let fontScale = null;
+  try { fontScale = parseFontScale(adb(serial, ['shell', 'settings', 'get', 'system', 'font_scale'])); }
+  catch { /* Keep the rest of the read-only display inventory available. */ }
   const sizeMatches = [...sizeText.matchAll(/(?:Physical|Override) size:\s*(\d+)x(\d+)/g)];
   const densityMatches = [...densityText.matchAll(/(?:Physical|Override) density:\s*(\d+)/g)];
   const size = sizeMatches.at(-1);
@@ -323,6 +572,7 @@ function getDeviceDisplay(serial) {
   return {
     size: size ? { width: Number(size[1]), height: Number(size[2]) } : null,
     densityDpi: density ? Number(density[1]) : null,
+    fontScale,
   };
 }
 
@@ -411,16 +661,24 @@ function getInteractiveTarget(node) {
 }
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-const MAX_HIERARCHY_DUMPS = 16;
+const MAX_HIERARCHY_DUMPS = 512;
+const MAX_FINANCIAL_CASE_DUMPS = 64;
+const MAX_FINANCIAL_CASE_SCROLLS = 24;
+const MAX_ACTION_SEARCH_SCROLLS = 2;
+const MAX_TABLE_SCROLLS_PER_OUTPUT = 4;
 const MAX_LOAN_SWIPES = 2;
 const MAX_PAGE_SWIPES = 1;
 
 async function dumpHierarchy(serial, context) {
   if (context.dumps.length >= MAX_HIERARCHY_DUMPS) throw new Error(`Presupuesto de ${MAX_HIERARCHY_DUMPS} dumps de jerarquía agotado; se detiene la inspección sin gestos adicionales.`);
+  if (context.activeFinancialCase && context.financialCaseDumps >= MAX_FINANCIAL_CASE_DUMPS) {
+    throw new Error(`Presupuesto de ${MAX_FINANCIAL_CASE_DUMPS} dumps agotado en ${context.activeFinancialCase}; se detiene esa receta.`);
+  }
   const remotePath = `/data/local/tmp/finsim-verify-${context.runId}-${Date.now()}.xml`;
   const started = Date.now();
   const entry = { index: context.dumps.length + 1, startedAt: new Date().toISOString(), remoteFileRemoved: false };
   context.dumps.push(entry);
+  if (context.activeFinancialCase) context.financialCaseDumps += 1;
   try {
     adb(serial, ['shell', 'uiautomator', 'dump', remotePath], 45000);
     const xml = adb(serial, ['exec-out', 'cat', remotePath], 20000);
@@ -518,6 +776,7 @@ function tapObservedNode(serial, node, size) {
   if (!node || !isVisibleInDisplay(node, size)) throw new Error('El control ya no está dentro del viewport observado.');
   const target = getInteractiveTarget(node);
   if (!parseBoundsFromNode(target) || !isVisibleInDisplay(target, size)) throw new Error('El control observado no tiene bounds interactivos visibles.');
+  if (!target.enabled) throw new Error('El control observado está deshabilitado.');
   adb(serial, ['shell', 'input', 'tap', String(Math.floor((target.bounds.left + target.bounds.right) / 2)), String(Math.floor((target.bounds.top + target.bounds.bottom) / 2))]);
 }
 
@@ -602,7 +861,412 @@ async function navigateToTab(serial, context, nodes, tab, size) {
   return next;
 }
 
-async function runUiChecks(report, serial, context) {
+function semanticCandidates(nodes, label, kind) {
+  const normalized = normalizeAccessibleText(label);
+  const matches = nodes.filter(node => {
+    if (kind === 'field' && !node.editable) return false;
+    if (kind === 'check' && !node.checkable && !/CheckBox/i.test(node.className)) return false;
+    return [node.text, node.contentDescription, node.resourceId, node.hint]
+      .some(value => normalizeAccessibleText(value).includes(normalized));
+  });
+  const ranked = matches.map(node => ({ node, rank: normalizeAccessibleText(node.contentDescription) === normalized ? 0
+    : normalizeAccessibleText(node.text).startsWith(normalized) ? 1
+      : normalizeAccessibleText(node.contentDescription).includes(normalized) ? 2 : 3 }))
+    .sort((left, right) => left.rank - right.rank || left.node.bounds.top - right.node.bounds.top || left.node.bounds.left - right.node.bounds.left);
+  const seen = new Set();
+  return ranked.map(entry => entry.node).filter(node => {
+    const key = `${stableNodeKey(node)}|${node.bounds.left}|${node.bounds.top}|${node.bounds.right}|${node.bounds.bottom}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function normalizeAccessibleText(value) {
+  return value.toLocaleLowerCase('es').replace(/\(\$/g, '(').replace(/\s+/g, ' ').trim();
+}
+
+function actionOccurrence(action) {
+  return Math.max(1, Number.isInteger(action.occurrence) ? action.occurrence : 1);
+}
+
+async function locateActionControl(serial, context, nodes, action, size, kind = 'control') {
+  let current = nodes;
+  const searchLimit = action.searchScrolls ?? MAX_ACTION_SEARCH_SCROLLS;
+  for (let attempt = 0; attempt <= searchLimit; attempt += 1) {
+    const matches = semanticCandidates(current, action.label, kind);
+    const wanted = matches[actionOccurrence(action) - 1] ?? null;
+    if (wanted && isVisibleInDisplay(wanted, size)) return { node: wanted, nodes: current };
+    if (attempt === searchLimit) break;
+    if (context.activeFinancialCase && context.financialCaseScrolls >= MAX_FINANCIAL_CASE_SCROLLS) {
+      throw new Error(`Presupuesto de ${MAX_FINANCIAL_CASE_SCROLLS} desplazamientos agotado en ${context.activeFinancialCase}.`);
+    }
+    const direction = wanted && wanted.bounds.top < 0 ? 'up' : 'down';
+    const scroll = await swipeObservedContainer(serial, context, current, size, direction);
+    context.scrolls.push({ case: `${context.activeFinancialCase ?? 'ui'} · buscar ${action.label}`, ...scroll, afterNodes: undefined });
+    if (context.activeFinancialCase) context.financialCaseScrolls += 1;
+    if (scroll.status !== 'PASS' || !scroll.afterNodes) throw new Error(`No se pudo localizar «${action.label}»: ${scroll.reason}`);
+    current = scroll.afterNodes;
+  }
+  const count = semanticCandidates(current, action.label, kind).length;
+  throw new Error(count ? `«${action.label}» no quedó visible tras ${searchLimit} desplazamientos observados.`
+    : `No se encontró el control «${action.label}» en la jerarquía observada.`);
+}
+
+function nodeText(node) {
+  const values = [];
+  const visit = current => {
+    if (current.text.trim()) values.push(current.text.trim());
+    current.children.forEach(visit);
+  };
+  visit(node);
+  return values;
+}
+
+function expectedFieldValue(actual, expected) {
+  if (actual.trim() === expected.trim()) return true;
+  const actualNumber = parseNumericText(actual);
+  const expectedNumber = parseNumericText(expected);
+  return actualNumber !== null && expectedNumber !== null && Math.abs(actualNumber - expectedNumber) < 1e-9;
+}
+
+function adbInputText(value) {
+  if (!/^[\p{L}\p{N} .,_-]*$/u.test(value)) throw new Error('El valor de prueba contiene caracteres no admitidos por adb input text.');
+  return value.replace(/\s/g, '%s');
+}
+
+async function performFinancialAction(serial, context, nodes, action, size, state) {
+  if (action.type === 'tab') {
+    const tab = observedTab(nodes, action.value, size);
+    if (!tab) throw new Error(`La pestaña «${action.value}» no está visible en la jerarquía observada.`);
+    if (!tab.selected) tapObservedNode(serial, tab, size);
+    await delay(250);
+    return { nodes: await dumpHierarchy(serial, context), detail: `pestaña ${action.value} observada${tab.selected ? ' ya seleccionada' : ' seleccionada'}` };
+  }
+
+  if (action.type === 'field') {
+    const found = await locateActionControl(serial, context, nodes, action, size, 'field');
+    tapObservedNode(serial, found.node, size);
+    await delay(180);
+    const focusedNodes = await dumpHierarchy(serial, context);
+    const focused = semanticCandidates(focusedNodes, action.label, 'field')[actionOccurrence(action) - 1];
+    if (!focused?.focused) throw new Error(`El campo «${action.label}» no confirmó foco; no se ingresó el valor.`);
+    if (imeShown(serial) !== true) throw new Error(`El teclado virtual no se confirmó para «${action.label}»; no se ingresó el valor.`);
+    adb(serial, ['shell', 'input', 'keyevent', '123']);
+    adb(serial, ['shell', 'input', 'keyevent', ...Array.from({ length: Math.min(120, Math.max(48, focused.text.length + 2)) }, () => '67')]);
+    if (action.value !== '') adb(serial, ['shell', 'input', 'text', adbInputText(action.value)]);
+    await delay(180);
+    const typedNodes = await dumpHierarchy(serial, context);
+    const typed = semanticCandidates(typedNodes, action.label, 'field')[actionOccurrence(action) - 1];
+    const text = typed?.text ?? '';
+    if (!typed || !expectedFieldValue(text, action.value)) {
+      throw new Error(`«${action.label}» mostró «${text || 'vacío'}» después de ingresar «${action.value}».`);
+    }
+    const keyboardAfterEntry = imeShown(serial);
+    let finalNodes = typedNodes;
+    if (keyboardAfterEntry === null) throw new Error(`No se pudo consultar el estado del teclado tras «${action.label}».`);
+    if (keyboardAfterEntry) {
+      adb(serial, ['shell', 'input', 'keyevent', '4']);
+      await delay(120);
+      finalNodes = await dumpHierarchy(serial, context);
+    }
+    if (action.primary) state.actionPerformed = true;
+    state.mutated = true;
+    return { nodes: finalNodes, detail: `campo verificado ${action.label}=${text}; teclado cerrado=${keyboardAfterEntry}` , primary: !!action.primary };
+  }
+
+  if (action.type === 'choice') {
+    const found = await locateActionControl(serial, context, nodes, action, size, 'control');
+    tapObservedNode(serial, found.node, size);
+    await delay(160);
+    const options = await dumpHierarchy(serial, context);
+    const option = options.find(node => isVisibleInDisplay(node, size)
+      && [node.text, node.contentDescription, node.hint].some(value => value.trim() === action.value));
+    if (!option) throw new Error(`El selector «${action.label}» no expuso la opción «${action.value}».`);
+    tapObservedNode(serial, option, size);
+    await delay(160);
+    const selectedNodes = await dumpHierarchy(serial, context);
+    const control = semanticCandidates(selectedNodes, action.label, 'control')[actionOccurrence(action) - 1];
+    const selectedText = control ? nodeText(control).join(' ') : '';
+    const selectedValue = action.selectedAs ?? action.value;
+    const selected = selectedText.toLocaleLowerCase('es').includes(selectedValue.toLocaleLowerCase('es'))
+      || selectedNodes.some(node => node.selected && node.text.trim() === action.value);
+    if (!selected) throw new Error(`«${action.label}» no mostró la selección «${action.value}» después del toque observado.`);
+    state.mutated = true;
+    return { nodes: selectedNodes, detail: `selección verificada ${action.label}=${action.value}` };
+  }
+
+  if (action.type === 'check') {
+    const found = await locateActionControl(serial, context, nodes, action, size, 'check');
+    if (!found.node.checked) tapObservedNode(serial, found.node, size);
+    const checkedNodes = await dumpHierarchy(serial, context);
+    const checked = semanticCandidates(checkedNodes, action.label, 'check')[actionOccurrence(action) - 1];
+    if (!checked?.checked) throw new Error(`La casilla «${action.label}» no confirmó checked=true.`);
+    state.mutated = true;
+    return { nodes: checkedNodes, detail: `casilla verificada ${action.label}=true` };
+  }
+
+  if (action.type === 'table') {
+    const alreadyOpen = semanticCandidates(nodes, 'Ocultar tabla', 'control').find(node => isVisibleInDisplay(node, size));
+    if (alreadyOpen) return { nodes, detail: 'tabla ya visible según su control de cierre observado' };
+    const found = await locateActionControl(serial, context, nodes, { ...action, label: 'Ver tabla' }, size, 'control');
+    tapObservedNode(serial, found.node, size);
+    await delay(250);
+    const nextNodes = await dumpHierarchy(serial, context);
+    if (!semanticCandidates(nextNodes, 'Ocultar tabla', 'control').some(node => isVisibleInDisplay(node, size))) {
+      throw new Error('Se tocó «Ver tabla», pero no se observó el control «Ocultar tabla».');
+    }
+    return { nodes: nextNodes, detail: 'tabla abierta y confirmada por el control «Ocultar tabla»' };
+  }
+
+  if (action.type === 'event-add' || action.type === 'button' || action.type === 'reset-example') {
+    const label = action.type === 'reset-example' ? 'Ejemplo' : action.label;
+    const found = await locateActionControl(serial, context, nodes, { ...action, label }, size, 'control');
+    const addedKind = action.addedKind ?? 'field';
+    const previousCount = action.addedField ? semanticCandidates(found.nodes, action.addedField, addedKind).length : null;
+    tapObservedNode(serial, found.node, size);
+    if (action.primary) state.actionPerformed = true;
+    if (action.type !== 'button' || label !== 'Ver tabla') state.mutated = true;
+    await delay(250);
+    const nextNodes = await dumpHierarchy(serial, context);
+    if (action.addedField) {
+      const nextCount = semanticCandidates(nextNodes, action.addedField, addedKind).length;
+      if (nextCount <= previousCount) throw new Error(`«${label}» se tocó, pero no apareció el control nuevo «${action.addedField}».`);
+    }
+    if (action.primary && action.type === 'button') state.actionPerformed = true;
+    return { nodes: nextNodes, detail: `${label} tocado con bounds observados`, primary: !!action.primary };
+  }
+
+  throw new Error(`Tipo de acción financiera desconocido: ${action.type}.`);
+}
+
+function outputText(nodes, recipe, output, size) {
+  const visible = nodes.filter(node => isVisibleInDisplay(node, size));
+  if (recipe.area === 'loan') {
+    const target = visible.find(node => node.contentDescription.includes(output.semantic));
+    if (!target) return null;
+    return nodeText(target).find(value => parseNumericText(value) !== null) ?? null;
+  }
+  if (recipe.area === 'rate') {
+    const label = visible.find(node => node.text.includes(output.semantic));
+    if (!label) return null;
+    for (let ancestor = label.parent, depth = 0; ancestor && depth < 4; ancestor = ancestor.parent, depth += 1) {
+      const value = nodeText(ancestor).find(text => text.includes('%') && parseNumericText(text) !== null);
+      if (value) return value;
+    }
+    return null;
+  }
+  if (recipe.area === 'reconciliation') {
+    const label = output.semantic.split('|').at(-1);
+    const target = visible.find(node => node.text.trim() === label);
+    if (!target) return null;
+    for (let ancestor = target.parent, depth = 0; ancestor && depth < 4; ancestor = ancestor.parent, depth += 1) {
+      const value = nodeText(ancestor).find(text => /^[^\d]*[+-]?\d[\d.,\s]*$/.test(text.trim()) && parseNumericText(text) !== null);
+      if (value) return value;
+    }
+    return null;
+  }
+  if (recipe.area === 'offers') {
+    const [offer, label] = output.semantic.split('|');
+    const candidates = visible.filter(node => node.text.includes(label));
+    for (const candidate of candidates) {
+      for (let ancestor = candidate; ancestor; ancestor = ancestor.parent) {
+        const subtree = nodeText(ancestor).join(' ');
+        if (subtree.includes(offer)) return candidate.text;
+        if (ancestor === candidate.parent?.parent?.parent?.parent) break;
+      }
+    }
+    return null;
+  }
+  return null;
+}
+
+function outputCandidate(nodes, recipe, output) {
+  if (recipe.area === 'loan') return nodes.find(node => node.contentDescription.includes(output.semantic)) ?? null;
+  if (recipe.area === 'rate') return nodes.find(node => node.text.includes(output.semantic)) ?? null;
+  if (recipe.area === 'reconciliation') {
+    const label = output.semantic.split('|').at(-1);
+    return nodes.find(node => node.text.trim() === label) ?? null;
+  }
+  if (recipe.area === 'offers') {
+    const label = output.semantic.split('|').at(-1);
+    return nodes.find(node => node.text.includes(label)) ?? null;
+  }
+  return null;
+}
+
+function scrollableAncestor(node) {
+  for (let current = node?.parent; current; current = current.parent) if (current.scrollable) return current;
+  return null;
+}
+
+async function swipeObservedTable(serial, context, nodes, size, target, direction) {
+  const container = scrollableAncestor(target);
+  if (!container || !isVisibleInDisplay(container, size)) return { status: 'BLOCKED', reason: 'La celda esperada no tiene un contenedor horizontal scrollable observado.' };
+  const anchors = nodes.filter(node => isDescendantOf(node, container) && node.text.trim() && isVisibleInDisplay(node, size));
+  if (anchors.length === 0) return { status: 'BLOCKED', reason: 'La tabla no expone un ancla textual visible para verificar el desplazamiento.' };
+  const y = Math.floor(container.bounds.top + container.bounds.height / 2);
+  const startX = Math.floor(container.bounds.left + container.bounds.width * (direction === 'left' ? 0.8 : 0.2));
+  const endX = Math.floor(container.bounds.left + container.bounds.width * (direction === 'left' ? 0.2 : 0.8));
+  if (y < 0 || y >= size.height || startX < 0 || endX >= size.width || startX === endX) {
+    return { status: 'BLOCKED', reason: 'Los bounds observados de tabla no permiten un gesto horizontal dentro del viewport.' };
+  }
+  adb(serial, ['shell', 'input', 'swipe', String(startX), String(y), String(endX), String(y), '280']);
+  await delay(280);
+  const afterNodes = await dumpHierarchy(serial, context);
+  const movedAnchor = anchors.map(anchor => {
+    const after = afterNodes.find(node => stableNodeKey(node) === stableNodeKey(anchor));
+    return after ? { label: anchor.text, leftBefore: anchor.bounds.left, leftAfter: after.bounds.left, deltaPx: after.bounds.left - anchor.bounds.left } : null;
+  }).find(anchor => anchor && Math.abs(anchor.deltaPx) >= 4) ?? null;
+  return { status: movedAnchor ? 'PASS' : 'FAIL', reason: movedAnchor ? 'El ancla de tabla cambió de posición horizontal.' : 'El gesto observado no produjo movimiento horizontal verificable.', gesture: { direction, startX, endX, y, durationMs: 280 }, movedAnchor, afterNodes };
+}
+
+async function observeFinancialOutputs(serial, context, nodes, recipe, size) {
+  const observed = [];
+  let current = nodes;
+  for (const output of recipe.outputs) {
+    let text = outputText(current, recipe, output, size);
+    let attempts = 0;
+    while (text === null && attempts < MAX_TABLE_SCROLLS_PER_OUTPUT) {
+      if (context.financialCaseScrolls >= MAX_FINANCIAL_CASE_SCROLLS) break;
+      const target = outputCandidate(current, recipe, output);
+      let scroll;
+      if (target && (target.bounds.top < 0 || target.bounds.bottom > size.height)) {
+        scroll = await swipeObservedContainer(serial, context, current, size, target.bounds.top < 0 ? 'up' : 'down');
+      } else if (target && recipe.area === 'loan') {
+        scroll = await swipeObservedTable(serial, context, current, size, target, target.bounds.left < 0 || target.bounds.right <= 0 ? 'right' : 'left');
+      } else if (!target && recipe.area === 'loan') {
+        scroll = await swipeObservedContainer(serial, context, current, size, 'down');
+      } else {
+        break;
+      }
+      context.scrolls.push({ case: `${recipe.id} · salida ${output.semantic}`, ...scroll, afterNodes: undefined });
+      context.financialCaseScrolls += 1;
+      if (!scroll.afterNodes || scroll.status !== 'PASS') break;
+      current = scroll.afterNodes;
+      attempts += 1;
+      text = outputText(current, recipe, output, size);
+    }
+    observed.push({ semantic: output.semantic, text });
+  }
+  return { observed, nodes: current };
+}
+
+async function restoreFinancialApp(report, serial, context, size) {
+  try {
+    adb(serial, ['shell', 'am', 'force-stop', PACKAGE_NAME], 15000);
+    report.execution.forceStop = true;
+    const launchResult = startApp(serial);
+    report.execution.launch = true;
+    if (!launchResult.succeeded) throw new Error(`MainActivity no confirmó reapertura (${launchResult.status ?? 'sin Status'}).`);
+    await delay(350);
+    const restored = await dumpHierarchy(serial, context);
+    const renderedContent = restored.some(node => isVisibleInDisplay(node, size) && (node.text.trim() || node.contentDescription.trim()));
+    report.execution.financialAppReopen = {
+      launchResult, storageCleared: false, saveButtonPressed: false,
+      persistedScenarioCompared: false, renderedContent,
+    };
+    addCheck(report, {
+      id: 'FINANCIAL-APP-REOPEN', requirement: 'VERIFY-02', platform: report.device.kind,
+      status: renderedContent ? 'PASS' : 'FAIL',
+      expected: 'Después de las recetas, MainActivity vuelve a abrir y muestra contenido; el runner no limpia almacenamiento ni pulsa Guardar.',
+      actual: `force-stop/start confirmado=${launchResult.succeeded}; contenido visible=${renderedContent}; storageCleared=false; Guardar no pulsado; igualdad del escenario persistido no comparada.`,
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    report.execution.financialAppReopen = {
+      error: reason, storageCleared: false, saveButtonPressed: false,
+      persistedScenarioCompared: false,
+    };
+    addCheck(report, {
+      id: 'FINANCIAL-APP-REOPEN', requirement: 'VERIFY-02', platform: report.device.kind,
+      status: 'BLOCKED',
+      expected: 'MainActivity vuelve a abrir y muestra contenido después de las recetas sin limpiar almacenamiento ni pulsar Guardar.',
+      actual: reason,
+      resume: 'Reabrir manualmente la app de prueba y confirmar que responde antes de entregar el dispositivo; este check no compara el escenario persistido.',
+    });
+  }
+}
+
+async function runFinancialRecipes(report, serial, context) {
+  const size = report.device.display.size;
+  report.execution.financialCases = [];
+  let shouldRestore = false;
+  try {
+    for (const recipe of FINANCIAL_RECIPES) {
+      context.activeFinancialCase = recipe.id;
+      context.financialCaseDumps = 0;
+      context.financialCaseScrolls = 0;
+      let state = { actionPerformed: false, mutated: false };
+      let actions = [];
+      let actionsComplete = false;
+      let nodes;
+      let failure = null;
+      try {
+        nodes = await dumpHierarchy(serial, context);
+        const sequence = await runFinancialActionSequence(recipe.actions, async (action, actionState) => {
+          const result = await performFinancialAction(serial, context, nodes, action, size, actionState);
+          nodes = result.nodes;
+          return result;
+        });
+        state = sequence.state;
+        actions = sequence.actions;
+        actionsComplete = sequence.actionsComplete;
+        failure = sequence.failure;
+        shouldRestore ||= sequence.restoreRequired;
+
+        if (state.actionPerformed) {
+          await captureScreenshot(serial, context, `Receta ${recipe.id}`);
+          const result = await observeFinancialOutputs(serial, context, nodes, recipe, size);
+          nodes = result.nodes;
+          const reference = FINANCIAL_REFERENCES.find(item => item.id === recipe.id);
+          const evaluation = evaluateFinancialCase({ actionPerformed: true, actionsComplete, outputs: recipe.outputs, observed: result.observed });
+          addCheck(report, {
+            id: recipe.id, requirement: 'FIN-01/FIN-02/UI-01', platform: report.device.kind,
+            status: evaluation.status, expected: reference?.expected ?? recipe.outputs.map(item => `${item.semantic}=${item.expected}`).join('; '),
+            expectationSource: reference?.source,
+            actual: `${actions.filter(item => item.status === 'PASS').length}/${recipe.actions.length} acciones completadas; ${evaluation.actual}${failure ? `; paso detenido: ${failure}` : ''}`,
+            resume: evaluation.status === 'FAIL' ? 'Revisar la cifra o salida observada en la evidencia del caso y repetir sobre el APK integrado con el mismo dispositivo explícito.' : undefined,
+          });
+          report.execution.financialCases.push({ id: recipe.id, status: evaluation.status, actionPerformed: true, actions, outputs: evaluation.observations, hierarchyDumps: context.financialCaseDumps, observedScrolls: context.financialCaseScrolls, stoppedReason: failure });
+        } else {
+          const reason = failure ?? 'No se confirmó la acción que genera las salidas financieras.';
+          addCheck(report, pendingFinancialCheck(recipe, report.device.kind, reason));
+          report.execution.financialCases.push({ id: recipe.id, status: 'NOT_RUN', actionPerformed: false, actions, outputs: [], hierarchyDumps: context.financialCaseDumps, observedScrolls: context.financialCaseScrolls, stoppedReason: reason });
+        }
+      } catch (error) {
+        failure = error instanceof Error ? error.message : String(error);
+        const evaluation = evaluateFinancialCase({ actionPerformed: state.actionPerformed, actionsComplete, outputs: recipe.outputs, observed: [] });
+        addCheck(report, state.actionPerformed ? {
+          id: recipe.id, requirement: 'FIN-01/FIN-02/UI-01', platform: report.device.kind,
+          status: 'FAIL', expected: FINANCIAL_REFERENCES.find(item => item.id === recipe.id)?.expected ?? recipe.id,
+          expectationSource: FINANCIAL_REFERENCES.find(item => item.id === recipe.id)?.source,
+          actual: `La acción financiera se confirmó, pero se interrumpió la observación de sus cifras: ${failure}.`,
+        } : pendingFinancialCheck(recipe, report.device.kind, failure));
+        report.execution.financialCases.push({ id: recipe.id, status: evaluation.status === 'NOT_RUN' ? 'NOT_RUN' : 'FAIL', actionPerformed: state.actionPerformed, actions, outputs: [], hierarchyDumps: context.financialCaseDumps, observedScrolls: context.financialCaseScrolls, stoppedReason: failure });
+      } finally {
+        shouldRestore ||= state.mutated;
+        context.activeFinancialCase = null;
+      }
+    }
+  } finally {
+    context.activeFinancialCase = null;
+    if (shouldRestore) await restoreFinancialApp(report, serial, context, size);
+  }
+  report.execution.financialActionLog = report.execution.financialCases;
+}
+
+function pendingFinancialCheck(recipe, platform, reason) {
+  return pendingCheck(recipe.id, 'FIN-01/FIN-02/UI-01',
+    `${recipe.actions.length} acciones de entrada/aplicación observadas y todas las salidas numéricas literales de la receta.`, reason,
+    'Retomar con `npm run verify:device -- --device <serial explícito> --apk <APK integrado> --allow-ui-actions --restart-app --run-financial-cases`; el destino debe estar autorizado y controlado.');
+}
+
+function financialPendingChecks(reason, platform = 'APK Android') {
+  return FINANCIAL_RECIPES.map(recipe => pendingFinancialCheck(recipe, platform, reason));
+}
+
+async function runUiChecks(report, serial, context, options) {
   const foreground = isAppForeground(serial);
   report.device.foregroundPackage = foreground.packageName;
   if (!foreground.app) {
@@ -769,16 +1433,8 @@ async function runUiChecks(report, serial, context) {
   if (converterScan.scroll?.status === 'PASS') await captureScreenshot(serial, context, 'Conversor controles visibles');
   addSurfaceResult(report, 'UI-SURFACE-RATE-CONVERTER', 'El Conversor muestra tasa de entrada y resultados equivalentes.',
     converterLabels.filter(label => !findVisibleNode(converterScan.nodes, label, display.size)), sourceMatches);
-  const rateReference = FINANCIAL_REFERENCES.find(item => item.id === 'ANDROID-RATE');
   const rateField = converterScan.current.find(node => node.editable && isVisibleInDisplay(node, display.size))
     ?? findVisibleNode(converterScan.current, 'Tasa (%)', display.size);
-  const rateObservation = evaluateFinancialObservation({ actionPerformed: false, observedText: null, expected: 12.6825030131969720661201, tolerance: 1e-12 });
-  addCheck(report, {
-    id: 'ANDROID-RATE', requirement: 'FIN-01', platform: report.device.kind,
-    status: rateObservation.status, expected: rateReference.expected, expectationSource: rateReference.source,
-    actual: 'No se ingresó la referencia EM 1% ni se leyó una EA generada por esa acción.',
-    resume: 'Ingresar 1 en Tasa (%) con el destino de pruebas controlado, esperar la recomposición y cotejar la EA visible con la referencia independiente.',
-  });
 
   let focusStatus = 'NOT_RUN';
   let focusActual = 'No se encontró un campo de tasa editable visible en la jerarquía observada.';
@@ -806,11 +1462,14 @@ async function runUiChecks(report, serial, context) {
     actual: focusActual,
     resume: focusStatus === 'NOT_RUN' ? 'Repetir en el APK integrado con un campo editable presente.' : undefined,
   });
-  for (const reference of FINANCIAL_REFERENCES.filter(item => item.id !== 'ANDROID-RATE')) {
-    addCheck(report, pendingCheck(reference.id, 'FIN-01/FIN-02/UI-01', reference.expected,
-      'Esta corrida de baseline inspecciona navegación, teclado y desplazamiento; no introduce ni guarda datos financieros.',
-      'Ejecutar el caso en el APK integrado con controles observables y comparar las cifras independientes definidas en docs/financial-conventions.md.'));
-  }
+  if (options.runFinancialCases) {
+    const readiness = financialRunReadiness({
+      candidateStatus: report.checks.find(check => check.id === 'APK-CANDIDATE-MATCH')?.status,
+      producerIdentity: report.device.candidateMetadata,
+    });
+    if (readiness.ready) await runFinancialRecipes(report, serial, context);
+    else for (const check of financialPendingChecks(readiness.reason, report.device.kind)) addCheck(report, check);
+  } else for (const check of financialPendingChecks('Se verificaron superficies y gestos, pero no se pidió --run-financial-cases; no se ingresaron ni aplicaron datos financieros.')) addCheck(report, check);
 }
 
 function uiPendingChecks(reason) {
@@ -819,10 +1478,9 @@ function uiPendingChecks(reason) {
     pendingCheck('UI-STARTUP-RENDER', 'UI-01/VERIFY-02', 'La actividad Android de Finsim está en primer plano, muestra contenido y se conserva una captura PNG verificable.', reason, 'Abrir Finsim en el destino seleccionado y autorizar --allow-ui-actions.'),
     ...['LOAN', 'RATE-CONVERTER', 'RECONCILIATION', 'OFFERS', 'CONDITIONS-EVENTS'].map(id => pendingCheck(`UI-SURFACE-${id}`, 'UI-01', `La superficie ${id} está disponible y expone controles semánticos.`, reason, 'Abrir Finsim en el dispositivo y autorizar --allow-ui-actions.')),
     pendingCheck('UI-SURFACE-LOAN-ORIGIN', 'UI-01', 'El selector Origen ofrece Préstamo original y Saldo actual.', reason, 'Abrir Origen en la pantalla de préstamo y observar sus opciones.'),
-    pendingCheck('ANDROID-RATE', 'FIN-01', FINANCIAL_REFERENCES.find(item => item.id === 'ANDROID-RATE').expected, reason, 'Abrir el conversor y observar su resultado frente a la referencia literal.'),
     pendingCheck('UI-FOCUS-KEYBOARD', 'UI-01', 'Un campo recibe foco y muestra el teclado virtual.', reason, 'Abrir Finsim en el dispositivo y autorizar --allow-ui-actions.'),
     pendingCheck('UI-SCROLL', 'UI-01', 'Un contenedor vertical desplaza su contenido.', reason, 'Abrir Finsim en el dispositivo y autorizar --allow-ui-actions.'),
-    ...FINANCIAL_REFERENCES.filter(item => item.id !== 'ANDROID-RATE').map(reference => pendingCheck(reference.id, 'FIN-01/FIN-02/UI-01', reference.expected, reason, 'Correr el caso en un APK/dispositivo de prueba controlado y comparar cada cifra con su expectativa literal.')),
+    ...financialPendingChecks(reason),
   ];
 }
 
@@ -852,7 +1510,7 @@ function renderMarkdown(report) {
 
 **Fuente local:** ${report.source.branch ?? 'desconocida'}@${report.source.commit ?? 'desconocido'} · árbol ${report.source.workingTree?.hasLocalChanges ? 'con cambios' : 'limpio'} · huella ${report.source.workingTree?.sha256 ?? 'no disponible'}
 
-**Dispositivo:** ${report.device ? `${report.device.kind ?? 'sin identificar'} ${report.device.manufacturer ?? ''} ${report.device.model ?? ''} · Android ${report.device.androidVersion ?? '?'} (API ${report.device.androidSdk ?? '?'}) · ${report.device.display?.size ? `${report.device.display.size.width}×${report.device.display.size.height}px` : 'tamaño desconocido'} @ ${report.device.display?.densityDpi ?? '?'} dpi` : 'ningún destino seleccionado'}
+**Dispositivo:** ${report.device ? `${report.device.kind ?? 'sin identificar'} ${report.device.manufacturer ?? ''} ${report.device.model ?? ''} · Android ${report.device.androidVersion ?? '?'} (API ${report.device.androidSdk ?? '?'}) · ${report.device.display?.size ? `${report.device.display.size.width}×${report.device.display.size.height}px` : 'tamaño desconocido'} @ ${report.device.display?.densityDpi ?? '?'} dpi · fontScale ${report.device.display?.fontScale ?? 'desconocido'}` : 'ningún destino seleccionado'}
 
 **Memoria física observada:** ${report.device?.memory?.memTotalBytes ? `${report.device.memory.memTotalKb} kB (${report.device.memory.memTotalBytes} bytes; ${report.device.memory.memTotalGiB} GiB)` : 'MemTotal no disponible'} · PSI ${report.device?.memory?.pressure ? JSON.stringify(report.device.memory.pressure) : report.device?.memory?.pressureError ?? 'no disponible'}
 
@@ -870,7 +1528,7 @@ ${checks || 'Sin comprobaciones.'}
 
 ${refs}
 
-El commit local y el hash del APK son identidades separadas; la coincidencia entre un candidato y el APK instalado no demuestra por sí sola qué revisión lo generó. Los metadatos laterales solo se presentan como declaración y se asocian al candidato cuando su SHA declarado coincide con los bytes. Se enumeran todas las rutas de pm path y sus hashes; un único --apk candidato solo puede demostrar coincidencia completa cuando el paquete instalado tiene un solo APK. El runner no instala ni borra datos. No inicia ni fuerza el cierre por defecto; --start-app abre explícitamente y --restart-app cierra/reabre MainActivity preservando almacenamiento, ambos requieren --allow-ui-actions. Los gestos UI requieren opt-in y usan un presupuesto máximo de dieciséis dumps de jerarquía, una recuperación de viewport, hasta dos desplazamientos para controles del préstamo y como máximo uno por cada superficie de conciliación, ofertas y conversor. Las recuperaciones de navegación solo usan contenedores y bounds observados; si la pestaña no vuelve al viewport, el recorrido se detiene sin toques adicionales. Sin --device no selecciona automáticamente un destino. Emulador y dispositivo físico se informan por separado; ninguna corrida de emulador acredita inferencia Gemma.
+El commit local y el hash del APK son identidades separadas; la coincidencia entre un candidato y el APK instalado no demuestra por sí sola qué revisión lo generó. Los metadatos laterales solo se presentan como declaración y se asocian al candidato cuando su SHA declarado coincide con los bytes. Se enumeran todas las rutas de pm path y sus hashes; un único --apk candidato solo puede demostrar coincidencia completa cuando el paquete instalado tiene un solo APK. El runner no instala ni borra datos. No inicia ni fuerza el cierre por defecto; --start-app abre explícitamente y --restart-app cierra/reabre MainActivity preservando almacenamiento, ambos requieren --allow-ui-actions. Las recetas financieras solo se ejecutan con --run-financial-cases junto a --device, --allow-ui-actions y --restart-app; cada caso tiene límite de 64 dumps y 24 desplazamientos observados, cada salida de tabla admite hasta cuatro gestos horizontales medidos. La suite no pulsa Guardar y reinicia MainActivity al terminar para descartar borradores de prueba sin limpiar almacenamiento. Las inspecciones y gestos requieren jerarquía reciente, bounds visibles y anclas semánticas observadas; si un control no aparece, el caso queda NOT_RUN antes de la acción financiera y propone cómo retomarlo. El perfil general usa un máximo de ${MAX_HIERARCHY_DUMPS} dumps. Sin --device no selecciona automáticamente un destino. Emulador y dispositivo físico se informan por separado; ninguna corrida de emulador acredita inferencia Gemma.
 `;
 }
 
@@ -888,8 +1546,8 @@ async function main(args = process.argv.slice(2)) {
   try { options = parseOptions(args); }
   catch (error) { console.error(error.message); process.exitCode = 2; return; }
   if (options.help) {
-    console.log('Uso: npm run verify:device -- [--device <serial> [--allow-ui-actions [--start-app | --restart-app]]] [--apk <APK local>]');
-    console.log('Sin --device solo consulta el inventario ADB. --start-app abre MainActivity; --restart-app hace force-stop y abre MainActivity. Ambos requieren opt-in explícito y preservan almacenamiento.');
+  console.log('Uso: npm run verify:device -- [--device <serial> [--allow-ui-actions [--start-app | --restart-app --apk <APK local> --run-financial-cases]]] [--apk <APK local>]');
+  console.log('Sin --device solo consulta el inventario ADB. --start-app abre MainActivity; --restart-app cierra/reabre sin limpiar almacenamiento. --run-financial-cases exige APK candidato coincidente, --allow-ui-actions y --restart-app.');
     return;
   }
 
@@ -897,16 +1555,18 @@ async function main(args = process.argv.slice(2)) {
   const runId = `${started.toISOString().replaceAll(':', '-').replaceAll('.', '-')}-${randomUUID().slice(0, 8)}`;
   const directory = path.join(reportRoot, runId);
   await mkdir(directory, { recursive: true });
-  const uiContext = { runId, evidenceDirectory: directory, dumps: [], screenshots: [], scrolls: [], restoredTab: null };
+  const uiContext = { runId, evidenceDirectory: directory, dumps: [], screenshots: [], scrolls: [], restoredTab: null, activeFinancialCase: null, financialCaseDumps: 0, financialCaseScrolls: 0 };
   const source = await sourceIdentity();
   const report = {
     schemaVersion: 1, runId, startedAt: started.toISOString(), evidenceDirectory: directory,
     profile: { id: 'PA', name: 'Android installed UI inspection', scope: 'APK instalado; superficies UI y condiciones de interacción en destino explícito' },
-    source, device: null, inventory: null, financialReferences: FINANCIAL_REFERENCES,
+    source, device: null, inventory: null, financialReferences: FINANCIAL_REFERENCES, financialRecipes: FINANCIAL_RECIPES,
     checks: [], execution: {
       targetSelected: !!options.device, uiActionsOptedIn: options.allowUiActions,
+      financialCasesRequested: options.runFinancialCases,
       install: false, launch: false, forceStop: false, clearData: false,
-      uiautomatorDumpLimit: MAX_HIERARCHY_DUMPS, uiautomatorDumps: uiContext.dumps,
+      uiautomatorDumpLimit: MAX_HIERARCHY_DUMPS, financialCaseDumpLimit: MAX_FINANCIAL_CASE_DUMPS,
+      financialCaseScrollLimit: MAX_FINANCIAL_CASE_SCROLLS, uiautomatorDumps: uiContext.dumps,
       screenshots: uiContext.screenshots, scrolls: uiContext.scrolls, restoredTab: null,
       launchResult: null,
     },
@@ -952,7 +1612,7 @@ async function main(args = process.argv.slice(2)) {
           if (!report.execution.launchResult.succeeded) throw new Error(`am start no confirmó MainActivity: ${report.execution.launchResult.status ?? 'sin Status'} / ${report.execution.launchResult.activity ?? 'sin Activity'}.`);
         }
         if (options.allowUiActions) {
-          await runUiChecks(report, options.device, uiContext);
+          await runUiChecks(report, options.device, uiContext, options);
           report.execution.restoredTab = uiContext.restoredTab;
         }
         else for (const check of uiPendingChecks('Se seleccionó el dispositivo, pero faltó el opt-in --allow-ui-actions; no se consultó ni manipuló la interfaz.')) addCheck(report, check);
