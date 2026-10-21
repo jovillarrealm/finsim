@@ -39,21 +39,18 @@ fun ReconciliationView(
     if (showImportDialog) {
         DocumentImportDialog(
             targetMode = ImportTargetMode.RECONCILIATION,
+            targetCurrency = currency,
             onDismiss = { showImportDialog = false },
             onStatementRowImported = { stmt ->
+                val resolvedDifferences = reconcileRow(stmt, original.rows, currency)
                 monthStr = stmt.month.toString()
                 interestStr = stmt.interest ?: ""
                 insuranceStr = stmt.insurance ?: ""
                 principalStr = stmt.principal ?: ""
                 balanceStr = stmt.balance ?: ""
+                differences = resolvedDifferences
+                errorMessage = ""
                 showImportDialog = false
-                try {
-                    differences = reconcileRow(stmt, original.rows)
-                    errorMessage = ""
-                } catch (e: Exception) {
-                    errorMessage = e.message ?: "Error al comparar fila de extracto."
-                    differences = emptyList()
-                }
             }
         )
     }
@@ -175,12 +172,13 @@ fun ReconciliationView(
                         val m = monthStr.toIntOrNull() ?: error("Indica un mes válido.")
                         val stmt = StatementRow(
                             month = m,
+                            currency = currency,
                             interest = interestStr.ifBlank { null },
                             insurance = insuranceStr.ifBlank { null },
                             principal = principalStr.ifBlank { null },
                             balance = balanceStr.ifBlank { null }
                         )
-                        differences = reconcileRow(stmt, original.rows)
+                        differences = reconcileRow(stmt, original.rows, currency)
                         errorMessage = ""
                     } catch (e: Exception) {
                         errorMessage = e.message ?: "Error al comparar fila de extracto."
