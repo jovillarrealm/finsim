@@ -34,6 +34,7 @@ object AndroidIngestionContext {
 class AndroidPdfRasterizer(private val context: Context) : PageRasterizer {
     override suspend fun rasterizePage(pdfBytes: ByteArray, pageIndex: Int, dpi: Int): ByteArray =
         withContext(Dispatchers.IO) {
+            val probeTicket = TemporarySyntheticFixtureProbe.rasterGate.beginPdf(pdfBytes, pageIndex)
             validatePdfForInMemoryRasterization(pdfBytes)
             require(pageIndex > 0) { "El número de página debe empezar en 1." }
             require(dpi > 0) { "La resolución debe ser positiva." }
@@ -53,6 +54,8 @@ class AndroidPdfRasterizer(private val context: Context) : PageRasterizer {
                     descriptor.close()
                     throw failure
                 }
+                var imageWidth = 0
+                var imageHeight = 0
                 val rasterBytes = renderer.use {
                     require(pageIndex <= it.pageCount) {
                         "La página $pageIndex no existe; el PDF tiene ${it.pageCount} páginas."
@@ -64,6 +67,8 @@ class AndroidPdfRasterizer(private val context: Context) : PageRasterizer {
                         val width = ceil(page.width * scale).toLong().coerceAtLeast(1L)
                         val height = ceil(page.height * scale).toLong().coerceAtLeast(1L)
                         validateRasterDimensions(width, height)
+                        imageWidth = width.toInt()
+                        imageHeight = height.toInt()
                         try {
                             val bitmap = Bitmap.createBitmap(width.toInt(), height.toInt(), Bitmap.Config.ARGB_8888)
                             try {
@@ -90,6 +95,12 @@ class AndroidPdfRasterizer(private val context: Context) : PageRasterizer {
                         page.close()
                     }
                 }
+                TemporarySyntheticFixtureProbe.rasterGate.armAfterRaster(
+                    probeTicket,
+                    rasterBytes,
+                    imageWidth,
+                    imageHeight
+                )
                 rasterBytes
             } finally {
                 callbackThread.quitSafely()
