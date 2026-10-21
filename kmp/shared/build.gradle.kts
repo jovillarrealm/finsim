@@ -2,20 +2,28 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.android.kmp.library)
 }
-
 kotlin {
     jvm()
-    androidTarget {
+    android {
+        namespace = "com.finsim.shared"
+        compileSdk = 37
+        minSdk = 24
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_21)
+        }
+        optimization {
+            consumerKeepRules.apply {
+                publish = true
+                file("consumer-rules.pro")
+            }
         }
     }
     wasmJs {
         browser()
     }
-    js(IR) {
+    js {
         browser()
     }
 
@@ -29,19 +37,5 @@ kotlin {
             implementation(kotlin("test"))
             implementation(libs.kotlinx.coroutines.test)
         }
-    }
-}
-
-android {
-    namespace = "com.finsim.shared"
-    compileSdk = 36
-
-    defaultConfig {
-        minSdk = 24
-        consumerProguardFiles("consumer-rules.pro")
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
     }
 }
