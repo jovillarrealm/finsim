@@ -7,6 +7,8 @@ interface ModelStorage {
     fun isModelDownloaded(): Boolean
     fun getModelSizeBytes(): Long
     fun getModelFilePath(): String? = null
+    /** Returns storage state owned by one download attempt so late cleanup cannot touch a retry. */
+    fun createDownloadAttempt(): ModelStorage = this
     fun beginDownload()
     fun saveChunk(bytes: ByteArray, length: Int = bytes.size)
     fun markDownloaded(sizeBytes: Long)

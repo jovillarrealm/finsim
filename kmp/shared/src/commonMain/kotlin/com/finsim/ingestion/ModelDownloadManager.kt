@@ -43,7 +43,7 @@ class ModelDownloadManager(
     fun isModelDownloaded(): Boolean = storage.isModelDownloaded()
 
     fun startDownload() {
-        if (downloadJob?.isCompleted == false) return
+        if (downloadJob?.isActive == true) return
         if (!capabilityGate.isEligibleForVlm) {
             _state.value = DownloadState.Error(
                 capabilityGate.ineligibilityReason ?: "Gemma requiere Android, 8 GiB de RAM total y memoria disponible."
@@ -56,26 +56,38 @@ class ModelDownloadManager(
         }
 
         downloadJob = coroutineScope.launch {
+            var attemptStorage: ModelStorage? = null
             try {
-                storage.beginDownload()
-                val result = downloader.download(storage) { downloaded ->
-                    _state.value = DownloadState.Downloading(
-                        progress = (downloaded.toFloat() / GemmaModelArtifact.sizeBytes).coerceIn(0f, 1f),
-                        downloadedBytes = downloaded,
-                        totalBytes = GemmaModelArtifact.sizeBytes
-                    )
+                val attempt = storage.createDownloadAttempt()
+                attemptStorage = attempt
+                attempt.beginDownload()
+                val attemptContext = currentCoroutineContext()
+                val result = downloader.download(attempt) { downloaded ->
+                    val attemptIsActive = try {
+                        attemptContext.ensureActive()
+                        true
+                    } catch (_: CancellationException) {
+                        false
+                    }
+                    if (attemptIsActive) {
+                        _state.value = DownloadState.Downloading(
+                            progress = (downloaded.toFloat() / GemmaModelArtifact.sizeBytes).coerceIn(0f, 1f),
+                            downloadedBytes = downloaded,
+                            totalBytes = GemmaModelArtifact.sizeBytes
+                        )
+                    }
                 }
                 currentCoroutineContext().ensureActive()
                 GemmaModelArtifact.validationError(result.fileName, result.sizeBytes, result.sha256)?.let {
                     error(it)
                 }
-                storage.markDownloaded(result.sizeBytes)
+                attempt.markDownloaded(result.sizeBytes)
                 _state.value = DownloadState.Completed(result.sizeBytes)
             } catch (cancelled: CancellationException) {
-                storage.discardPartialDownload()
+                attemptStorage?.discardPartialDownload()
                 throw cancelled
             } catch (failure: Exception) {
-                storage.discardPartialDownload()
+                attemptStorage?.discardPartialDownload()
                 _state.value = DownloadState.Error(failure.message ?: "No se pudo descargar y verificar Gemma.")
             }
         }

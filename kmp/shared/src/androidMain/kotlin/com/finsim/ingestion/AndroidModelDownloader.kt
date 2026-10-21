@@ -31,6 +31,7 @@ class AndroidModelDownloader : ModelDownloader {
                     while (true) {
                         currentCoroutineContext().ensureActive()
                         val count = input.read(buffer)
+                        currentCoroutineContext().ensureActive()
                         if (count < 0) break
                         if (count == 0) continue
                         downloaded += count

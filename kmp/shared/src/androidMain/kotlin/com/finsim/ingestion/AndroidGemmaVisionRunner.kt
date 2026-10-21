@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -85,14 +86,18 @@ class AndroidGemmaVisionRunner(
                         enableSpeculativeDecoding = false
                     )
                 ).use { conversation ->
-                    conversation.sendMessage(
-                        com.google.ai.edge.litertlm.Contents.of(
-                            Content.Text(buildStatementPrompt(framework, targetMode)),
-                            Content.ImageBytes(imageBytes)
-                        ),
-                        maxOutputToken = MAX_OUTPUT_TOKENS,
-                        responseFormat = ResponseFormat.json(VlmJsonGrammar.JSON_SCHEMA_PROMPT)
-                    ).toString()
+                    cancellableNativeConversationCall(
+                        cancelProcess = conversation::cancelProcess
+                    ) {
+                        conversation.sendMessage(
+                            com.google.ai.edge.litertlm.Contents.of(
+                                Content.Text(buildStatementPrompt(framework, targetMode)),
+                                Content.ImageBytes(imageBytes)
+                            ),
+                            maxOutputToken = MAX_OUTPUT_TOKENS,
+                            responseFormat = ResponseFormat.json(VlmJsonGrammar.JSON_SCHEMA_PROMPT)
+                        ).toString()
+                    }
                 }
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 val inferenceMs = System.nanoTime() / 1_000_000L - start
@@ -252,5 +257,23 @@ class AndroidGemmaVisionRunner(
         const val MAX_OUTPUT_TOKENS = 512
         const val HASH_BUFFER_BYTES = 128 * 1024
         const val BYTES_PER_GIB = 1024.0 * 1024.0 * 1024.0
+    }
+}
+
+/** Runs LiteRT-LM's blocking sendMessage while forwarding coroutine cancellation to native inference. */
+internal suspend fun <T> cancellableNativeConversationCall(
+    cancelProcess: () -> Unit,
+    sendMessage: () -> T
+): T = suspendCancellableCoroutine { continuation ->
+    continuation.invokeOnCancellation {
+        // Cancellation races with native completion/close; cancelProcess is a best-effort interrupt.
+        runCatching(cancelProcess)
+    }
+    if (!continuation.isActive) return@suspendCancellableCoroutine
+
+    try {
+        continuation.resumeWith(Result.success(sendMessage()))
+    } catch (failure: Throwable) {
+        continuation.resumeWith(Result.failure(failure))
     }
 }

@@ -1,5 +1,7 @@
 package com.finsim.ingestion
 
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -8,6 +10,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class ModelDownloadManagerTest {
     @Test
     fun downloadManagerAcceptsOnlyPinnedMetadataFromItsDownloader() = runTest {
@@ -50,6 +53,45 @@ class ModelDownloadManagerTest {
         assertTrue(error.message.contains("SHA-256"))
         assertFalse(manager.isModelDownloaded())
         assertEquals(0L, storage.getModelSizeBytes())
+    }
+
+    @Test
+    fun lateProgressFromCancelledAttemptCannotOverwriteRetryState() = runTest {
+        var downloaderCall = 0
+        var lateProgress: ((Long) -> Unit)? = null
+        val manager = ModelDownloadManager(
+            storage = InMemoryModelStorage(),
+            capabilityGate = FakeDeviceCapabilityGate(totalRamGb = 8.0),
+            downloader = ModelDownloader { _, onProgress ->
+                downloaderCall++
+                if (downloaderCall == 1) {
+                    lateProgress = onProgress
+                    onProgress(1L)
+                    awaitCancellation()
+                } else {
+                    onProgress(2L)
+                    awaitCancellation()
+                }
+            },
+            coroutineScope = backgroundScope
+        )
+
+        manager.startDownload()
+        runCurrent()
+        assertIs<DownloadState.Downloading>(manager.state.value)
+
+        manager.cancelDownload()
+        assertEquals(DownloadState.Idle, manager.state.value)
+        manager.startDownload()
+        runCurrent()
+        assertEquals(2, downloaderCall)
+        val retryState = assertIs<DownloadState.Downloading>(manager.state.value)
+
+        lateProgress?.invoke(99L)
+
+        assertEquals(retryState, manager.state.value)
+        manager.cancelDownload()
+        runCurrent()
     }
 
     @Test

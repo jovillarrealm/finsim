@@ -10,6 +10,7 @@ kotlin {
         namespace = "com.finsim.shared"
         compileSdk = 37
         minSdk = 24
+        withHostTestBuilder {}
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_21)
         }
