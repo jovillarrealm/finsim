@@ -9,7 +9,9 @@ import com.finsim.engine.simulateLoan
 import com.finsim.reconciliation.reconcileRow
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class DocumentTextParserTest {
@@ -62,8 +64,8 @@ class DocumentTextParserTest {
             Tasa Mes Vencido (M.V.): 1.50%
             Plazo en meses: 48
             Valor cuota mensual: $ 850.000,00
-            Seguro deudores: $ 12.500,00
-            Seguro de vida: $ 10.000,00
+            Cargo mensual de seguro deudores: $ 12.500,00
+            Prima mensual de seguro de vida: $ 10.000,00
         """.trimIndent()
 
         val extracted = DocumentTextParser.parse(statement, RegulatoryFramework.COLOMBIA_SFC, pageIndex = 1)
@@ -86,13 +88,23 @@ class DocumentTextParserTest {
         assertEquals("10000.00", extracted.insurances[1].monthlyCost)
 
         // Convert to domain Scenario and validate
-        val scenario = extracted.toScenario(framework = RegulatoryFramework.COLOMBIA_SFC)
+        val reviewed = extracted.copy(
+            remainingTermMonths = extracted.termMonths,
+            termMeaning = TermMeaning.REMAINING,
+            basePayment = extracted.monthlyPayment,
+            paymentMeaning = PaymentMeaning.BASE_PAYMENT
+        )
+        val scenario = reviewed.toScenario(
+            framework = RegulatoryFramework.COLOMBIA_SFC,
+            startDate = "2026-11",
+            confirmCurrencyAssumption = true
+        )
         scenario.validate()
 
         assertEquals(Currency.COP, scenario.currency)
         assertEquals("24500000.00", scenario.principal)
         assertEquals(48, scenario.termMonths)
-        assertEquals("2026-10", scenario.startDate)
+        assertEquals("2026-11", scenario.startDate)
         assertTrue(scenario.rate is Rate.Annual)
         val rateRatio = Decimal.parse(scenario.rate.value)
         assertEquals("0.195", rateRatio.toString())
@@ -109,7 +121,7 @@ class DocumentTextParserTest {
             CAT Promedio: 26.8% sin IVA
             Plazo: 24 meses
             Pago mensual: $ 6,250.00
-            Seguro de desempleo: $ 450.00
+            Prima mensual de seguro de desempleo: $ 450.00
         """.trimIndent()
 
         val extracted = DocumentTextParser.parse(statement, RegulatoryFramework.MEXICO_CONDUSEF, pageIndex = 1)
@@ -129,7 +141,17 @@ class DocumentTextParserTest {
         assertEquals("Seguro de desempleo", extracted.insurances[0].name)
         assertEquals("450.00", extracted.insurances[0].monthlyCost)
 
-        val scenario = extracted.toScenario(framework = RegulatoryFramework.MEXICO_CONDUSEF)
+        val reviewed = extracted.copy(
+            remainingTermMonths = extracted.termMonths,
+            termMeaning = TermMeaning.REMAINING,
+            basePayment = extracted.monthlyPayment,
+            paymentMeaning = PaymentMeaning.BASE_PAYMENT
+        )
+        val scenario = reviewed.toScenario(
+            framework = RegulatoryFramework.MEXICO_CONDUSEF,
+            startDate = "2026-11",
+            confirmCurrencyAssumption = true
+        )
         scenario.validate()
         assertEquals(24, scenario.termMonths)
         assertEquals("120000.00", scenario.principal)
@@ -157,14 +179,14 @@ class DocumentTextParserTest {
     fun testArgentinaBcraRatesAndNominalHandling() {
         val statement = """
             Banco Galicia
-            Resumen de Cuenta Préstamo
-            Saldo deudor: $ 850.000,50
+            Extracto de Préstamo
+            Saldo de capital: $ 850.000,50
             TNA: 48.00%
             TEA: 60.10%
             CFT TEA: 78.50%
-            Plazo: 36 meses
-            Cuota mensual: $ 45.200,00
-            Seguro de vida: $ 1.850,00
+            Plazo restante: 36 meses
+            Cuota base: $ 45.200,00
+            Prima mensual de seguro de vida: $ 1.850,00
             Fecha de emisión: 10/10/2026
         """.trimIndent()
 
@@ -178,9 +200,21 @@ class DocumentTextParserTest {
         assertNotNull(extracted.rate)
         assertEquals("48.00", extracted.rate.valuePercent)
         assertEquals("nominal", extracted.rate.kind)
-        assertEquals(12, extracted.rate.nominalFrequency)
+        assertNull(extracted.rate.nominalFrequency)
+        assertFailsWith<IllegalArgumentException> {
+            extracted.toScenario(
+                framework = RegulatoryFramework.ARGENTINA_BCRA,
+                startDate = "2026-11",
+                confirmCurrencyAssumption = true
+            )
+        }
 
-        val scenario = extracted.toScenario(framework = RegulatoryFramework.ARGENTINA_BCRA)
+        val reviewed = extracted.copy(rate = extracted.rate.copy(nominalFrequency = 12))
+        val scenario = reviewed.toScenario(
+            framework = RegulatoryFramework.ARGENTINA_BCRA,
+            startDate = "2026-11",
+            confirmCurrencyAssumption = true
+        )
         scenario.validate()
         assertEquals(Currency.ARS, scenario.currency)
         assertTrue(scenario.rate is Rate.Nominal)
@@ -215,9 +249,9 @@ class DocumentTextParserTest {
             Saldo a capital: $ 24.150.000,00
             Abono a capital: $ 350.000,00
             Interés corriente: $ 477.500,00
-            Seguro deudores: $ 12.500,00
-            Seguro de vida grupo: $ 10.000,00
-            Total otros cobros: $ 22.500,00
+            Cargo mensual de seguro deudores: $ 12.500,00
+            Prima mensual de seguro de vida grupo: $ 10.000,00
+            Total seguros: $ 22.500,00
         """.trimIndent()
 
         val extracted = DocumentTextParser.parse(statement, RegulatoryFramework.COLOMBIA_SFC)
@@ -267,13 +301,13 @@ class DocumentTextParserTest {
     @Test
     fun testMexicanStatementRowExtractionAndDifferences() {
         val statement = """
-            BBVA México - Estado de Cuenta
+            BBVA México - Estado de Cuenta de Préstamo
             Fecha de corte: 2026-10-01
             Cuota 5 de 24
             Amortización a capital: $ 4,120.00
             Interés ordinario: $ 1,360.00
-            Seguro de desempleo: $ 450.00
-            Saldo final: $ 115,880.00
+            Cargo mensual de seguro de desempleo: $ 450.00
+            Saldo a capital: $ 115,880.00
         """.trimIndent()
 
         val extracted = DocumentTextParser.parse(statement, RegulatoryFramework.MEXICO_CONDUSEF)
@@ -298,9 +332,9 @@ class DocumentTextParserTest {
         """.trimIndent()
 
         val extractedWithDate = DocumentTextParser.parse(statementWithDateOnly, RegulatoryFramework.COLOMBIA_SFC)
-        // Uses month 8 from 2026-08
-        assertEquals(8, extractedWithDate.statementMonth)
-        assertEquals(8, extractedWithDate.toStatementRow(fallbackMonth = 1).month)
+        assertNull(extractedWithDate.statementMonth)
+        assertFailsWith<IllegalArgumentException> { extractedWithDate.toStatementRow() }
+        assertEquals(1, extractedWithDate.toStatementRow(fallbackMonth = 1).month)
 
         val statementWithoutDateOrCuota = """
             Pago a capital: $ 100.000,00
@@ -311,7 +345,159 @@ class DocumentTextParserTest {
         assertEquals(null, extractedWithoutDate.statementMonth)
         // Falls back to fallbackMonth
         assertEquals(3, extractedWithoutDate.toStatementRow(fallbackMonth = 3).month)
-        assertEquals("100000.00", extractedWithoutDate.toStatementRow().principal)
-        assertEquals("80000.00", extractedWithoutDate.toStatementRow().interest)
+        assertEquals("100000.00", extractedWithoutDate.toStatementRow(fallbackMonth = 3).principal)
+        assertEquals("80000.00", extractedWithoutDate.toStatementRow(fallbackMonth = 3).interest)
+    }
+
+    @Test
+    fun importReviewKeepsFinancialMeaningsSeparateAndDoesNotTurnMissingValuesIntoZero() {
+        val statement = """
+            Extracto de préstamo
+            Capital inicial: $ 1,000.00
+            Saldo a capital: $ 800.00
+            Saldo compuesto: $ 850.00
+            Plazo original: 12 meses
+            Plazo restante: 8 meses
+            Cuota base: $ 100.00
+            Cuota total: $ 120.00
+            Seguro de vida - valor asegurado: $ 5,000.00
+            Prima mensual de seguro: $ 0.00
+            Fecha de corte: 2026-10-01
+            Tasa efectiva anual: 12.00%
+        """.trimIndent()
+
+        val extracted = DocumentTextParser.parse(statement, RegulatoryFramework.COLOMBIA_SFC)
+
+        assertEquals(ImportDocumentKind.LOAN_STATEMENT, extracted.documentKind)
+        assertEquals("1000.00", extracted.originalPrincipal)
+        assertEquals("800.00", extracted.capitalBalance)
+        assertEquals("850.00", extracted.compoundBalance)
+        assertEquals(12, extracted.originalTermMonths)
+        assertEquals(8, extracted.remainingTermMonths)
+        assertEquals("100.00", extracted.basePayment)
+        assertEquals("120.00", extracted.totalPayment)
+        assertEquals(InsuranceAmountMeaning.INSURED_VALUE, extracted.insurances[0].amountMeaning)
+        assertEquals(InsuranceAmountMeaning.PERIODIC_CHARGE, extracted.insurances[1].amountMeaning)
+        assertEquals("0.00", extracted.insurances[1].monthlyCost)
+        assertNull(extracted.interestCharged)
+
+        val scenario = extracted.toScenario(
+            framework = RegulatoryFramework.COLOMBIA_SFC,
+            startDate = "2026-11",
+            confirmNoInsurance = false,
+            confirmCurrencyAssumption = true
+        )
+        assertEquals("800.00", scenario.principal)
+        assertEquals(8, scenario.termMonths)
+        assertEquals("100.00", scenario.payment)
+        assertEquals(1, scenario.insurance.size)
+        assertEquals("0.00", scenario.insurance.single().value)
+    }
+
+    @Test
+    fun missingInsuranceAmountRemainsMissingInsteadOfBecomingZero() {
+        val extracted = DocumentTextParser.parse(
+            "Extracto de préstamo\nPrima mensual de seguro de vida",
+            RegulatoryFramework.COLOMBIA_SFC
+        )
+
+        assertEquals(1, extracted.insurances.size)
+        assertNull(extracted.insurances.single().monthlyCost)
+        assertEquals(InsuranceAmountMeaning.PERIODIC_CHARGE, extracted.insurances.single().amountMeaning)
+        assertNull(extracted.totalInsurance)
+    }
+
+    @Test
+    fun mixedCurrencyAccountSummaryCannotBecomeLoanOrReconciliationRow() {
+        val summary = """
+            Resumen de cuenta
+            Sección pesos argentinos ARS
+            Saldo a capital: $ 800.00
+            Plazo restante: 8 meses
+            Tasa efectiva anual: 12.00%
+            Cuota base: $ 100.00
+            Sección dólares USD
+            Saldo: US$ 800.00
+            Cuota: US$ 100.00
+            Cuota 1 de 8
+        """.trimIndent()
+
+        val extracted = DocumentTextParser.parse(summary, RegulatoryFramework.ARGENTINA_BCRA)
+
+        assertEquals(ImportDocumentKind.ACCOUNT_SUMMARY, extracted.documentKind)
+        assertEquals(setOf(Currency.ARS, Currency.USD), extracted.detectedCurrencies)
+        assertFailsWith<IllegalArgumentException> {
+            extracted.toScenario(startDate = "2026-11")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            extracted.toStatementRow()
+        }
+    }
+
+    @Test
+    fun singleCurrencyAccountSummaryCannotBecomeLoanOrReconciliationRowEvenWithLoanLikeValues() {
+        val summary = """
+            Resumen de cuenta
+            Sección pesos argentinos ARS
+            Saldo de capital: $ 800.00
+            Plazo restante: 8 meses
+            Tasa efectiva anual: 12.00%
+            Cuota base: $ 100.00
+            Cuota 1 de 8
+        """.trimIndent()
+
+        val extracted = DocumentTextParser.parse(summary, RegulatoryFramework.ARGENTINA_BCRA)
+
+        assertEquals(ImportDocumentKind.ACCOUNT_SUMMARY, extracted.documentKind)
+        assertTrue(extracted.importBlockReason()?.contains("resumen de cuenta") == true)
+        assertFailsWith<IllegalArgumentException> {
+            extracted.toScenario(startDate = "2026-11")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            extracted.toStatementRow()
+        }
+    }
+
+    @Test
+    fun compoundDebtAndUnclassifiedPrincipalCannotSupplyScenarioCapital() {
+        val commonReviewedFacts = ExtractedDocumentData(
+            documentKind = ImportDocumentKind.LOAN_STATEMENT,
+            detectedCurrencies = setOf(Currency.ARS),
+            rate = ExtractedRate("12.00", "annual"),
+            remainingTermMonths = 8,
+            termMeaning = TermMeaning.REMAINING,
+            basePayment = "100.00",
+            paymentMeaning = PaymentMeaning.BASE_PAYMENT,
+            insurances = listOf(ExtractedInsurance("Prima", "0.00", InsuranceAmountMeaning.PERIODIC_CHARGE))
+        )
+
+        val compoundOnly = commonReviewedFacts.copy(
+            closingBalance = "850.00",
+            compoundBalance = "850.00",
+            balanceMeaning = BalanceMeaning.COMPOUND_DEBT
+        )
+        val unclassifiedOnly = commonReviewedFacts.copy(unclassifiedPrincipal = "800.00")
+
+        assertFailsWith<IllegalArgumentException> {
+            compoundOnly.toScenario(startDate = "2026-11")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            unclassifiedOnly.toScenario(startDate = "2026-11")
+        }
+    }
+
+    @Test
+    fun missingScenarioFactsRequireExplicitReviewInsteadOfUsingExampleLoan() {
+        val extracted = DocumentTextParser.parse(
+            "Extracto de préstamo sin condiciones identificables",
+            RegulatoryFramework.COLOMBIA_SFC
+        ).copy(documentKind = ImportDocumentKind.LOAN_STATEMENT)
+
+        assertFailsWith<IllegalArgumentException> {
+            extracted.toScenario()
+        }
+        assertFailsWith<IllegalArgumentException> {
+            extracted.toStatementRow()
+        }
     }
 }

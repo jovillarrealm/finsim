@@ -194,7 +194,8 @@ class HybridDocumentOrchestratorTest {
         assertEquals(ExtractionEngine.TIER_2_LOCAL_VLM, extracted.engine)
         assertEquals(2, extracted.analyzedPage)
         assertEquals("Bancolombia S.A.", extracted.bankNameCandidate)
-        assertEquals("30000000.00", extracted.originalPrincipal)
+        assertNull(extracted.originalPrincipal)
+        assertEquals("30000000.00", extracted.unclassifiedPrincipal)
         assertEquals("24150000.00", extracted.closingBalance)
         assertNotNull(extracted.rate)
         assertEquals("19.50", extracted.rate?.valuePercent)
@@ -240,5 +241,38 @@ class HybridDocumentOrchestratorTest {
         assertEquals(ExtractionEngine.TIER_2_LOCAL_VLM, result.tierUsed)
         assertEquals(1, rasterizer.callCount)
         assertEquals(1, vlmRunner.callCount)
+    }
+
+    @Test
+    fun missingVlmInsuranceAmountRemainsAbsentAndDoesNotAuthorizeImport() {
+        val extracted = VlmJsonGrammar.parseVlmResponse(
+            rawOutput = """{"insurances":[{"name":"Seguro de vida","amount":null}],"currencies":["ARS","USD"],"documentKind":"ACCOUNT_SUMMARY"}""",
+            framework = RegulatoryFramework.ARGENTINA_BCRA
+        )
+
+        assertEquals(ImportDocumentKind.ACCOUNT_SUMMARY, extracted.documentKind)
+        assertEquals(setOf(com.finsim.domain.Currency.ARS, com.finsim.domain.Currency.USD), extracted.detectedCurrencies)
+        assertEquals(1, extracted.insurances.size)
+        assertNull(extracted.insurances.single().monthlyCost)
+        assertEquals(InsuranceAmountMeaning.UNKNOWN, extracted.insurances.single().amountMeaning)
+        assertNull(extracted.totalInsurance)
+        assertFailsWith<IllegalArgumentException> { extracted.toScenario() }
+        assertFailsWith<IllegalArgumentException> { extracted.toStatementRow() }
+    }
+
+    @Test
+    fun nominalRateFrequencyMustBeExplicitInVlmPayload() {
+        val absent = VlmJsonGrammar.parseVlmResponse(
+            rawOutput = """{"ratePercentage":"48","rateKind":"nominal"}""",
+            framework = RegulatoryFramework.ARGENTINA_BCRA
+        )
+        val supplied = VlmJsonGrammar.parseVlmResponse(
+            rawOutput = """{"ratePercentage":"48","rateKind":"nominal","nominalFrequency":4}""",
+            framework = RegulatoryFramework.ARGENTINA_BCRA
+        )
+
+        assertEquals("nominal", absent.rate?.kind)
+        assertNull(absent.rate?.nominalFrequency)
+        assertEquals(4, supplied.rate?.nominalFrequency)
     }
 }

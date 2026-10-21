@@ -68,7 +68,9 @@ class HybridDocumentOrchestrator(
                 val bestPageText = pages.getOrElse(bestPageIndex - 1) { pages.first() }
                 val tier1Data = textParser.parse(bestPageText, framework, bestPageIndex)
 
-                val hasPrincipal = !tier1Data.closingBalance.isNullOrBlank() || !tier1Data.originalPrincipal.isNullOrBlank()
+                val hasPrincipal = !tier1Data.originalPrincipal.isNullOrBlank() ||
+                    (tier1Data.balanceMeaning == BalanceMeaning.PRINCIPAL &&
+                        !(tier1Data.capitalBalance ?: tier1Data.closingBalance).isNullOrBlank())
                 val hasRate = tier1Data.rate != null
 
                 if (tier1Data.confidence >= 0.8f && hasPrincipal && hasRate) {
