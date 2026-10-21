@@ -131,8 +131,8 @@ class AndroidGemmaVisionRunner(
                         inferenceStartedMs = System.nanoTime() / 1_000_000L
                         it.sendMessageAsync(
                             com.google.ai.edge.litertlm.Contents.of(
-                                Content.Text(buildStatementPrompt(framework, targetMode)),
-                                Content.ImageBytes(imageBytes)
+                                Content.ImageBytes(imageBytes),
+                                Content.Text(buildStatementPrompt(framework, targetMode))
                             ),
                             callback,
                             maxOutputToken = MAX_OUTPUT_TOKENS,
