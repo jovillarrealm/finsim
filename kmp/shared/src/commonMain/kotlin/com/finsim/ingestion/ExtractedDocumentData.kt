@@ -55,6 +55,15 @@ enum class ExtractionEngine(val label: String) {
     TIER_2_LOCAL_VLM("Visión local VLM")
 }
 
+/** Parses a user-reviewed monetary value without rounding away excess fractional digits. */
+fun parseImportMoney(value: String, label: String): Decimal {
+    val amount = Decimal.parse(value.trim().replace(',', '.'))
+    require(amount.scale <= 2) {
+        "$label debe tener como máximo dos decimales; no se redondeará automáticamente."
+    }
+    return amount
+}
+
 @Serializable
 enum class RegulatoryFramework(
     val label: String,
@@ -116,38 +125,70 @@ data class ExtractedDocumentData(
 ) {
     val engine: ExtractionEngine get() = sourceEngine
 
-    /** Explains why the source cannot be used for either loan import target. */
-    fun importBlockReason(): String? = when {
+    /** Explains why the source cannot be used for a loan target or its selected currency. */
+    fun importBlockReason(
+        expectedCurrency: Currency? = null,
+        confirmCurrencyAssumption: Boolean = false
+    ): String? = when {
         hasUnsupportedCurrency -> "El documento usa una moneda que el simulador no admite."
         detectedCurrencies.size > 1 -> "El documento mezcla monedas; no se puede usar para un préstamo ni para conciliarlo."
         documentKind == ImportDocumentKind.ACCOUNT_SUMMARY -> "Un resumen de cuenta no es un extracto de préstamo y no se puede importar ni conciliar como préstamo."
         documentKind == ImportDocumentKind.UNKNOWN -> "Confirma que el documento corresponde a un extracto de préstamo antes de continuar."
+        expectedCurrency != null && detectedCurrencies.singleOrNull()?.let { it != expectedCurrency } == true ->
+            "La moneda del extracto no coincide con la del escenario activo (${expectedCurrency.name})."
+        expectedCurrency != null && detectedCurrencies.isEmpty() && !confirmCurrencyAssumption ->
+            "Confirma que los importes del documento están en ${expectedCurrency.name}."
         else -> null
     }
 
+    /** Applies an explicit reviewer confirmation to an otherwise unclassified document. */
+    fun withLoanStatementConfirmation(confirmed: Boolean): ExtractedDocumentData =
+        if (documentKind == ImportDocumentKind.UNKNOWN && confirmed) {
+            copy(documentKind = ImportDocumentKind.LOAN_STATEMENT)
+        } else this
+
     /** Maps an explicitly reviewed monthly row. Missing month stays missing unless supplied by the reviewer. */
-    fun toStatementRow(fallbackMonth: Int? = null): StatementRow {
-        require(importBlockReason() == null) { importBlockReason() ?: "Documento no compatible." }
+    fun toStatementRow(
+        fallbackMonth: Int? = null,
+        expectedCurrency: Currency? = null,
+        reviewedCurrency: Currency? = null,
+        confirmCurrencyAssumption: Boolean = false
+    ): StatementRow {
+        val blockReason = importBlockReason(expectedCurrency, confirmCurrencyAssumption)
+        require(blockReason == null) { blockReason ?: "Documento no compatible." }
         val m = statementMonth ?: fallbackMonth
             ?: throw IllegalArgumentException("Indica el mes del extracto; no se asignará uno automáticamente.")
         require(m in 1..1200) { "El mes a conciliar debe estar entre 1 y 1200." }
+        val detectedCurrency = detectedCurrencies.singleOrNull()
+        val currency = reviewedCurrency ?: detectedCurrency
+            ?: throw IllegalArgumentException("Indica y confirma la moneda de los importes revisados.")
+        require(detectedCurrency == currency || confirmCurrencyAssumption) {
+            "Confirma la moneda seleccionada; no se detectó esa moneda en el documento."
+        }
+        require(expectedCurrency == null || currency == expectedCurrency) {
+            "La moneda del extracto no coincide con la del escenario activo (${expectedCurrency?.name})."
+        }
+
         val insuranceFromCharges = insurances
             .filter { it.amountMeaning == InsuranceAmountMeaning.PERIODIC_CHARGE && it.monthlyCost != null }
             .takeIf { it.isNotEmpty() }
             ?.let { items ->
-                items.fold(Decimal.ZERO) { acc, item -> acc + Decimal.parse(item.monthlyCost!!.replace(',', '.')) }
-                    .toFixed(2)
+                items.fold(Decimal.ZERO) { acc, item ->
+                    acc + parseImportMoney(item.monthlyCost!!, "El cargo periódico de seguro")
+                }.toFixed(2)
             }
-        val insurance = totalInsurance ?: insuranceFromCharges
+        val insurance = totalInsurance?.let { parseImportMoney(it, "El seguro total") }?.toFixed(2)
+            ?: insuranceFromCharges
 
         return StatementRow(
             month = m,
-            interest = interestCharged?.let { Decimal.parse(it.replace(',', '.')).toFixed(2) },
-            insurance = insurance?.let { Decimal.parse(it.replace(',', '.')).toFixed(2) },
-            principal = principalPaid?.let { Decimal.parse(it.replace(',', '.')).toFixed(2) },
+            currency = currency,
+            interest = interestCharged?.let { parseImportMoney(it, "El interés cobrado").toFixed(2) },
+            insurance = insurance,
+            principal = principalPaid?.let { parseImportMoney(it, "El capital pagado").toFixed(2) },
             balance = (capitalBalance.takeIf { balanceMeaning == BalanceMeaning.PRINCIPAL }
                 ?: closingBalance.takeIf { balanceMeaning == BalanceMeaning.PRINCIPAL })
-                ?.let { Decimal.parse(it.replace(',', '.')).toFixed(2) }
+                ?.let { parseImportMoney(it, "El saldo final").toFixed(2) }
         ).also { it.validate() }
     }
 
@@ -165,7 +206,8 @@ data class ExtractedDocumentData(
         confirmCurrencyAssumption: Boolean = false,
         reviewedCurrency: Currency? = null
     ): Scenario {
-        require(importBlockReason() == null) { importBlockReason() ?: "Documento no compatible." }
+        val blockReason = importBlockReason()
+        require(blockReason == null) { blockReason ?: "Documento no compatible." }
 
         val currentPrincipal = if (balanceMeaning == BalanceMeaning.PRINCIPAL) {
             capitalBalance ?: closingBalance
@@ -210,6 +252,11 @@ data class ExtractedDocumentData(
         require(payment != null || confirmCalculatedPayment) {
             "Confirma que la cuota base se calculará con el capital, la tasa y el plazo revisados."
         }
+        val principalAmount = parseImportMoney(principal, "El capital del préstamo")
+        val paymentAmount = payment?.let { parseImportMoney(it, "La cuota base") }
+        val insuranceAmounts = insuranceCharges.map {
+            parseImportMoney(it.monthlyCost!!, "El cargo periódico de seguro")
+        }
 
         val scenarioRate = if (rate == null) {
             baseScenario?.rate
@@ -236,17 +283,17 @@ data class ExtractedDocumentData(
             currency = currency,
             name = name.take(120),
             source = source,
-            principal = Decimal.parse(principal.replace(',', '.')).toFixed(2),
+            principal = principalAmount.toFixed(2),
             startDate = periodStart,
             termMonths = months,
             rate = scenarioRate,
-            payment = payment?.let { Decimal.parse(it.replace(',', '.')).toFixed(2) },
+            payment = paymentAmount?.toFixed(2),
             insurance = insuranceCharges.mapIndexed { index, item ->
                 Insurance(
                     id = "ins_${index + 1}",
                     name = item.name,
                     kind = "fixed",
-                    value = Decimal.parse(item.monthlyCost!!.replace(',', '.')).toFixed(2),
+                    value = insuranceAmounts[index].toFixed(2),
                     endsAtPayoff = true
                 )
             },

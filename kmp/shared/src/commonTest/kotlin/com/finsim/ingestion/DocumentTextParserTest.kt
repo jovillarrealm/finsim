@@ -244,6 +244,7 @@ class DocumentTextParserTest {
     fun testMonthlyStatementExtractionToStatementRowAndReconciliation() {
         val statement = """
             Bancolombia S.A. - Extracto Mensual de Préstamo
+            Moneda del extracto: COP
             Fecha de corte: 15/10/2026
             Cuota 12 de 48
             Saldo a capital: $ 24.150.000,00
@@ -262,8 +263,9 @@ class DocumentTextParserTest {
         assertEquals("22500.00", extracted.totalInsurance)
         assertEquals("24150000.00", extracted.closingBalance)
 
-        val stmtRow = extracted.toStatementRow()
+        val stmtRow = extracted.toStatementRow(expectedCurrency = Currency.COP)
         assertEquals(12, stmtRow.month)
+        assertEquals(Currency.COP, stmtRow.currency)
         assertEquals("350000.00", stmtRow.principal)
         assertEquals("477500.00", stmtRow.interest)
         assertEquals("22500.00", stmtRow.insurance)
@@ -288,7 +290,7 @@ class DocumentTextParserTest {
         )
         val loanResult = simulateLoan(scenario)
 
-        val diffs = reconcileRow(stmtRow, loanResult.rows)
+        val diffs = reconcileRow(stmtRow, loanResult.rows, Currency.COP)
         assertTrue(diffs.isNotEmpty())
         assertEquals(4, diffs.size) // interest, insurance, principal, balance
         val insuranceDiff = diffs.first { it.field == "insurance" }
@@ -299,9 +301,10 @@ class DocumentTextParserTest {
     }
 
     @Test
-    fun testMexicanStatementRowExtractionAndDifferences() {
+    fun testStatementRowExtractionWithExplicitCurrencyAndDotDecimals() {
         val statement = """
-            BBVA México - Estado de Cuenta de Préstamo
+            Extracto de préstamo de prueba; formato numérico con separadores decimales de punto
+            Moneda de prueba: COP
             Fecha de corte: 2026-10-01
             Cuota 5 de 24
             Amortización a capital: $ 4,120.00
@@ -312,18 +315,20 @@ class DocumentTextParserTest {
 
         val extracted = DocumentTextParser.parse(statement, RegulatoryFramework.MEXICO_CONDUSEF)
 
-        val stmtRow = extracted.toStatementRow()
+        val stmtRow = extracted.toStatementRow(expectedCurrency = Currency.COP)
         assertEquals(5, stmtRow.month)
         assertEquals("4120.00", stmtRow.principal)
         assertEquals("1360.00", stmtRow.interest)
         assertEquals("450.00", stmtRow.insurance)
         assertEquals("115880.00", stmtRow.balance)
+        assertEquals(Currency.COP, stmtRow.currency)
     }
 
     @Test
     fun testFallbackMonthHandlingInStatementRow() {
         val statementWithDateOnly = """
             Banco de Bogotá
+            Moneda del extracto: COP
             Fecha de corte: 2026-08-15
             Saldo final: $ 10.000.000,00
             Abono a capital: $ 200.000,00
@@ -337,6 +342,7 @@ class DocumentTextParserTest {
         assertEquals(1, extractedWithDate.toStatementRow(fallbackMonth = 1).month)
 
         val statementWithoutDateOrCuota = """
+            Moneda del extracto: COP
             Pago a capital: $ 100.000,00
             Interés corriente: $ 80.000,00
         """.trimIndent()
@@ -506,5 +512,93 @@ class DocumentTextParserTest {
         assertFailsWith<IllegalArgumentException> {
             ExtractedDocumentData().toScenario()
         }
+    }
+
+    @Test
+    fun scenarioMapperRejectsReviewedPrincipalWithMoreThanTwoDecimals() {
+        val extracted = ExtractedDocumentData(
+            documentKind = ImportDocumentKind.LOAN_STATEMENT,
+            detectedCurrencies = setOf(Currency.COP),
+            capitalBalance = "123.456",
+            balanceMeaning = BalanceMeaning.PRINCIPAL,
+            remainingTermMonths = 8,
+            termMeaning = TermMeaning.REMAINING,
+            rate = ExtractedRate("12.00", "annual"),
+            basePayment = "20.00",
+            paymentMeaning = PaymentMeaning.BASE_PAYMENT,
+            insurances = listOf(
+                ExtractedInsurance("Cargo mensual", "0.00", InsuranceAmountMeaning.PERIODIC_CHARGE)
+            )
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            extracted.toScenario(startDate = "2026-11")
+        }
+    }
+
+    @Test
+    fun statementMapperRejectsCorrectedAmountWithMoreThanTwoDecimals() {
+        val extracted = ExtractedDocumentData(
+            documentKind = ImportDocumentKind.LOAN_STATEMENT,
+            detectedCurrencies = setOf(Currency.COP),
+            statementMonth = 1,
+            interestCharged = "10.001",
+            principalPaid = "100.00"
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            extracted.toStatementRow()
+        }
+    }
+
+    @Test
+    fun reviewedCorrectionRejectsMoreThanTwoDecimalsBeforeFormatting() {
+        assertFailsWith<IllegalArgumentException> {
+            parseImportMoney("10.001", "El interés cobrado").toFixed(2)
+        }
+        assertEquals("10.01", parseImportMoney("10,01", "El interés cobrado").toFixed(2))
+    }
+
+    @Test
+    fun statementMapperKeepsAndChecksTheTargetCurrency() {
+        val extracted = ExtractedDocumentData(
+            documentKind = ImportDocumentKind.LOAN_STATEMENT,
+            detectedCurrencies = setOf(Currency.ARS),
+            statementMonth = 1,
+            interestCharged = "10.00"
+        )
+
+        assertEquals(Currency.ARS, extracted.toStatementRow(expectedCurrency = Currency.ARS).currency)
+        assertFailsWith<IllegalArgumentException> {
+            extracted.toStatementRow(expectedCurrency = Currency.COP)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            extracted.toStatementRow(
+                expectedCurrency = Currency.COP,
+                reviewedCurrency = Currency.COP,
+                confirmCurrencyAssumption = true
+            )
+        }
+    }
+
+    @Test
+    fun missingStatementCurrencyRequiresExplicitTargetConfirmation() {
+        val extracted = ExtractedDocumentData(
+            documentKind = ImportDocumentKind.LOAN_STATEMENT,
+            statementMonth = 1,
+            interestCharged = "10.00"
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            extracted.toStatementRow(expectedCurrency = Currency.COP, reviewedCurrency = Currency.COP)
+        }
+        assertEquals(
+            Currency.COP,
+            extracted.toStatementRow(
+                expectedCurrency = Currency.COP,
+                reviewedCurrency = Currency.COP,
+                confirmCurrencyAssumption = true
+            ).currency
+        )
     }
 }

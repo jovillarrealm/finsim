@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.finsim.app.theme.*
-import com.finsim.core.Decimal
 import com.finsim.domain.*
 import com.finsim.ingestion.*
 import com.finsim.reconciliation.StatementRow
@@ -31,12 +30,13 @@ fun ExtractionReviewSheet(
     extractedData: ExtractedDocumentData,
     framework: RegulatoryFramework,
     targetMode: ImportTargetMode = ImportTargetMode.SCENARIO,
+    targetCurrency: Currency? = null,
     onDismiss: () -> Unit,
     onConfirmImport: (Scenario) -> Unit = {},
     onConfirmStatementImport: ((StatementRow) -> Unit)? = null
 ) {
-    var selectedCurrency by remember {
-        mutableStateOf(extractedData.detectedCurrencies.singleOrNull() ?: framework.defaultCurrency)
+    var selectedCurrency by remember(targetCurrency, extractedData.detectedCurrencies, framework.defaultCurrency) {
+        mutableStateOf(targetCurrency ?: extractedData.detectedCurrencies.singleOrNull() ?: framework.defaultCurrency)
     }
     var useOriginalLoan by remember {
         mutableStateOf(
@@ -148,12 +148,14 @@ fun ExtractionReviewSheet(
         )
     }
 
+    val reviewedDocument = extractedData.withLoanStatementConfirmation(loanTypeConfirmed)
     val importBlockReason = when {
-        extractedData.hasUnsupportedCurrency -> "El documento usa una moneda que el simulador no admite."
-        extractedData.detectedCurrencies.size > 1 -> "El documento mezcla monedas; no se puede usar para un préstamo ni para conciliarlo."
-        extractedData.documentKind == ImportDocumentKind.ACCOUNT_SUMMARY -> "Un resumen de cuenta no se puede importar ni conciliar como préstamo."
-        extractedData.documentKind == ImportDocumentKind.UNKNOWN && !loanTypeConfirmed -> "Confirma que el original corresponde a un extracto de préstamo."
-        else -> null
+        targetMode == ImportTargetMode.RECONCILIATION && targetCurrency == null ->
+            "No se pudo identificar la moneda del escenario activo."
+        else -> reviewedDocument.importBlockReason(
+            expectedCurrency = targetCurrency.takeIf { targetMode == ImportTargetMode.RECONCILIATION },
+            confirmCurrencyAssumption = currencyAssumptionConfirmed
+        )
     }
     var errorMessage by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
@@ -343,38 +345,61 @@ fun ExtractionReviewSheet(
                 }
 
                 Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                    Text("Moneda que se usará", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BrandDark)
-                    Currency.entries.forEach { currency ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                selectedCurrency = currency
-                                if (currency != extractedData.detectedCurrencies.singleOrNull()) {
-                                    currencyAssumptionConfirmed = false
-                                }
-                                reviewConfirmed = false
-                            },
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = selectedCurrency == currency,
-                                onClick = {
+                    Text(
+                        if (targetMode == ImportTargetMode.RECONCILIATION) "Moneda del escenario activo"
+                        else "Moneda que se usará",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BrandDark
+                    )
+                    if (targetMode == ImportTargetMode.RECONCILIATION) {
+                        Text(targetCurrency?.name ?: "No disponible", fontSize = 12.sp, color = TextForestMuted)
+                        if (extractedData.detectedCurrencies.isEmpty() && targetCurrency != null) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = currencyAssumptionConfirmed, onCheckedChange = {
+                                    currencyAssumptionConfirmed = it
+                                    reviewConfirmed = false
+                                })
+                                Text(
+                                    "Confirmo que los importes están en ${targetCurrency.name}",
+                                    fontSize = 12.sp,
+                                    color = TextForestMuted
+                                )
+                            }
+                        }
+                    } else {
+                        Currency.entries.forEach { currency ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().clickable {
                                     selectedCurrency = currency
                                     if (currency != extractedData.detectedCurrencies.singleOrNull()) {
                                         currencyAssumptionConfirmed = false
                                     }
                                     reviewConfirmed = false
-                                }
-                            )
-                            Text(currency.name, fontSize = 12.sp, color = TextForestMuted)
+                                },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedCurrency == currency,
+                                    onClick = {
+                                        selectedCurrency = currency
+                                        if (currency != extractedData.detectedCurrencies.singleOrNull()) {
+                                            currencyAssumptionConfirmed = false
+                                        }
+                                        reviewConfirmed = false
+                                    }
+                                )
+                                Text(currency.name, fontSize = 12.sp, color = TextForestMuted)
+                            }
                         }
-                    }
-                    if (extractedData.detectedCurrencies.singleOrNull() != selectedCurrency) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = currencyAssumptionConfirmed, onCheckedChange = {
-                                currencyAssumptionConfirmed = it
-                                reviewConfirmed = false
-                            })
-                            Text("Confirmo esta moneda como corrección o supuesto", fontSize = 12.sp, color = TextForestMuted)
+                        if (extractedData.detectedCurrencies.singleOrNull() != selectedCurrency) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = currencyAssumptionConfirmed, onCheckedChange = {
+                                    currencyAssumptionConfirmed = it
+                                    reviewConfirmed = false
+                                })
+                                Text("Confirmo esta moneda como corrección o supuesto", fontSize = 12.sp, color = TextForestMuted)
+                            }
                         }
                     }
                 }
@@ -786,28 +811,24 @@ fun ExtractionReviewSheet(
                                 try {
                                     val m = auditMonth.trim().toIntOrNull()?.takeIf { it in 1..1200 }
                                         ?: error("Indica un mes a auditar válido.")
-                                    require(
-                                        extractedData.detectedCurrencies.singleOrNull() == selectedCurrency || currencyAssumptionConfirmed
-                                    ) { "Confirma la moneda seleccionada para estos importes." }
+                                    val reconciliationCurrency = targetCurrency
+                                        ?: error("No se pudo identificar la moneda del escenario activo.")
                                     val pClean = principalPaid.trim().replace(',', '.').ifBlank { null }?.let {
-                                        Decimal.parse(it).toFixed(2)
+                                        parseImportMoney(it, "El capital pagado").toFixed(2)
                                     }
                                     val iClean = interestCharged.trim().replace(',', '.').ifBlank { null }?.let {
-                                        Decimal.parse(it).toFixed(2)
+                                        parseImportMoney(it, "El interés cobrado").toFixed(2)
                                     }
                                     val insClean = insuranceCharged.trim().replace(',', '.').ifBlank { null }?.let {
-                                        Decimal.parse(it).toFixed(2)
+                                        parseImportMoney(it, "El seguro cobrado").toFixed(2)
                                     }
                                     val bClean = balanceResult.trim().replace(',', '.').ifBlank { null }?.let {
-                                        Decimal.parse(it).toFixed(2)
+                                        parseImportMoney(it, "El saldo final").toFixed(2)
                                     }
                                     require(bClean == null || balanceIsPrincipalConfirmed) {
                                         "Confirma que el saldo final corresponde al capital y no a deuda compuesta."
                                     }
-                                    val reviewedData = extractedData.copy(
-                                        documentKind = if (extractedData.documentKind == ImportDocumentKind.UNKNOWN && loanTypeConfirmed) {
-                                            ImportDocumentKind.LOAN_STATEMENT
-                                        } else extractedData.documentKind,
+                                    val reviewedData = reviewedDocument.copy(
                                         statementMonth = m,
                                         principalPaid = pClean,
                                         interestCharged = iClean,
@@ -816,7 +837,11 @@ fun ExtractionReviewSheet(
                                         closingBalance = bClean,
                                         balanceMeaning = if (bClean != null) BalanceMeaning.PRINCIPAL else BalanceMeaning.UNKNOWN
                                     )
-                                    val stmt = reviewedData.toStatementRow()
+                                    val stmt = reviewedData.toStatementRow(
+                                        expectedCurrency = reconciliationCurrency,
+                                        reviewedCurrency = reconciliationCurrency,
+                                        confirmCurrencyAssumption = currencyAssumptionConfirmed
+                                    )
                                     onConfirmStatementImport?.invoke(stmt)
                                 } catch (e: Exception) {
                                     errorMessage = e.message ?: "Verifica los datos del extracto."
@@ -831,7 +856,7 @@ fun ExtractionReviewSheet(
                                             ?: error("Indica la frecuencia de capitalización nominal.")
                                     } else null
                                     val reviewedInsurance = insurances.map { item ->
-                                        val amount = Decimal.parse(item.value.trim().replace(',', '.')).toFixed(2)
+                                        val amount = parseImportMoney(item.value.trim(), "El cargo periódico de seguro").toFixed(2)
                                         ExtractedInsurance(
                                             name = item.name.trim().ifBlank { error("Indica el nombre de cada seguro.") },
                                             monthlyCost = amount,
@@ -840,10 +865,7 @@ fun ExtractionReviewSheet(
                                     }
                                     val reviewedTerm = termMonths.trim().toIntOrNull()
                                         ?: error("Indica el plazo que corresponda al capital seleccionado.")
-                                    val reviewedData = extractedData.copy(
-                                        documentKind = if (extractedData.documentKind == ImportDocumentKind.UNKNOWN && loanTypeConfirmed) {
-                                            ImportDocumentKind.LOAN_STATEMENT
-                                        } else extractedData.documentKind,
+                                    val reviewedData = reviewedDocument.copy(
                                         capitalBalance = if (useOriginalLoan) null else principal.trim(),
                                         closingBalance = if (useOriginalLoan) null else principal.trim(),
                                         originalPrincipal = if (useOriginalLoan) principal.trim() else extractedData.originalPrincipal,
