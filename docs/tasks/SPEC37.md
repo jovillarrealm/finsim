@@ -95,3 +95,11 @@
 La descarga real terminó, se seleccionó el fixture sintético con texto pegado vacío y se intentó la inferencia. El APK release abortó en `nativeCreateConversation` por `NoSuchMethodError SamplerConfig.getTopK()I`; Android confirma crash nativo. Sin campos extraídos ni latencias/pico PSS completos. La corrida es FAIL, no NOT_RUN; [evidencia canónica](https://github.com/jovillarrealm/finsim/issues/32#issuecomment-6320720537). Se observaron además etiquetas comprimidas con fuente150%, conservada sin reducirla.
 
 El mismo implementador #32 volvió a trabajar como único subagente activo, Luna/max, para diagnosticar R8/JNI y corregir el layout mínimo del flujo. Después retomará el mismo revisor. El modelo descargado y el escenario guardado permanecen; no desinstalar, borrar datos ni repetir descarga. #40 y los demás siguen esperando. [Estado publicado en #37](https://github.com/jovillarrealm/finsim/issues/37#issuecomment-6320732829).
+
+## Repetición física #32 tras corregir R8
+
+Revisión del arreglo: Standards0/Spec0 defectos de código. Integrado/publicado en `7ef7e3e914e897b73da5ca815f4b0bd089245eaf`; APK firmado revisado SHA256 `bc32c28885b60bb9a71c4cd7f987322a7f0d8ecc6168f9634b4ffc5b3cef73bb` instalado conservando datos/modelo. El cierre JNI desapareció y las etiquetas de ingesta150% son legibles.
+
+La extracción sigue FAIL en el fixture sintético y en la página1 del PDF real reciente del corpus privado, ambos con texto pegado vacío y sin correcciones. La app informa que no hubo campos utilizables; faltan datos diagnósticos para localizar la causa entre generación/parseo/imagen. Ninguna extracción ni pico/latencia aprobados; resto de páginas no ejecutadas. [Informe canónico](https://github.com/jovillarrealm/finsim/issues/32#issuecomment-6322064833).
+
+Único subagente activo: mismo implementador32 Luna/max, investigando causalmente antes de ajustar prompt. Se retoman los mismos roles, sin nuevos agentes internos. #34 conserva cierre por actualización/datos; #40 y los demás esperan. Datos privados fuera de GitHub, código fuera de main.
