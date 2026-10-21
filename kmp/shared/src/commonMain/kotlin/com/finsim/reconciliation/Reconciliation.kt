@@ -2,18 +2,33 @@ package com.finsim.reconciliation
 
 import com.finsim.core.Decimal
 import com.finsim.core.FinsimLog
+import com.finsim.domain.Currency
 import com.finsim.domain.MonthRow
 
 data class StatementRow(
     val month: Int,
+    val currency: Currency,
     val interest: String? = null,
     val insurance: String? = null,
     val principal: String? = null,
     val balance: String? = null
 ) {
     fun validate() {
+        require(month in 1..1200) { "El mes a conciliar debe estar entre 1 y 1200." }
         require(interest != null || insurance != null || principal != null || balance != null) {
             "Introduce al menos un importe del extracto."
+        }
+        listOf(
+            "interés cobrado" to interest,
+            "seguro cobrado" to insurance,
+            "capital pagado" to principal,
+            "saldo final" to balance
+        ).forEach { (label, value) ->
+            if (value != null) {
+                require(Decimal.parse(value).scale <= 2) {
+                    "El $label debe tener como máximo dos decimales; no se redondeará automáticamente."
+                }
+            }
         }
     }
 }
@@ -33,8 +48,11 @@ val fieldLabels = mapOf(
     "balance" to "Saldo final"
 )
 
-fun reconcileRow(input: StatementRow, rows: List<MonthRow>): List<ReconcileDiff> {
+fun reconcileRow(input: StatementRow, rows: List<MonthRow>, expectedCurrency: Currency): List<ReconcileDiff> {
     input.validate()
+    require(input.currency == expectedCurrency) {
+        "La moneda del extracto (${input.currency.name}) no coincide con la del escenario activo (${expectedCurrency.name})."
+    }
     val row = rows.find { it.month == input.month }
         ?: error("Ese mes no existe en el cronograma seleccionado.")
 

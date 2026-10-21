@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.finsim.app.theme.*
-import com.finsim.core.Decimal
 import com.finsim.domain.*
 import com.finsim.ingestion.*
 import com.finsim.reconciliation.StatementRow
@@ -31,10 +30,32 @@ fun ExtractionReviewSheet(
     extractedData: ExtractedDocumentData,
     framework: RegulatoryFramework,
     targetMode: ImportTargetMode = ImportTargetMode.SCENARIO,
+    targetCurrency: Currency? = null,
     onDismiss: () -> Unit,
     onConfirmImport: (Scenario) -> Unit = {},
     onConfirmStatementImport: ((StatementRow) -> Unit)? = null
 ) {
+    var selectedCurrency by remember(targetCurrency, extractedData.detectedCurrencies, framework.defaultCurrency) {
+        mutableStateOf(targetCurrency ?: extractedData.detectedCurrencies.singleOrNull() ?: framework.defaultCurrency)
+    }
+    var useOriginalLoan by remember {
+        mutableStateOf(
+            !(extractedData.balanceMeaning == BalanceMeaning.PRINCIPAL &&
+                (extractedData.capitalBalance != null || extractedData.closingBalance != null)) &&
+                extractedData.originalPrincipal != null
+        )
+    }
+    var loanTypeConfirmed by remember {
+        mutableStateOf(extractedData.documentKind == ImportDocumentKind.LOAN_STATEMENT)
+    }
+    var reviewConfirmed by remember { mutableStateOf(false) }
+    var currencyAssumptionConfirmed by remember { mutableStateOf(false) }
+    var noInsuranceConfirmed by remember { mutableStateOf(false) }
+    var calculatedPaymentConfirmed by remember { mutableStateOf(false) }
+    var balanceIsPrincipalConfirmed by remember {
+        mutableStateOf(extractedData.balanceMeaning == BalanceMeaning.PRINCIPAL)
+    }
+
     var loanName by remember {
         mutableStateOf(
             extractedData.bankNameCandidate?.let { "$it · Préstamo" }
@@ -44,45 +65,59 @@ fun ExtractionReviewSheet(
 
     var principal by remember {
         mutableStateOf(
-            extractedData.closingBalance
-                ?: extractedData.originalPrincipal
-                ?: "20000000.00"
+            if (useOriginalLoan) (extractedData.originalPrincipal ?: extractedData.unclassifiedPrincipal).orEmpty()
+            else if (extractedData.balanceMeaning == BalanceMeaning.PRINCIPAL) {
+                extractedData.capitalBalance ?: extractedData.closingBalance.orEmpty()
+            } else ""
         )
     }
 
     var termMonths by remember {
-        mutableStateOf((extractedData.termMonths ?: 36).toString())
+        mutableStateOf(
+            (if (useOriginalLoan) extractedData.originalTermMonths
+                ?: extractedData.termMonths.takeIf { extractedData.termMeaning == TermMeaning.ORIGINAL }
+            else extractedData.remainingTermMonths
+                ?: extractedData.termMonths.takeIf { extractedData.termMeaning == TermMeaning.REMAINING })
+                ?.toString().orEmpty()
+        )
     }
 
     var startDate by remember {
-        mutableStateOf(extractedData.statementCutDate ?: "2026-10")
+        mutableStateOf("")
     }
 
     var rateKind by remember {
-        mutableStateOf(extractedData.rate?.kind ?: framework.defaultRateKind)
+        mutableStateOf(extractedData.rate?.kind?.takeIf { it in setOf("annual", "monthly", "nominal") }.orEmpty())
     }
 
     var ratePercent by remember {
-        mutableStateOf(extractedData.rate?.valuePercent ?: "18.5")
+        mutableStateOf(extractedData.rate?.valuePercent.orEmpty())
     }
 
     var nominalFreq by remember {
-        mutableStateOf((extractedData.rate?.nominalFrequency ?: 12).toString())
+        mutableStateOf(extractedData.rate?.nominalFrequency?.toString().orEmpty())
     }
 
     var payment by remember {
-        mutableStateOf(extractedData.monthlyPayment ?: "")
+        mutableStateOf(
+            extractedData.basePayment
+                ?: extractedData.monthlyPayment.takeIf { extractedData.paymentMeaning == PaymentMeaning.BASE_PAYMENT }
+                ?: ""
+        )
     }
 
     // Editable list of insurance candidates with explicit typing
     var insurances by remember {
-        val initialList: List<Insurance> = if (extractedData.insurances.isNotEmpty()) {
-            extractedData.insurances.mapIndexed { idx, ins ->
+        val chargeCandidates = extractedData.insurances.filter {
+            it.amountMeaning == InsuranceAmountMeaning.PERIODIC_CHARGE && it.monthlyCost != null
+        }
+        val initialList: List<Insurance> = if (chargeCandidates.isNotEmpty()) {
+            chargeCandidates.mapIndexed { idx, ins ->
                 Insurance(
                     id = "ins_${idx + 1}",
                     name = ins.name,
                     kind = "fixed",
-                    value = ins.monthlyCost,
+                    value = ins.monthlyCost!!,
                     endsAtPayoff = true
                 )
             }
@@ -94,7 +129,7 @@ fun ExtractionReviewSheet(
 
     // Reconciliation mode states
     var auditMonth by remember {
-        mutableStateOf((extractedData.statementMonth ?: 1).toString())
+        mutableStateOf(extractedData.statementMonth?.toString().orEmpty())
     }
     var principalPaid by remember {
         mutableStateOf(extractedData.principalPaid ?: "")
@@ -103,12 +138,25 @@ fun ExtractionReviewSheet(
         mutableStateOf(extractedData.interestCharged ?: "")
     }
     var insuranceCharged by remember {
-        mutableStateOf(extractedData.totalInsurance ?: extractedData.toStatementRow().insurance ?: "")
+        mutableStateOf(extractedData.totalInsurance.orEmpty())
     }
     var balanceResult by remember {
-        mutableStateOf(extractedData.closingBalance ?: "")
+        mutableStateOf(
+            if (extractedData.balanceMeaning == BalanceMeaning.PRINCIPAL) {
+                extractedData.capitalBalance ?: extractedData.closingBalance.orEmpty()
+            } else ""
+        )
     }
 
+    val reviewedDocument = extractedData.withLoanStatementConfirmation(loanTypeConfirmed)
+    val importBlockReason = when {
+        targetMode == ImportTargetMode.RECONCILIATION && targetCurrency == null ->
+            "No se pudo identificar la moneda del escenario activo."
+        else -> reviewedDocument.importBlockReason(
+            expectedCurrency = targetCurrency.takeIf { targetMode == ImportTargetMode.RECONCILIATION },
+            confirmCurrencyAssumption = currencyAssumptionConfirmed
+        )
+    }
     var errorMessage by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
 
@@ -199,6 +247,163 @@ fun ExtractionReviewSheet(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    color = BackgroundWarm,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "DATOS ORIGINALES DETECTADOS",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = BrandForest,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(modifier = Modifier.height(5.dp))
+                        Text("Documento: ${extractedData.documentKind}", fontSize = 11.sp, color = TextForestMuted)
+                        Text(
+                            "Moneda original: ${extractedData.detectedCurrencies.takeIf { it.isNotEmpty() }?.joinToString { it.name } ?: "No informada"}",
+                            fontSize = 11.sp,
+                            color = TextForestMuted
+                        )
+                        Text("Capital original: ${extractedData.originalPrincipal ?: "No informado"}", fontSize = 11.sp, color = TextForestMuted)
+                        Text("Capital detectado sin sentido confirmado: ${extractedData.unclassifiedPrincipal ?: "No informado"}", fontSize = 11.sp, color = TextForestMuted)
+                        Text("Saldo de capital: ${extractedData.capitalBalance ?: "No informado"}", fontSize = 11.sp, color = TextForestMuted)
+                        Text("Saldo compuesto: ${extractedData.compoundBalance ?: "No informado"}", fontSize = 11.sp, color = TextForestMuted)
+                        if (extractedData.closingBalance != null && extractedData.capitalBalance == null && extractedData.compoundBalance == null) {
+                            Text("Saldo sin sentido confirmado: ${extractedData.closingBalance}", fontSize = 11.sp, color = TextForestMuted)
+                        }
+                        Text("Plazo original: ${extractedData.originalTermMonths?.toString() ?: "No informado"} meses", fontSize = 11.sp, color = TextForestMuted)
+                        Text("Plazo restante: ${extractedData.remainingTermMonths?.toString() ?: "No informado"} meses", fontSize = 11.sp, color = TextForestMuted)
+                        if (extractedData.termMonths != null && extractedData.termMeaning == TermMeaning.UNKNOWN) {
+                            Text("Plazo detectado sin sentido confirmado: ${extractedData.termMonths} meses", fontSize = 11.sp, color = TextForestMuted)
+                        }
+                        Text("Cuota base: ${extractedData.basePayment ?: "No informada"}", fontSize = 11.sp, color = TextForestMuted)
+                        Text("Cuota total: ${extractedData.totalPayment ?: "No informada"}", fontSize = 11.sp, color = TextForestMuted)
+                        if (extractedData.monthlyPayment != null && extractedData.paymentMeaning == PaymentMeaning.UNKNOWN) {
+                            Text("Cuota detectada sin sentido confirmado: ${extractedData.monthlyPayment}", fontSize = 11.sp, color = TextForestMuted)
+                        }
+                        Text(
+                            "Tasa: ${extractedData.rate?.let { "${it.valuePercent}% · ${it.kind}" } ?: "No informada"}",
+                            fontSize = 11.sp,
+                            color = TextForestMuted
+                        )
+                        Text("Fecha de corte: ${extractedData.statementCutDate ?: "No informada"}", fontSize = 11.sp, color = TextForestMuted)
+                        Text("Mes de extracto: ${extractedData.statementMonth?.toString() ?: "No informado"}", fontSize = 11.sp, color = TextForestMuted)
+                        Text("Capital pagado: ${extractedData.principalPaid ?: "No informado"}", fontSize = 11.sp, color = TextForestMuted)
+                        Text("Interés cobrado: ${extractedData.interestCharged ?: "No informado"}", fontSize = 11.sp, color = TextForestMuted)
+                        Text("Seguro cobrado: ${extractedData.totalInsurance ?: "No informado"}", fontSize = 11.sp, color = TextForestMuted)
+                        if (extractedData.insurances.isEmpty()) {
+                            Text("Seguros detectados: No informados", fontSize = 11.sp, color = TextForestMuted)
+                        } else {
+                            extractedData.insurances.forEach { insurance ->
+                                Text(
+                                    "Seguro ${insurance.name.ifBlank { "Sin nombre informado" }}: ${insurance.monthlyCost ?: "No informado"} · ${insurance.amountMeaning}",
+                                    fontSize = 11.sp,
+                                    color = TextForestMuted
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Los datos originales se conservan aquí; los campos siguientes son correcciones revisadas.",
+                            fontSize = 11.sp,
+                            color = BrandForest,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                if (extractedData.documentKind == ImportDocumentKind.UNKNOWN) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(checked = loanTypeConfirmed, onCheckedChange = {
+                            loanTypeConfirmed = it
+                            reviewConfirmed = false
+                        })
+                        Text("Confirmo que el original es un extracto de préstamo", fontSize = 12.sp, color = TextForestMuted)
+                    }
+                }
+
+                if (importBlockReason != null) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                    ) {
+                        Text(
+                            text = importBlockReason,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+                }
+
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    Text(
+                        if (targetMode == ImportTargetMode.RECONCILIATION) "Moneda del escenario activo"
+                        else "Moneda que se usará",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BrandDark
+                    )
+                    if (targetMode == ImportTargetMode.RECONCILIATION) {
+                        Text(targetCurrency?.name ?: "No disponible", fontSize = 12.sp, color = TextForestMuted)
+                        if (extractedData.detectedCurrencies.isEmpty() && targetCurrency != null) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = currencyAssumptionConfirmed, onCheckedChange = {
+                                    currencyAssumptionConfirmed = it
+                                    reviewConfirmed = false
+                                })
+                                Text(
+                                    "Confirmo que los importes están en ${targetCurrency.name}",
+                                    fontSize = 12.sp,
+                                    color = TextForestMuted
+                                )
+                            }
+                        }
+                    } else {
+                        Currency.entries.forEach { currency ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().clickable {
+                                    selectedCurrency = currency
+                                    if (currency != extractedData.detectedCurrencies.singleOrNull()) {
+                                        currencyAssumptionConfirmed = false
+                                    }
+                                    reviewConfirmed = false
+                                },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedCurrency == currency,
+                                    onClick = {
+                                        selectedCurrency = currency
+                                        if (currency != extractedData.detectedCurrencies.singleOrNull()) {
+                                            currencyAssumptionConfirmed = false
+                                        }
+                                        reviewConfirmed = false
+                                    }
+                                )
+                                Text(currency.name, fontSize = 12.sp, color = TextForestMuted)
+                            }
+                        }
+                        if (extractedData.detectedCurrencies.singleOrNull() != selectedCurrency) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = currencyAssumptionConfirmed, onCheckedChange = {
+                                    currencyAssumptionConfirmed = it
+                                    reviewConfirmed = false
+                                })
+                                Text("Confirmo esta moneda como corrección o supuesto", fontSize = 12.sp, color = TextForestMuted)
+                            }
+                        }
+                    }
+                }
+
                 if (errorMessage.isNotBlank()) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Surface(
@@ -219,7 +424,7 @@ fun ExtractionReviewSheet(
 
                 // Editable Fields
                 Text(
-                    text = if (targetMode == ImportTargetMode.RECONCILIATION) "COBROS DEL PERÍODO" else "CONDICIONES DETECTADAS",
+                    text = if (targetMode == ImportTargetMode.RECONCILIATION) "CORRECCIONES PARA CONCILIAR" else "CORRECCIONES PARA EL ESCENARIO",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     color = BrandForest,
@@ -230,7 +435,7 @@ fun ExtractionReviewSheet(
                 if (targetMode == ImportTargetMode.RECONCILIATION) {
                     OutlinedTextField(
                         value = auditMonth,
-                        onValueChange = { auditMonth = it },
+                        onValueChange = { auditMonth = it; reviewConfirmed = false },
                         label = { Text("Mes a auditar") },
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -244,15 +449,15 @@ fun ExtractionReviewSheet(
                     ) {
                         OutlinedTextField(
                             value = principalPaid,
-                            onValueChange = { principalPaid = it },
-                            label = { Text("Capital pagado (${framework.defaultCurrency.name})") },
+                            onValueChange = { principalPaid = it; reviewConfirmed = false },
+                            label = { Text("Capital pagado (${selectedCurrency.name})") },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
                             value = interestCharged,
-                            onValueChange = { interestCharged = it },
-                            label = { Text("Interés cobrado (${framework.defaultCurrency.name})") },
+                            onValueChange = { interestCharged = it; reviewConfirmed = false },
+                            label = { Text("Interés cobrado (${selectedCurrency.name})") },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f)
                         )
@@ -266,18 +471,26 @@ fun ExtractionReviewSheet(
                     ) {
                         OutlinedTextField(
                             value = insuranceCharged,
-                            onValueChange = { insuranceCharged = it },
-                            label = { Text("Seguro cobrado (${framework.defaultCurrency.name})") },
+                            onValueChange = { insuranceCharged = it; reviewConfirmed = false },
+                            label = { Text("Seguro cobrado (${selectedCurrency.name})") },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
                             value = balanceResult,
-                            onValueChange = { balanceResult = it },
-                            label = { Text("Saldo final (${framework.defaultCurrency.name})") },
+                            onValueChange = { balanceResult = it; reviewConfirmed = false },
+                            label = { Text("Saldo final (${selectedCurrency.name})") },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f)
                         )
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = balanceIsPrincipalConfirmed, onCheckedChange = {
+                            balanceIsPrincipalConfirmed = it
+                            reviewConfirmed = false
+                        })
+                        Text("Confirmo que el saldo final es de capital, no deuda compuesta", fontSize = 11.sp, color = TextForestMuted)
                     }
 
                     if (extractedData.insurances.isNotEmpty()) {
@@ -295,7 +508,7 @@ fun ExtractionReviewSheet(
                                 )
                                 extractedData.insurances.forEach { ins ->
                                     Text(
-                                        text = "• ${ins.name}: ${ins.monthlyCost} ${framework.defaultCurrency.name}",
+                                        text = "• ${ins.name.ifBlank { "Sin nombre informado" }}: ${ins.monthlyCost ?: "No informado"} · ${ins.amountMeaning}",
                                         fontSize = 11.sp,
                                         color = TextForestMuted
                                     )
@@ -306,7 +519,7 @@ fun ExtractionReviewSheet(
                 } else {
                     OutlinedTextField(
                         value = loanName,
-                        onValueChange = { loanName = it },
+                        onValueChange = { loanName = it; reviewConfirmed = false },
                         label = { Text("Nombre del préstamo") },
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -314,21 +527,53 @@ fun ExtractionReviewSheet(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
+                    Text("Capital y plazo que se aplicarán", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BrandDark)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(
+                            selected = !useOriginalLoan,
+                            onClick = {
+                                useOriginalLoan = false
+                                principal = if (extractedData.balanceMeaning == BalanceMeaning.PRINCIPAL) {
+                                    extractedData.capitalBalance ?: extractedData.closingBalance.orEmpty()
+                                } else extractedData.capitalBalance ?: extractedData.unclassifiedPrincipal.orEmpty()
+                                termMonths = (extractedData.remainingTermMonths
+                                    ?: extractedData.termMonths.takeIf { extractedData.termMeaning == TermMeaning.REMAINING })
+                                    ?.toString().orEmpty()
+                                reviewConfirmed = false
+                            }
+                        )
+                        Text("Saldo actual y plazo restante", fontSize = 12.sp, color = TextForestMuted)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(
+                            selected = useOriginalLoan,
+                            onClick = {
+                                useOriginalLoan = true
+                                principal = (extractedData.originalPrincipal ?: extractedData.unclassifiedPrincipal).orEmpty()
+                                termMonths = (extractedData.originalTermMonths
+                                    ?: extractedData.termMonths.takeIf { extractedData.termMeaning == TermMeaning.ORIGINAL })
+                                    ?.toString().orEmpty()
+                                reviewConfirmed = false
+                            }
+                        )
+                        Text("Capital original y plazo original", fontSize = 12.sp, color = TextForestMuted)
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedTextField(
                             value = principal,
-                            onValueChange = { principal = it },
-                            label = { Text("Capital / Saldo (${framework.defaultCurrency.name})") },
+                            onValueChange = { principal = it; reviewConfirmed = false },
+                            label = { Text("${if (useOriginalLoan) "Capital original" else "Saldo de capital actual"} (${selectedCurrency.name})") },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
                             value = termMonths,
-                            onValueChange = { termMonths = it },
-                            label = { Text("Plazo (meses)") },
+                            onValueChange = { termMonths = it; reviewConfirmed = false },
+                            label = { Text("${if (useOriginalLoan) "Plazo original" else "Plazo restante"} (meses)") },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f)
                         )
@@ -342,7 +587,7 @@ fun ExtractionReviewSheet(
                     ) {
                         OutlinedTextField(
                             value = ratePercent,
-                            onValueChange = { ratePercent = it },
+                            onValueChange = { ratePercent = it; reviewConfirmed = false },
                             label = { Text("Tasa de interés (%)") },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f)
@@ -358,7 +603,8 @@ fun ExtractionReviewSheet(
                                 value = when (rateKind) {
                                     "monthly" -> "Efectiva mensual (EM)"
                                     "annual" -> "Efectiva anual (EA)"
-                                    else -> "Nominal anual"
+                                    "nominal" -> "Nominal anual"
+                                    else -> "Selecciona convención"
                                 },
                                 onValueChange = {},
                                 readOnly = true,
@@ -373,15 +619,15 @@ fun ExtractionReviewSheet(
                             ) {
                                 DropdownMenuItem(
                                     text = { Text("Efectiva anual (EA)") },
-                                    onClick = { rateKind = "annual"; rateExpanded = false }
+                                    onClick = { rateKind = "annual"; rateExpanded = false; reviewConfirmed = false }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Efectiva mensual (EM)") },
-                                    onClick = { rateKind = "monthly"; rateExpanded = false }
+                                    onClick = { rateKind = "monthly"; rateExpanded = false; reviewConfirmed = false }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Nominal anual") },
-                                    onClick = { rateKind = "nominal"; rateExpanded = false }
+                                    onClick = { rateKind = "nominal"; rateExpanded = false; reviewConfirmed = false }
                                 )
                             }
                         }
@@ -391,7 +637,7 @@ fun ExtractionReviewSheet(
                         Spacer(modifier = Modifier.height(8.dp))
                         OutlinedTextField(
                             value = nominalFreq,
-                            onValueChange = { nominalFreq = it },
+                            onValueChange = { nominalFreq = it; reviewConfirmed = false },
                             label = { Text("Capitalizaciones / año") },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.fillMaxWidth()
@@ -406,15 +652,15 @@ fun ExtractionReviewSheet(
                     ) {
                         OutlinedTextField(
                             value = startDate,
-                            onValueChange = { startDate = it },
-                            label = { Text("Primer periodo (AAAA-MM)") },
+                            onValueChange = { startDate = it; reviewConfirmed = false },
+                            label = { Text("Primer periodo del escenario (AAAA-MM)") },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
                             value = payment,
-                            onValueChange = { payment = it },
-                            label = { Text("Cuota fija (opcional)") },
+                            onValueChange = { payment = it; reviewConfirmed = false },
+                            label = { Text("Cuota base revisada (${selectedCurrency.name})") },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f)
                         )
@@ -443,10 +689,12 @@ fun ExtractionReviewSheet(
                                     id = newId,
                                     name = "Seguro ${insurances.size + 1}",
                                     kind = "fixed",
-                                    value = "0.00",
+                                    value = "",
                                     endsAtPayoff = true
                                 )
                                 insurances = insurances + listOf(newIns)
+                                noInsuranceConfirmed = false
+                                reviewConfirmed = false
                             },
                             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                         ) {
@@ -456,7 +704,7 @@ fun ExtractionReviewSheet(
 
                     if (insurances.isEmpty()) {
                         Text(
-                            text = "No se detectaron cargos de seguros en el extracto.",
+                            text = "No hay un importe revisado de cargo periódico de seguro.",
                             fontSize = 12.sp,
                             color = TextForestMuted,
                             modifier = Modifier.padding(vertical = 4.dp)
@@ -476,6 +724,7 @@ fun ExtractionReviewSheet(
                                         val list = insurances.toMutableList()
                                         list[idx] = ins.copy(name = newName)
                                         insurances = list
+                                        reviewConfirmed = false
                                     },
                                     label = { Text("Seguro") },
                                     shape = RoundedCornerShape(8.dp),
@@ -487,6 +736,7 @@ fun ExtractionReviewSheet(
                                         val list = insurances.toMutableList()
                                         list[idx] = ins.copy(value = newVal)
                                         insurances = list
+                                        reviewConfirmed = false
                                     },
                                     label = { Text("Valor") },
                                     shape = RoundedCornerShape(8.dp),
@@ -497,6 +747,8 @@ fun ExtractionReviewSheet(
                                         val list = insurances.toMutableList()
                                         list.removeAt(idx)
                                         insurances = list
+                                        if (list.isEmpty()) noInsuranceConfirmed = false
+                                        reviewConfirmed = false
                                     },
                                     modifier = Modifier.size(32.dp)
                                 ) {
@@ -505,6 +757,34 @@ fun ExtractionReviewSheet(
                             }
                         }
                     }
+
+                    if (insurances.isEmpty()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = noInsuranceConfirmed, onCheckedChange = {
+                                noInsuranceConfirmed = it
+                                reviewConfirmed = false
+                            })
+                            Text("Confirmo que no aplicaré cargos periódicos de seguro", fontSize = 11.sp, color = TextForestMuted)
+                        }
+                    }
+
+                    if (payment.isBlank()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = calculatedPaymentConfirmed, onCheckedChange = {
+                                calculatedPaymentConfirmed = it
+                                reviewConfirmed = false
+                            })
+                            Text("Confirmo que la cuota base se calculará con estos datos", fontSize = 11.sp, color = TextForestMuted)
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(checked = reviewConfirmed, onCheckedChange = { reviewConfirmed = it })
+                    Text("Revisé los datos originales, las correcciones y los supuestos antes de importar", fontSize = 12.sp, color = BrandDark)
                 }
 
                 Spacer(modifier = Modifier.height(18.dp))
@@ -524,69 +804,95 @@ fun ExtractionReviewSheet(
                     }
 
                     Button(
+                        enabled = reviewConfirmed && importBlockReason == null &&
+                            (targetMode != ImportTargetMode.RECONCILIATION || onConfirmStatementImport != null),
                         onClick = {
                             if (targetMode == ImportTargetMode.RECONCILIATION) {
                                 try {
-                                    val m = auditMonth.trim().toIntOrNull() ?: error("Indica un mes a auditar válido.")
+                                    val m = auditMonth.trim().toIntOrNull()?.takeIf { it in 1..1200 }
+                                        ?: error("Indica un mes a auditar válido.")
+                                    val reconciliationCurrency = targetCurrency
+                                        ?: error("No se pudo identificar la moneda del escenario activo.")
                                     val pClean = principalPaid.trim().replace(',', '.').ifBlank { null }?.let {
-                                        Decimal.parse(it).toFixed(2)
+                                        parseImportMoney(it, "El capital pagado").toFixed(2)
                                     }
                                     val iClean = interestCharged.trim().replace(',', '.').ifBlank { null }?.let {
-                                        Decimal.parse(it).toFixed(2)
+                                        parseImportMoney(it, "El interés cobrado").toFixed(2)
                                     }
                                     val insClean = insuranceCharged.trim().replace(',', '.').ifBlank { null }?.let {
-                                        Decimal.parse(it).toFixed(2)
+                                        parseImportMoney(it, "El seguro cobrado").toFixed(2)
                                     }
                                     val bClean = balanceResult.trim().replace(',', '.').ifBlank { null }?.let {
-                                        Decimal.parse(it).toFixed(2)
+                                        parseImportMoney(it, "El saldo final").toFixed(2)
                                     }
-                                    val stmt = StatementRow(
-                                        month = m,
-                                        principal = pClean,
-                                        interest = iClean,
-                                        insurance = insClean,
-                                        balance = bClean
+                                    require(bClean == null || balanceIsPrincipalConfirmed) {
+                                        "Confirma que el saldo final corresponde al capital y no a deuda compuesta."
+                                    }
+                                    val reviewedData = reviewedDocument.copy(
+                                        statementMonth = m,
+                                        principalPaid = pClean,
+                                        interestCharged = iClean,
+                                        totalInsurance = insClean,
+                                        capitalBalance = bClean,
+                                        closingBalance = bClean,
+                                        balanceMeaning = if (bClean != null) BalanceMeaning.PRINCIPAL else BalanceMeaning.UNKNOWN
                                     )
-                                    stmt.validate()
+                                    val stmt = reviewedData.toStatementRow(
+                                        expectedCurrency = reconciliationCurrency,
+                                        reviewedCurrency = reconciliationCurrency,
+                                        confirmCurrencyAssumption = currencyAssumptionConfirmed
+                                    )
                                     onConfirmStatementImport?.invoke(stmt)
                                 } catch (e: Exception) {
                                     errorMessage = e.message ?: "Verifica los datos del extracto."
                                 }
                             } else {
                                 try {
-                                    val rateDecValue = (Decimal.parse(ratePercent.replace(',', '.')) / Decimal.parse("100")).toString()
-                                    val newRate = when (rateKind) {
-                                        "monthly" -> Rate.Monthly(rateDecValue)
-                                        "annual" -> Rate.Annual(rateDecValue)
-                                        "nominal" -> Rate.Nominal(rateDecValue, nominalFreq.toIntOrNull() ?: 12)
-                                        else -> Rate.Annual(rateDecValue)
+                                    require(rateKind in setOf("annual", "monthly", "nominal")) {
+                                        "Selecciona la convención de la tasa."
                                     }
-
-                                    val validStartDate = if (Regex("""^\d{4}-(0[1-9]|1[0-2])$""").matches(startDate.trim())) {
-                                        startDate.trim()
-                                    } else {
-                                        "2026-10"
+                                    val nominalFrequency = if (rateKind == "nominal") {
+                                        nominalFreq.trim().toIntOrNull()?.takeIf { it > 0 }
+                                            ?: error("Indica la frecuencia de capitalización nominal.")
+                                    } else null
+                                    val reviewedInsurance = insurances.map { item ->
+                                        val amount = parseImportMoney(item.value.trim(), "El cargo periódico de seguro").toFixed(2)
+                                        ExtractedInsurance(
+                                            name = item.name.trim().ifBlank { error("Indica el nombre de cada seguro.") },
+                                            monthlyCost = amount,
+                                            amountMeaning = InsuranceAmountMeaning.PERIODIC_CHARGE
+                                        )
                                     }
-
-                                    val scenario = Scenario(
-                                        version = 1,
-                                        currency = framework.defaultCurrency,
-                                        name = loanName.trim().ifBlank { "Préstamo importado" },
-                                        source = "current",
-                                        principal = Decimal.parse(principal.replace(',', '.')).toFixed(2),
-                                        startDate = validStartDate,
-                                        termMonths = termMonths.trim().toIntOrNull() ?: error("Plazo en meses inválido"),
-                                        rate = newRate,
-                                        payment = payment.trim().ifBlank { null },
-                                        insurance = insurances.map { item ->
-                                            item.copy(
-                                                value = Decimal.parse(item.value.replace(',', '.')).toFixed(2)
-                                            )
-                                        },
-                                        events = emptyList()
+                                    val reviewedTerm = termMonths.trim().toIntOrNull()
+                                        ?: error("Indica el plazo que corresponda al capital seleccionado.")
+                                    val reviewedData = reviewedDocument.copy(
+                                        capitalBalance = if (useOriginalLoan) null else principal.trim(),
+                                        closingBalance = if (useOriginalLoan) null else principal.trim(),
+                                        originalPrincipal = if (useOriginalLoan) principal.trim() else extractedData.originalPrincipal,
+                                        balanceMeaning = if (useOriginalLoan) BalanceMeaning.UNKNOWN else BalanceMeaning.PRINCIPAL,
+                                        termMonths = reviewedTerm,
+                                        originalTermMonths = if (useOriginalLoan) reviewedTerm else extractedData.originalTermMonths,
+                                        remainingTermMonths = if (useOriginalLoan) extractedData.remainingTermMonths else reviewedTerm,
+                                        termMeaning = if (useOriginalLoan) TermMeaning.ORIGINAL else TermMeaning.REMAINING,
+                                        rate = ExtractedRate(
+                                            valuePercent = ratePercent.trim(),
+                                            kind = rateKind,
+                                            nominalFrequency = nominalFrequency
+                                        ),
+                                        basePayment = payment.trim().ifBlank { null },
+                                        monthlyPayment = payment.trim().ifBlank { null },
+                                        paymentMeaning = if (payment.isBlank()) PaymentMeaning.UNKNOWN else PaymentMeaning.BASE_PAYMENT,
+                                        insurances = reviewedInsurance
                                     )
-
-                                    scenario.validate()
+                                    val scenario = reviewedData.toScenario(
+                                        framework = framework,
+                                        customName = loanName.trim().ifBlank { null },
+                                        startDate = startDate.trim().ifBlank { null },
+                                        confirmNoInsurance = insurances.isEmpty() && noInsuranceConfirmed,
+                                        confirmCalculatedPayment = payment.isBlank() && calculatedPaymentConfirmed,
+                                        confirmCurrencyAssumption = currencyAssumptionConfirmed,
+                                        reviewedCurrency = selectedCurrency
+                                    )
                                     onConfirmImport(scenario)
                                 } catch (e: Exception) {
                                     errorMessage = e.message ?: "Verifica los datos antes de importar."

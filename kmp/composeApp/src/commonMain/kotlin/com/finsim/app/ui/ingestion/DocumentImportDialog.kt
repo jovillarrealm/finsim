@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.finsim.app.theme.*
+import com.finsim.domain.Currency
 import com.finsim.domain.Scenario
 import com.finsim.ingestion.*
 import com.finsim.reconciliation.StatementRow
@@ -96,6 +97,7 @@ private val SAMPLE_ARGENTINA_STATEMENT = """
 @Composable
 fun DocumentImportDialog(
     targetMode: ImportTargetMode = ImportTargetMode.SCENARIO,
+    targetCurrency: Currency? = null,
     onDismiss: () -> Unit,
     onScenarioImported: (Scenario) -> Unit = {},
     onStatementRowImported: (StatementRow) -> Unit = {}
@@ -116,15 +118,16 @@ fun DocumentImportDialog(
             extractedData = reviewData!!,
             framework = selectedFramework,
             targetMode = targetMode,
+            targetCurrency = targetCurrency,
             onDismiss = { reviewData = null },
             onConfirmImport = { scenario ->
-                reviewData = null
                 onScenarioImported(scenario)
+                reviewData = null
                 onDismiss()
             },
             onConfirmStatementImport = { stmt ->
-                reviewData = null
                 onStatementRowImported(stmt)
+                reviewData = null
                 onDismiss()
             }
         )
