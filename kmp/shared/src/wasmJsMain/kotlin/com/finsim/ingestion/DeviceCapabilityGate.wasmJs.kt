@@ -9,5 +9,9 @@ actual fun getDeviceCapabilityGate(): DeviceCapabilityGate {
     } catch (_: Throwable) {
         4.0
     }
-    return DeviceCapabilityGate(totalRamGb = ramGb)
+    return DeviceCapabilityGate(
+        totalRamGb = ramGb,
+        isEligible = false,
+        ineligibilityReason = "Gemma solo está disponible en Android."
+    )
 }

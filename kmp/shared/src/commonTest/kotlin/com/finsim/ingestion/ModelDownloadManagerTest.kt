@@ -1,117 +1,107 @@
 package com.finsim.ingestion
 
-import kotlin.test.*
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class ModelDownloadManagerTest {
-
     @Test
-    fun testDownloadStateLifecycleIdleToDownloadingToCompleted() {
-        val gate = FakeDeviceCapabilityGate(totalRamGb = 8.0)
+    fun downloadManagerAcceptsOnlyPinnedMetadataFromItsDownloader() = runTest {
         val storage = InMemoryModelStorage()
-        val manager = ModelDownloadManager(storage = storage, capabilityGate = gate)
+        val manager = ModelDownloadManager(
+            storage = storage,
+            capabilityGate = FakeDeviceCapabilityGate(totalRamGb = 8.0),
+            downloader = ModelDownloader { target, onProgress ->
+                target.saveChunk(byteArrayOf(1, 2, 3))
+                onProgress(GemmaModelArtifact.sizeBytes / 2)
+                ModelDownloadResult(GemmaModelArtifact.fileName, GemmaModelArtifact.sizeBytes, GemmaModelArtifact.sha256)
+            },
+            coroutineScope = backgroundScope
+        )
 
-        // 1. Initially Idle
-        assertEquals(DownloadState.Idle, manager.state.value)
-        assertFalse(manager.isModelDownloaded())
-        assertEquals(0L, storage.getModelSizeBytes())
+        manager.startDownload()
+        runCurrent()
 
-        // 2. Step 1 -> Downloading
-        manager.startDownload(simulateStep = true)
-        val downloadingState = manager.state.value
-        assertTrue(downloadingState is DownloadState.Downloading)
-        assertEquals(0.5f, downloadingState.progress)
-        assertEquals(GEMMA_4_E2B_INT4_SIZE_BYTES / 2, downloadingState.downloadedBytes)
-        assertEquals(GEMMA_4_E2B_INT4_SIZE_BYTES, downloadingState.totalBytes)
-        assertEquals("15 MB/s", downloadingState.speedFormatted)
-
-        // 3. Step 2 -> Completed
-        manager.startDownload(simulateStep = true)
-        val completedState = manager.state.value
-        assertTrue(completedState is DownloadState.Completed)
-        assertEquals(GEMMA_4_E2B_INT4_SIZE_BYTES, completedState.totalSizeBytes)
+        assertIs<DownloadState.Completed>(manager.state.value)
+        assertEquals(GemmaModelArtifact.sizeBytes, storage.getModelSizeBytes())
         assertTrue(manager.isModelDownloaded())
-        assertEquals(GEMMA_4_E2B_INT4_SIZE_BYTES, storage.getModelSizeBytes())
     }
 
     @Test
-    fun testIneligibilityRejectionWhenRamLessThan8GiB() {
-        val gate = FakeDeviceCapabilityGate(totalRamGb = 4.0)
+    fun wrongArtifactHashLeavesNoDownloadedModel() = runTest {
         val storage = InMemoryModelStorage()
-        val manager = ModelDownloadManager(storage = storage, capabilityGate = gate)
+        val manager = ModelDownloadManager(
+            storage = storage,
+            capabilityGate = FakeDeviceCapabilityGate(totalRamGb = 8.0),
+            downloader = ModelDownloader { _, _ ->
+                ModelDownloadResult(GemmaModelArtifact.fileName, GemmaModelArtifact.sizeBytes, "wrong")
+            },
+            coroutineScope = backgroundScope
+        )
 
-        assertEquals(DownloadState.Idle, manager.state.value)
+        manager.startDownload()
+        runCurrent()
 
-        // Must reject download and throw IllegalStateException or set Error state
-        val error = assertFailsWith<IllegalStateException> {
-            manager.startDownload(simulateStep = true)
-        }
+        val error = assertIs<DownloadState.Error>(manager.state.value)
+        assertTrue(error.message.contains("SHA-256"))
+        assertFalse(manager.isModelDownloaded())
+        assertEquals(0L, storage.getModelSizeBytes())
+    }
 
-        assertTrue(error.message?.contains("LMKD") == true || error.message?.contains("8") == true)
-        val state = manager.state.value
-        assertTrue(state is DownloadState.Error)
+    @Test
+    fun lowTotalRamBlocksDownloadBeforeCallingDownloader() = runTest {
+        var downloadCalled = false
+        val storage = InMemoryModelStorage()
+        val manager = ModelDownloadManager(
+            storage = storage,
+            capabilityGate = FakeDeviceCapabilityGate(totalRamGb = 4.0),
+            downloader = ModelDownloader { _, _ ->
+                downloadCalled = true
+                error("The blocked download must not start.")
+            },
+            coroutineScope = backgroundScope
+        )
+
+        manager.startDownload()
+        runCurrent()
+
+        assertFalse(downloadCalled)
+        assertTrue(assertIs<DownloadState.Error>(manager.state.value).message.contains("8.0 GiB"))
         assertFalse(manager.isModelDownloaded())
     }
 
     @Test
-    fun testModelDeletionFreesStorageAndResetsState() {
-        val gate = FakeDeviceCapabilityGate(totalRamGb = 12.0)
-        val storage = InMemoryModelStorage(downloaded = true, sizeBytes = GEMMA_4_E2B_INT4_SIZE_BYTES)
-        val manager = ModelDownloadManager(storage = storage, capabilityGate = gate)
+    fun deletingVerifiedModelClearsStorageAndState() {
+        val storage = InMemoryModelStorage(downloaded = true, sizeBytes = GemmaModelArtifact.sizeBytes)
+        val manager = ModelDownloadManager(
+            storage = storage,
+            capabilityGate = FakeDeviceCapabilityGate(totalRamGb = 12.0),
+            downloader = ModelDownloader { _, _ -> error("No download expected.") }
+        )
 
-        // State initialized as Completed when storage already has model
-        assertTrue(manager.state.value is DownloadState.Completed)
-        assertTrue(manager.isModelDownloaded())
-
-        // Delete model
-        val deleted = manager.deleteModel()
-        assertTrue(deleted)
+        assertIs<DownloadState.Completed>(manager.state.value)
+        assertTrue(manager.deleteModel())
         assertEquals(DownloadState.Idle, manager.state.value)
         assertFalse(manager.isModelDownloaded())
         assertEquals(0L, storage.getModelSizeBytes())
     }
 
     @Test
-    fun testCancelDownloadResetsToIdle() {
-        val gate = FakeDeviceCapabilityGate(totalRamGb = 8.0)
-        val storage = InMemoryModelStorage()
-        val manager = ModelDownloadManager(storage = storage, capabilityGate = gate)
-
-        manager.startDownload(simulateStep = true)
-        assertTrue(manager.state.value is DownloadState.Downloading)
-
-        manager.cancelDownload()
-        assertEquals(DownloadState.Idle, manager.state.value)
-        assertFalse(manager.isModelDownloaded())
-    }
-
-    @Test
-    fun testCompleteDownloadExplicitly() {
-        val gate = FakeDeviceCapabilityGate(totalRamGb = 8.0)
-        val storage = InMemoryModelStorage()
-        val manager = ModelDownloadManager(storage = storage, capabilityGate = gate)
-
-        manager.completeDownload()
-        assertTrue(manager.state.value is DownloadState.Completed)
-        assertTrue(manager.isModelDownloaded())
-        assertEquals(GEMMA_4_E2B_INT4_SIZE_BYTES, storage.getModelSizeBytes())
-    }
-
-    @Test
-    fun testPersistentDiskModelStorageLifecycle() {
-        val storage = PersistentDiskModelStorage("models/gemma4-e2b-int4")
-        assertFalse(storage.isModelDownloaded())
-        assertEquals(0L, storage.getModelSizeBytes())
-
-        storage.saveChunk(ByteArray(1024))
-        assertEquals(1024L, storage.getModelSizeBytes())
-
-        storage.markDownloaded(GEMMA_4_E2B_INT4_SIZE_BYTES)
-        assertTrue(storage.isModelDownloaded())
-        assertEquals(GEMMA_4_E2B_INT4_SIZE_BYTES, storage.getModelSizeBytes())
-
-        val deleted = storage.deleteModel()
-        assertTrue(deleted)
-        assertFalse(storage.isModelDownloaded())
-        assertEquals(0L, storage.getModelSizeBytes())
+    fun pinnedArtifactIncludesExactExtensionSizeAndDigest() {
+        assertEquals(null, GemmaModelArtifact.validationError(
+            GemmaModelArtifact.fileName,
+            GemmaModelArtifact.sizeBytes,
+            GemmaModelArtifact.sha256
+        ))
+        assertTrue(GemmaModelArtifact.validationError("gemma.bin", GemmaModelArtifact.sizeBytes, GemmaModelArtifact.sha256)
+            ?.contains("filename", ignoreCase = true) == true)
+        assertTrue(GemmaModelArtifact.validationError(GemmaModelArtifact.fileName, GemmaModelArtifact.sizeBytes - 1, GemmaModelArtifact.sha256)
+            ?.contains("size", ignoreCase = true) == true)
+        assertTrue(GemmaModelArtifact.validationError(GemmaModelArtifact.fileName, GemmaModelArtifact.sizeBytes, "bad")
+            ?.contains("SHA-256") == true)
     }
 }
