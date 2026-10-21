@@ -2,6 +2,7 @@ package com.finsim.ingestion
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.os.Handler
 import android.os.HandlerThread
@@ -67,6 +68,7 @@ class AndroidPdfRasterizer(private val context: Context) : PageRasterizer {
                             val bitmap = Bitmap.createBitmap(width.toInt(), height.toInt(), Bitmap.Config.ARGB_8888)
                             try {
                                 currentCoroutineContext().ensureActive()
+                                bitmap.eraseColor(Color.WHITE)
                                 page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                                 currentCoroutineContext().ensureActive()
                                 ByteArrayOutputStream().use { output ->
