@@ -6,8 +6,13 @@ package com.finsim.ingestion
 interface ModelStorage {
     fun isModelDownloaded(): Boolean
     fun getModelSizeBytes(): Long
-    fun saveChunk(bytes: ByteArray)
+    fun getModelFilePath(): String? = null
+    /** Returns storage state owned by one download attempt so late cleanup cannot touch a retry. */
+    fun createDownloadAttempt(): ModelStorage = this
+    fun beginDownload()
+    fun saveChunk(bytes: ByteArray, length: Int = bytes.size)
     fun markDownloaded(sizeBytes: Long)
+    fun discardPartialDownload()
     fun deleteModel(): Boolean
 }
 
@@ -24,9 +29,16 @@ class InMemoryModelStorage(
 
     override fun getModelSizeBytes(): Long = sizeBytes
 
-    override fun saveChunk(bytes: ByteArray) {
-        buffer.add(bytes)
-        sizeBytes += bytes.size
+    override fun beginDownload() {
+        buffer.clear()
+        downloaded = false
+        sizeBytes = 0L
+    }
+
+    override fun saveChunk(bytes: ByteArray, length: Int) {
+        require(length in 0..bytes.size)
+        buffer.add(bytes.copyOf(length))
+        sizeBytes += length
     }
 
     override fun markDownloaded(sizeBytes: Long) {
@@ -40,33 +52,11 @@ class InMemoryModelStorage(
         downloaded = false
         return true
     }
-}
 
-/**
- * Persistent model storage representation for managing local checkpoints in the application files directory.
- */
-class PersistentDiskModelStorage(
-    val modelDirectoryPath: String = "models/gemma4-e2b-int4",
-    private var downloaded: Boolean = false,
-    private var sizeBytes: Long = 0L
-) : ModelStorage {
-
-    override fun isModelDownloaded(): Boolean = downloaded
-
-    override fun getModelSizeBytes(): Long = sizeBytes
-
-    override fun saveChunk(bytes: ByteArray) {
-        sizeBytes += bytes.size
-    }
-
-    override fun markDownloaded(sizeBytes: Long) {
-        this.sizeBytes = sizeBytes
-        this.downloaded = true
-    }
-
-    override fun deleteModel(): Boolean {
-        sizeBytes = 0L
-        downloaded = false
-        return true
+    override fun discardPartialDownload() {
+        if (!downloaded) {
+            buffer.clear()
+            sizeBytes = 0L
+        }
     }
 }

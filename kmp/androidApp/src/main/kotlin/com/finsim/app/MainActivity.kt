@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.finsim.core.FinsimLog
+import com.finsim.ingestion.AndroidIngestionContext
 import com.finsim.persistence.ScenarioStorage
 
 class AndroidScenarioStorage(context: Context) : ScenarioStorage {
@@ -22,6 +23,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        AndroidIngestionContext.install(applicationContext)
         FinsimLog.ui.i { "MainActivity onCreate: Finsim Android iniciada en SDK ${android.os.Build.VERSION.SDK_INT}" }
         val storage = AndroidScenarioStorage(this)
         if (storage.getItem(com.finsim.persistence.SCENARIO_STORAGE_KEY) == null) {

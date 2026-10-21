@@ -338,8 +338,13 @@ class DocumentTextParserTest {
 
         val extractedWithDate = DocumentTextParser.parse(statementWithDateOnly, RegulatoryFramework.COLOMBIA_SFC)
         assertNull(extractedWithDate.statementMonth)
-        assertFailsWith<IllegalArgumentException> { extractedWithDate.toStatementRow() }
-        assertEquals(1, extractedWithDate.toStatementRow(fallbackMonth = 1).month)
+        assertFailsWith<IllegalArgumentException> {
+            extractedWithDate.toStatementRow(expectedCurrency = Currency.COP)
+        }
+        assertEquals(
+            1,
+            extractedWithDate.toStatementRow(fallbackMonth = 1, expectedCurrency = Currency.COP).month
+        )
 
         val statementWithoutDateOrCuota = """
             Moneda del extracto: COP
@@ -350,9 +355,18 @@ class DocumentTextParserTest {
         val extractedWithoutDate = DocumentTextParser.parse(statementWithoutDateOrCuota, RegulatoryFramework.COLOMBIA_SFC)
         assertEquals(null, extractedWithoutDate.statementMonth)
         // Falls back to fallbackMonth
-        assertEquals(3, extractedWithoutDate.toStatementRow(fallbackMonth = 3).month)
-        assertEquals("100000.00", extractedWithoutDate.toStatementRow(fallbackMonth = 3).principal)
-        assertEquals("80000.00", extractedWithoutDate.toStatementRow(fallbackMonth = 3).interest)
+        assertEquals(
+            3,
+            extractedWithoutDate.toStatementRow(fallbackMonth = 3, expectedCurrency = Currency.COP).month
+        )
+        assertEquals(
+            "100000.00",
+            extractedWithoutDate.toStatementRow(fallbackMonth = 3, expectedCurrency = Currency.COP).principal
+        )
+        assertEquals(
+            "80000.00",
+            extractedWithoutDate.toStatementRow(fallbackMonth = 3, expectedCurrency = Currency.COP).interest
+        )
     }
 
     @Test
@@ -436,7 +450,7 @@ class DocumentTextParserTest {
             extracted.toScenario(startDate = "2026-11")
         }
         assertFailsWith<IllegalArgumentException> {
-            extracted.toStatementRow()
+            extracted.toStatementRow(expectedCurrency = Currency.ARS)
         }
     }
 
@@ -547,7 +561,7 @@ class DocumentTextParserTest {
         )
 
         assertFailsWith<IllegalArgumentException> {
-            extracted.toStatementRow()
+            extracted.toStatementRow(expectedCurrency = Currency.COP)
         }
     }
 

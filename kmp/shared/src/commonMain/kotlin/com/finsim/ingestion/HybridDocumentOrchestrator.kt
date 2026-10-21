@@ -1,6 +1,7 @@
 package com.finsim.ingestion
 
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
 
 /**
  * Result outcomes from running the hybrid document ingestion cascade.
@@ -49,13 +50,9 @@ class HybridDocumentOrchestrator(
         forceTier2: Boolean = false
     ): OrchestrationResult {
         return try {
-            val pages = if (rawText.isNotBlank()) {
-                DigitalPdfTextExtractor.extractPages(rawText.encodeToByteArray())
-            } else if (pdfBytes.isNotEmpty()) {
-                DigitalPdfTextExtractor.extractPages(pdfBytes)
-            } else {
-                emptyList()
-            }
+            // Tier 1 consumes only text the user pasted. A selected PDF is an image source and
+            // must reach the platform rasterizer without decoding its bytes as text.
+            val pages = splitPastedTextPages(rawText)
 
             val bestPageIndex = if (pages.isNotEmpty()) {
                 densityScanner.findBestPageIndex(pages)
@@ -82,22 +79,23 @@ class HybridDocumentOrchestrator(
             }
 
             // 2. Cascade to Tier 2 (Local VLM)
-            // A. Check Hardware Eligibility (< 6 GB RAM blocked)
+            // A. Check Hardware Eligibility (< 8 GiB RAM blocked)
             if (!capabilityGate.isEligibleForVlm) {
                 return OrchestrationResult.HardwareRestricted(
                     reason = capabilityGate.ineligibilityReason
-                        ?: "Memoria RAM insuficiente para ejecutar el modelo de visión local Gemma 4 E2B (se requieren >= 6.0 GB de RAM)."
+                        ?: "Memoria RAM insuficiente para ejecutar el modelo de visión local Gemma 4 E2B (se requieren >= 8.0 GB de RAM)."
                 )
             }
 
             // B. Check Model Download Status
             if (!modelStorage.isModelDownloaded()) {
                 return OrchestrationResult.RequiresModelDownload(
-                    message = "El modelo de visión local Gemma 4 E2B INT4 (~1.1 GB) no se encuentra descargado en este dispositivo."
+                    message = "El modelo de visión local Gemma 4 E2B (2.58 GB) no se encuentra descargado en este dispositivo."
                 )
             }
 
             // C. Rasterize best page at 150 DPI
+            validatePdfForInMemoryRasterization(pdfBytes)
             val imageBytes = rasterizer.rasterizePage(
                 pdfBytes = pdfBytes,
                 pageIndex = bestPageIndex,
@@ -123,10 +121,17 @@ class HybridDocumentOrchestrator(
                 data = finalData,
                 tierUsed = ExtractionEngine.TIER_2_LOCAL_VLM
             )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             OrchestrationResult.Error(
                 message = e.message ?: "Error inesperado al procesar el documento con el orquestador híbrido."
             )
         }
     }
+
+    private fun splitPastedTextPages(text: String): List<String> = text
+        .split(Regex("(?:\\u000C|---+\\s*(?:Page|Página)\\s*\\d+\\s*---+)", RegexOption.IGNORE_CASE))
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
 }

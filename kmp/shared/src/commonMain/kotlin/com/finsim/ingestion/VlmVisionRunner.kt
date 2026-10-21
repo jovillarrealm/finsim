@@ -14,12 +14,10 @@ interface VlmVisionRunner {
 }
 
 /**
- * Fake implementation of [VlmVisionRunner] for unit tests, previews, and headless environments.
+ * Test double that never reports a model or invents inference output. Tests that exercise
+ * orchestration success should provide a test-local runner with a controlled literal result.
  */
-class FakeVlmVisionRunner(
-    var isReady: Boolean = true,
-    var customResult: ExtractedDocumentData? = null
-) : VlmVisionRunner {
+class FakeVlmVisionRunner : VlmVisionRunner {
     var callCount: Int = 0
         private set
     var lastAnalyzedImageBytes: ByteArray? = null
@@ -29,7 +27,7 @@ class FakeVlmVisionRunner(
     var lastTargetMode: ImportTargetMode? = null
         private set
 
-    override suspend fun isModelReady(): Boolean = isReady
+    override suspend fun isModelReady(): Boolean = false
 
     override suspend fun analyzePage(
         imageBytes: ByteArray,
@@ -41,37 +39,8 @@ class FakeVlmVisionRunner(
         lastFramework = framework
         lastTargetMode = targetMode
 
-        customResult?.let { return it }
-
-        val textPayload = try {
-            imageBytes.decodeToString()
-        } catch (_: Exception) {
-            ""
-        }
-        val trimmed = textPayload.trim()
-        if (trimmed.startsWith("{") || trimmed.startsWith("```")) {
-            val parsed = VlmJsonGrammar.parseVlmResponse(textPayload, framework, targetMode)
-            if (parsed.confidence > 0.0f) {
-                return parsed
-            }
-        }
-
-        return ExtractedDocumentData(
-            sourceEngine = ExtractionEngine.TIER_2_LOCAL_VLM,
-            analyzedPage = 1,
-            bankNameCandidate = "Banco Demo VLM",
-            statementMonth = 1,
-            statementCutDate = "2026-10",
-            closingBalance = "25000000.00",
-            originalPrincipal = "30000000.00",
-            termMonths = 36,
-            rate = ExtractedRate(valuePercent = "18.50", kind = framework.defaultRateKind),
-            monthlyPayment = "850000.00",
-            principalPaid = "450000.00",
-            interestCharged = "380000.00",
-            totalInsurance = "20000.00",
-            insurances = listOf(ExtractedInsurance(name = "Seguro deudores", monthlyCost = "20000.00")),
-            confidence = 0.95f
+        throw IllegalStateException(
+            "El runner de prueba no realiza inferencia; usa LiteRT-LM en Android para analizar píxeles reales."
         )
     }
 }

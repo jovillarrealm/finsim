@@ -1,7 +1,30 @@
 package com.finsim.ingestion
 
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.CancellationException
 import kotlin.test.*
+
+/** Explicit orchestration stub; its literal output never represents model inference. */
+private class ControlledOrchestrationTestVlmRunner(
+    private val output: ExtractedDocumentData
+) : VlmVisionRunner {
+    var callCount = 0
+        private set
+    var lastAnalyzedImageBytes: ByteArray? = null
+        private set
+
+    override suspend fun isModelReady(): Boolean = true
+
+    override suspend fun analyzePage(
+        imageBytes: ByteArray,
+        framework: RegulatoryFramework,
+        targetMode: ImportTargetMode
+    ): ExtractedDocumentData {
+        callCount++
+        lastAnalyzedImageBytes = imageBytes
+        return output
+    }
+}
 
 class HybridDocumentOrchestratorTest {
 
@@ -23,7 +46,7 @@ class HybridDocumentOrchestratorTest {
     @Test
     fun testHighConfidenceDigitalTextTakesTier1WithoutInvokingRasterizerOrVlm() = runTest {
         val gate = FakeDeviceCapabilityGate(totalRamGb = 8.0)
-        val storage = InMemoryModelStorage(downloaded = true, sizeBytes = 1100000000L)
+        val storage = InMemoryModelStorage(downloaded = true, sizeBytes = GemmaModelArtifact.sizeBytes)
         val rasterizer = InMemoryPageRasterizer()
         val vlmRunner = FakeVlmVisionRunner()
 
@@ -55,11 +78,23 @@ class HybridDocumentOrchestratorTest {
     }
 
     @Test
-    fun testEmptyOrScannedDocumentTriggersTier2WhenModelDownloadedAndHardwareEligible() = runTest {
+    fun scannedPdfRoutesRasterThroughControlledOrchestrationStub() = runTest {
         val gate = FakeDeviceCapabilityGate(totalRamGb = 8.0)
-        val storage = InMemoryModelStorage(downloaded = true, sizeBytes = 1100000000L)
+        val storage = InMemoryModelStorage(downloaded = true, sizeBytes = GemmaModelArtifact.sizeBytes)
         val rasterizer = InMemoryPageRasterizer()
-        val vlmRunner = FakeVlmVisionRunner()
+        // This literal is a test seam for orchestration routing, never evidence of Gemma inference.
+        val vlmRunner = ControlledOrchestrationTestVlmRunner(
+            ExtractedDocumentData(
+                sourceEngine = ExtractionEngine.TIER_2_LOCAL_VLM,
+                confidence = 0.95f,
+                documentKind = ImportDocumentKind.LOAN_STATEMENT,
+                detectedCurrencies = setOf(com.finsim.domain.Currency.COP),
+                originalPrincipal = "30000000.00",
+                originalTermMonths = 48,
+                termMeaning = TermMeaning.ORIGINAL,
+                rate = ExtractedRate(valuePercent = "19.50", kind = "annual")
+            )
+        )
 
         val orchestrator = HybridDocumentOrchestrator(
             rasterizer = rasterizer,
@@ -68,7 +103,7 @@ class HybridDocumentOrchestratorTest {
             modelStorage = storage
         )
 
-        // Empty raw text simulates a scanned PDF where digital text layer is absent
+        // Test bytes route the orchestration contract; the in-memory rasterizer and stub do no inference.
         val simulatedScannedPdf = "%PDF-1.4 scanned image".encodeToByteArray()
         val result = orchestrator.processDocument(
             pdfBytes = simulatedScannedPdf,
@@ -86,13 +121,81 @@ class HybridDocumentOrchestratorTest {
         // Rasterizer and VLM must be invoked
         assertEquals(1, rasterizer.callCount, "Rasterizer should be invoked once")
         assertEquals(150, rasterizer.lastDpi, "Page must be rasterized at 150 DPI")
-        assertEquals(1, vlmRunner.callCount, "VLM runner should be invoked once")
+        assertEquals(1, vlmRunner.callCount, "The controlled orchestration stub should be invoked once")
+        assertContentEquals(ByteArray(1024) { (it % 256).toByte() }, vlmRunner.lastAnalyzedImageBytes)
     }
 
     @Test
-    fun testHardwareGateBlocksTier2WhenRamLessThan6Gb() = runTest {
-        val gate = FakeDeviceCapabilityGate(totalRamGb = 4.0) // Ineligible device (< 6 GB)
-        val storage = InMemoryModelStorage(downloaded = true, sizeBytes = 1100000000L)
+    fun pdfBytesAreNeverParsedAsTier1Text() = runTest {
+        val gate = FakeDeviceCapabilityGate(totalRamGb = 8.0)
+        val storage = InMemoryModelStorage(downloaded = true, sizeBytes = GemmaModelArtifact.sizeBytes)
+        val rasterizer = InMemoryPageRasterizer()
+        val vlmRunner = ControlledOrchestrationTestVlmRunner(
+            ExtractedDocumentData(
+                sourceEngine = ExtractionEngine.TIER_2_LOCAL_VLM,
+                documentKind = ImportDocumentKind.LOAN_STATEMENT,
+                detectedCurrencies = setOf(com.finsim.domain.Currency.COP),
+                originalPrincipal = "30000000.00",
+                rate = ExtractedRate(valuePercent = "19.50", kind = "annual")
+            )
+        )
+        val orchestrator = HybridDocumentOrchestrator(
+            rasterizer = rasterizer,
+            vlmRunner = vlmRunner,
+            capabilityGate = gate,
+            modelStorage = storage
+        )
+        val escapedText = sampleColombiaDigitalText
+            .replace("\\", "\\\\")
+            .replace("(", "\\(")
+            .replace(")", "\\)")
+        val pdfBytes = "%PDF-1.4\n1 0 obj\n<< /Type /Page >>\nBT\n($escapedText) Tj\nET\nendobj\n%%EOF".encodeToByteArray()
+
+        // The synthetic PDF contains Tier-1-readable text operators; only the separately pasted
+        // rawText input may reach the text parser.
+        val result = orchestrator.processDocument(
+            pdfBytes = pdfBytes,
+            rawText = "",
+            framework = RegulatoryFramework.COLOMBIA_SFC,
+            targetMode = ImportTargetMode.SCENARIO
+        )
+
+        assertTrue(result is OrchestrationResult.Success, "Expected controlled orchestration success but got $result")
+        assertEquals(ExtractionEngine.TIER_2_LOCAL_VLM, result.tierUsed)
+        assertEquals(1, rasterizer.callCount)
+        assertEquals(1, vlmRunner.callCount)
+        assertEquals(1, result.data.analyzedPage)
+    }
+
+    @Test
+    fun oversizedPdfIsRejectedBeforeRasterization() = runTest {
+        val rasterizer = InMemoryPageRasterizer()
+        val vlmRunner = FakeVlmVisionRunner()
+        val orchestrator = HybridDocumentOrchestrator(
+            rasterizer = rasterizer,
+            vlmRunner = vlmRunner,
+            capabilityGate = FakeDeviceCapabilityGate(totalRamGb = 8.0),
+            modelStorage = InMemoryModelStorage(downloaded = true, sizeBytes = GemmaModelArtifact.sizeBytes)
+        )
+
+        val result = orchestrator.processDocument(
+            pdfBytes = ByteArray(MAX_INGESTION_PDF_BYTES + 1),
+            rawText = "",
+            framework = RegulatoryFramework.COLOMBIA_SFC,
+            forceTier2 = true
+        )
+
+        val failure = result as? OrchestrationResult.Error
+            ?: fail("Expected oversized PDF error before rasterization, got $result")
+        assertContains(failure.message, "25 MiB")
+        assertEquals(0, rasterizer.callCount)
+        assertEquals(0, vlmRunner.callCount)
+    }
+
+    @Test
+    fun testHardwareGateBlocksTier2WhenRamLessThan8GiB() = runTest {
+        val gate = FakeDeviceCapabilityGate(totalRamGb = 4.0) // Ineligible device (< 8 GiB)
+        val storage = InMemoryModelStorage(downloaded = true, sizeBytes = GemmaModelArtifact.sizeBytes)
         val rasterizer = InMemoryPageRasterizer()
         val vlmRunner = FakeVlmVisionRunner()
 
@@ -112,8 +215,8 @@ class HybridDocumentOrchestratorTest {
 
         assertTrue(result is OrchestrationResult.HardwareRestricted, "Expected HardwareRestricted but got $result")
         assertTrue(
-            result.reason.contains("LMKD") || result.reason.contains("6"),
-            "HardwareRestricted message should reference 6.0 GB or LMKD risk: '${result.reason}'"
+            result.reason.contains("LMKD") || result.reason.contains("8"),
+            "HardwareRestricted message should reference 8.0 GB or LMKD risk: '${result.reason}'"
         )
 
         // Must not invoke heavy vision pipeline on ineligible hardware
@@ -216,11 +319,19 @@ class HybridDocumentOrchestratorTest {
     }
 
     @Test
-    fun testForceTier2BypassesTier1EvenWithHighConfidenceDigitalText() = runTest {
+    fun forceTier2RoutesHighConfidenceTextThroughControlledStub() = runTest {
         val gate = FakeDeviceCapabilityGate(totalRamGb = 8.0)
-        val storage = InMemoryModelStorage(downloaded = true, sizeBytes = 1100000000L)
+        val storage = InMemoryModelStorage(downloaded = true, sizeBytes = GemmaModelArtifact.sizeBytes)
         val rasterizer = InMemoryPageRasterizer()
-        val vlmRunner = FakeVlmVisionRunner()
+        val vlmRunner = ControlledOrchestrationTestVlmRunner(
+            ExtractedDocumentData(
+                sourceEngine = ExtractionEngine.TIER_2_LOCAL_VLM,
+                documentKind = ImportDocumentKind.LOAN_STATEMENT,
+                detectedCurrencies = setOf(com.finsim.domain.Currency.COP),
+                originalPrincipal = "30000000.00",
+                rate = ExtractedRate(valuePercent = "19.50", kind = "annual")
+            )
+        )
 
         val orchestrator = HybridDocumentOrchestrator(
             rasterizer = rasterizer,
@@ -241,6 +352,39 @@ class HybridDocumentOrchestratorTest {
         assertEquals(ExtractionEngine.TIER_2_LOCAL_VLM, result.tierUsed)
         assertEquals(1, rasterizer.callCount)
         assertEquals(1, vlmRunner.callCount)
+        assertContentEquals(ByteArray(1024) { (it % 256).toByte() }, vlmRunner.lastAnalyzedImageBytes)
+    }
+
+    @Test
+    fun cancellationFromVisionRunnerPropagatesToCaller() = runTest {
+        val orchestrator = HybridDocumentOrchestrator(
+            rasterizer = InMemoryPageRasterizer(),
+            vlmRunner = object : VlmVisionRunner {
+                override suspend fun isModelReady(): Boolean = true
+
+                override suspend fun analyzePage(
+                    imageBytes: ByteArray,
+                    framework: RegulatoryFramework,
+                    targetMode: ImportTargetMode
+                ): ExtractedDocumentData = throw CancellationException("user closed import")
+            },
+            capabilityGate = FakeDeviceCapabilityGate(totalRamGb = 8.0),
+            modelStorage = InMemoryModelStorage(downloaded = true, sizeBytes = GemmaModelArtifact.sizeBytes)
+        )
+
+        var cancellationPropagated = false
+        try {
+            orchestrator.processDocument(
+                pdfBytes = "%PDF synthetic fixture".encodeToByteArray(),
+                rawText = "",
+                framework = RegulatoryFramework.COLOMBIA_SFC,
+                forceTier2 = true
+            )
+        } catch (_: CancellationException) {
+            cancellationPropagated = true
+        }
+
+        assertTrue(cancellationPropagated, "Cancellation must remain cancellation, not an extraction error")
     }
 
     @Test
@@ -263,9 +407,7 @@ class HybridDocumentOrchestratorTest {
     @Test
     fun vlmOrchestrationRejectsJsonMoneyWithExcessPrecisionBeforeNormalization() = runTest {
         val payload = """{"principal":12.34,"ratePercentage":"18.5","interestPaid":1.005}"""
-        val rasterizer = InMemoryPageRasterizer(
-            pageMap = mapOf(1 to payload.encodeToByteArray())
-        )
+        val rasterizer = InMemoryPageRasterizer()
         val vlmRunner = object : VlmVisionRunner {
             override suspend fun isModelReady(): Boolean = true
 
@@ -274,7 +416,7 @@ class HybridDocumentOrchestratorTest {
                 framework: RegulatoryFramework,
                 targetMode: ImportTargetMode
             ): ExtractedDocumentData = VlmJsonGrammar.parseVlmResponse(
-                rawOutput = imageBytes.decodeToString(),
+                rawOutput = payload,
                 framework = framework,
                 targetMode = targetMode
             )
@@ -283,7 +425,7 @@ class HybridDocumentOrchestratorTest {
             rasterizer = rasterizer,
             vlmRunner = vlmRunner,
             capabilityGate = FakeDeviceCapabilityGate(totalRamGb = 8.0),
-            modelStorage = InMemoryModelStorage(downloaded = true, sizeBytes = 1100000000L)
+            modelStorage = InMemoryModelStorage(downloaded = true, sizeBytes = GemmaModelArtifact.sizeBytes)
         )
 
         val result = orchestrator.processDocument(

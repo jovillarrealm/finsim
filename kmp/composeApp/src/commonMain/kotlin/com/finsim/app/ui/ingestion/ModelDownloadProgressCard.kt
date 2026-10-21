@@ -22,7 +22,7 @@ private fun formatBytesToMb(bytes: Long): String {
 
 /**
  * Card / component displaying local model download progress, status, and
- * the explicit action to purge the model to free ~1.1 GB of storage.
+ * the explicit action to purge the model to free 2.58 GB of storage.
  */
 @Composable
 fun ModelDownloadProgressCard(
@@ -58,7 +58,7 @@ fun ModelDownloadProgressCard(
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = "Se liberarán aproximadamente 1.1 GB de almacenamiento eliminando los pesos del modelo Gemma 4 E2B INT4 de este dispositivo. Podrás volver a descargarlo en cualquier momento.",
+                        text = "Se liberarán 2.58 GB de almacenamiento eliminando el modelo local Gemma 4 E2B. Podrás volver a descargarlo en cualquier momento.",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextForestMuted,
                         lineHeight = 18.sp
@@ -119,20 +119,20 @@ fun ModelDownloadProgressCard(
                                 color = BrandDark
                             )
                             Text(
-                                text = "Requiere ~1.1 GB en almacenamiento · 100% privado en edge",
+                                text = "Descarga de 2.58 GB · tus documentos se procesan en el dispositivo",
                                 fontSize = 11.sp,
                                 color = TextForestMuted
                             )
                         }
                         Button(
                             onClick = {
-                                manager.startDownload(simulateStep = false)
+                                manager.startDownload()
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = BrandForest, contentColor = Color.White),
                             shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
-                            Text("Descargar (~1.1 GB)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("Descargar (2.58 GB)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -152,7 +152,7 @@ fun ModelDownloadProgressCard(
                                     color = BrandDark
                                 )
                                 Text(
-                                    text = "${formatBytesToMb(state.downloadedBytes)} de ${formatBytesToMb(state.totalBytes)} · ${state.speedFormatted}",
+                                    text = "${formatBytesToMb(state.downloadedBytes)} de ${formatBytesToMb(state.totalBytes)}",
                                     fontSize = 11.sp,
                                     color = TextForestMuted
                                 )
@@ -222,7 +222,7 @@ fun ModelDownloadProgressCard(
                                         color = BrandDark
                                     )
                                     Text(
-                                        text = "Gemma 4 E2B INT4 (${formatBytesToMb(state.totalSizeBytes)})",
+                                    text = "Gemma 4 E2B (${formatBytesToMb(state.totalSizeBytes)})",
                                         fontSize = 11.sp,
                                         color = TextForestMuted
                                     )
@@ -238,7 +238,7 @@ fun ModelDownloadProgressCard(
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                             ) {
                                 Text(
-                                    text = "Liberar espacio (~1.1 GB)",
+                                    text = "Liberar espacio (2.58 GB)",
                                     fontSize = 11.sp,
                                     color = BrandForest,
                                     fontWeight = FontWeight.Medium
@@ -251,7 +251,7 @@ fun ModelDownloadProgressCard(
                 is DownloadState.Error -> {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = "Error de descarga: ${state.message}",
+                            text = "Gemma no está disponible: ${state.message}",
                             color = MaterialTheme.colorScheme.error,
                             fontSize = 12.sp
                         )
@@ -261,7 +261,7 @@ fun ModelDownloadProgressCard(
                             horizontalArrangement = Arrangement.End
                         ) {
                             Button(
-                                onClick = { manager.startDownload(simulateStep = false) },
+                                onClick = { manager.startDownload() },
                                 colors = ButtonDefaults.buttonColors(containerColor = BrandForest),
                                 shape = RoundedCornerShape(8.dp)
                             ) {

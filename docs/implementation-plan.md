@@ -120,9 +120,9 @@ Especificación completa en [docs/specs/HYBRID-DOCUMENT-INGESTION.md](specs/HYBR
 
 - Implementar pipeline híbrido en cascada:
   1. Selector previo de país/marco regulatorio.
-  2. Rasterizado de páginas a 150 DPI y escaneo rápido de texto plano (Tier 1: 0 MB).
-  3. Puerta de hardware (bloqueo estricto si RAM < 6 GB para evitar LMKD).
-  4. Descarga bajo demanda de motor de visión local (Gemma 4 E2B en INT4, ~1.1 GB) vía LiteRT-LM en Android / WebLLM en Web, con opción explícita de liberación de espacio.
+  2. Tier 1 analiza texto pegado; el PDF es una entrada visual separada y Android rasteriza solo su página 1 a 150 DPI en memoria.
+  3. Puerta Android: al menos 8 GiB de RAM total y sin presión actual (`lowMemory`); el límite de tamaño del PDF es 25 MiB y el raster, 12 megapíxeles.
+  4. Descarga explícita del artefacto fijado Gemma 4 E2B (2.583.085.056 bytes), verificado por nombre, tamaño y SHA-256 antes de LiteRT-LM; Web conserva la ruta manual mientras no haya runtime visual propio.
   5. Decodificación restringida mediante esquema JSON y hoja de revisión editable antes de mutar el escenario o conciliación.
 - Responsabilidad: `kmp/shared/src/commonMain/kotlin/com/finsim/ingestion/` y componentes de interfaz en `kmp/composeApp/`.
 - Cierre: extracción verificada de extractos bancarios sin plantillas fijas, 100% en edge sin servicios de terceros, preservación del APK base en ~25 MB y pruebas unitarias de contratos.
