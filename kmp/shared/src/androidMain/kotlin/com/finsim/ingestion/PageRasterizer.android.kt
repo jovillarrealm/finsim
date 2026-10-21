@@ -11,8 +11,11 @@ import android.os.storage.StorageManager
 import android.system.ErrnoException
 import android.system.OsConstants
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import kotlin.math.ceil
 
 object AndroidIngestionContext {
     @Volatile
@@ -30,7 +33,7 @@ object AndroidIngestionContext {
 class AndroidPdfRasterizer(private val context: Context) : PageRasterizer {
     override suspend fun rasterizePage(pdfBytes: ByteArray, pageIndex: Int, dpi: Int): ByteArray =
         withContext(Dispatchers.IO) {
-            require(pdfBytes.isNotEmpty()) { "El archivo PDF está vacío." }
+            validatePdfForInMemoryRasterization(pdfBytes)
             require(pageIndex > 0) { "El número de página debe empezar en 1." }
             require(dpi > 0) { "La resolución debe ser positiva." }
             val storageManager = checkNotNull(context.applicationContext.getSystemService(StorageManager::class.java)) {
@@ -55,20 +58,31 @@ class AndroidPdfRasterizer(private val context: Context) : PageRasterizer {
                     }
                     val page = it.openPage(pageIndex - 1)
                     try {
+                        currentCoroutineContext().ensureActive()
                         val scale = dpi.toFloat() / 72f
-                        val width = (page.width * scale).toInt().coerceAtLeast(1)
-                        val height = (page.height * scale).toInt().coerceAtLeast(1)
-                        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        val width = ceil(page.width * scale).toLong().coerceAtLeast(1L)
+                        val height = ceil(page.height * scale).toLong().coerceAtLeast(1L)
+                        validateRasterDimensions(width, height)
                         try {
-                            page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                            ByteArrayOutputStream().use { output ->
-                                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
-                                    "Android no pudo codificar la página rasterizada."
+                            val bitmap = Bitmap.createBitmap(width.toInt(), height.toInt(), Bitmap.Config.ARGB_8888)
+                            try {
+                                currentCoroutineContext().ensureActive()
+                                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                                currentCoroutineContext().ensureActive()
+                                ByteArrayOutputStream().use { output ->
+                                    check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                                        "Android no pudo codificar la página rasterizada."
+                                    }
+                                    output.toByteArray()
                                 }
-                                output.toByteArray()
+                            } finally {
+                                bitmap.recycle()
                             }
-                        } finally {
-                            bitmap.recycle()
+                        } catch (oom: OutOfMemoryError) {
+                            throw IllegalStateException(
+                                "Android no tiene memoria suficiente para rasterizar esta página. Cierra otras apps o usa una página más pequeña.",
+                                oom
+                            )
                         }
                     } finally {
                         page.close()

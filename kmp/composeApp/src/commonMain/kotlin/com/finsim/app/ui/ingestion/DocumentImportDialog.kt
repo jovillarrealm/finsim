@@ -21,7 +21,14 @@ import com.finsim.domain.Currency
 import com.finsim.domain.Scenario
 import com.finsim.ingestion.*
 import com.finsim.reconciliation.StatementRow
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val SAMPLE_COLOMBIA_STATEMENT = """
     Bancolombia S.A. - Extracto Crédito de Consumo / Libre Inversión
@@ -90,8 +97,7 @@ private val SAMPLE_ARGENTINA_STATEMENT = """
 
 /**
  * Main ingestion modal where users select their jurisdiction / regulatory framework,
- * provide the document text (paste, sample, or loaded document), and trigger Tier 1 parsing
- * and review digital statement text before importing. Image inference is unavailable.
+ * provide pasted text or select a PDF, then review extracted values before importing.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,9 +115,29 @@ fun DocumentImportDialog(
     var noticeMessage by remember { mutableStateOf("") }
     var isAnalyzing by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    var pdfAnalysisJob by remember { mutableStateOf<Job?>(null) }
+    val runtime = remember { getDocumentIngestionRuntime() }
+    val downloadManager = remember(runtime, coroutineScope) {
+        runtime.createModelDownloadManager(coroutineScope)
+    }
+    val orchestrator = remember(runtime) { runtime.createOrchestrator() }
+    val downloadState by downloadManager.state.collectAsState()
+    var selectedPdfName by remember { mutableStateOf<String?>(null) }
+    var selectedPdfBytes by remember { mutableStateOf<ByteArray?>(null) }
 
     var reviewData by remember { mutableStateOf<ExtractedDocumentData?>(null) }
     val scrollState = rememberScrollState()
+
+    DisposableEffect(runtime, downloadManager) {
+        onDispose {
+            downloadManager.cancelDownload()
+            val analysis = pdfAnalysisJob
+            CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+                analysis?.cancelAndJoin()
+                runtime.close()
+            }
+        }
+    }
 
     if (reviewData != null) {
         ExtractionReviewSheet(
@@ -163,10 +189,7 @@ fun DocumentImportDialog(
                             color = BrandDark
                         )
                         Text(
-                            text = if (targetMode == ImportTargetMode.RECONCILIATION)
-                                "Lectura nativa en edge (Tier 1: 0 MB · 100% privado)."
-                            else
-                                "Lectura nativa en dispositivo (Tier 1: 0 MB · 100% privado).",
+                            text = "El texto pegado se analiza localmente. El análisis visual de PDF está disponible solo en Android.",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextForestMuted
                         )
@@ -177,7 +200,7 @@ fun DocumentImportDialog(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
-                            text = "Tier 1",
+                            text = "Local",
                             color = BrandForest,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -292,7 +315,7 @@ fun DocumentImportDialog(
 
                 // Input de texto del extracto
                 Text(
-                    text = "CONTENIDO DEL EXTRACTO (TEXTO DIGITAL O PDF)",
+                    text = "TEXTO DEL EXTRACTO PEGADO",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     color = BrandForest,
@@ -306,7 +329,7 @@ fun DocumentImportDialog(
                         rawText = it
                         if (errorMessage.isNotBlank()) errorMessage = ""
                     },
-                    label = { Text("Pega el texto del extracto o carga las páginas...") },
+                    label = { Text("Texto del extracto") },
                     placeholder = { Text("Copia y pega el texto del PDF bancario aquí...") },
                     minLines = 5,
                     maxLines = 8,
@@ -347,7 +370,132 @@ fun DocumentImportDialog(
                     }
                 }
 
-                Text("El análisis visual de imágenes no está disponible. Pega texto seleccionable y revisa los datos antes de importar.")
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = "PDF PARA ANÁLISIS VISUAL",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BrandForest,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Se analiza solo la página 1 a 150 DPI (máximo 12 megapíxeles). El PDF se conserva en memoria mientras este diálogo está abierto (máximo ${MAX_INGESTION_PDF_BYTES / (1024 * 1024)} MiB); el texto pegado es una entrada separada.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextForestMuted
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    PdfDocumentPickerButton(
+                    enabled = !isAnalyzing && runtime.supportsGemma && runtime.capabilityGate.isEligibleForVlm,
+                        onPdfSelected = { name, bytes ->
+                            selectedPdfName = name
+                            selectedPdfBytes = bytes
+                            errorMessage = ""
+                        },
+                        onError = { errorMessage = it }
+                    )
+                    if (selectedPdfName != null) {
+                        Text(
+                            text = selectedPdfName!!,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = BrandDark,
+                            maxLines = 2
+                        )
+                        TextButton(
+                            onClick = {
+                                selectedPdfName = null
+                                selectedPdfBytes = null
+                            },
+                            enabled = !isAnalyzing
+                        ) {
+                            Text("Quitar")
+                        }
+                    }
+                }
+
+                if (!runtime.supportsGemma) {
+                    Text(
+                        text = "El análisis visual de PDF con Gemma solo está disponible en Android. Puedes pegar el texto para continuar.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextForestMuted
+                    )
+                } else {
+                    val gate = runtime.capabilityGate
+                    if (!gate.isEligibleForVlm) {
+                        Text(
+                            text = gate.ineligibilityReason
+                                ?: "Gemma requiere al menos 8 GiB de RAM total y ausencia de presión de memoria.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    ModelDownloadProgressCard(
+                        manager = downloadManager,
+                        onModelDeleted = { noticeMessage = "Se eliminó el modelo local. El texto pegado sigue disponible." }
+                    )
+                    if (selectedPdfBytes != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                pdfAnalysisJob = coroutineScope.launch {
+                                    isAnalyzing = true
+                                    errorMessage = ""
+                                    try {
+                                        val currentGate = runtime.capabilityGate
+                                        if (!currentGate.isEligibleForVlm) {
+                                            errorMessage = currentGate.ineligibilityReason
+                                                ?: "Gemma requiere al menos 8 GiB de RAM total y ausencia de presión de memoria."
+                                            return@launch
+                                        }
+                                        if (!downloadManager.isModelDownloaded()) {
+                                            errorMessage = "Descarga y verifica Gemma antes de analizar el PDF."
+                                            return@launch
+                                        }
+                                        val pdfBytes = selectedPdfBytes
+                                            ?: error("Selecciona el PDF que quieres analizar.")
+                                        val framework = selectedFramework
+                                        when (val result = withContext(Dispatchers.Default) {
+                                            orchestrator.processDocument(
+                                                pdfBytes = pdfBytes,
+                                                rawText = "",
+                                                framework = framework,
+                                                targetMode = targetMode,
+                                                forceTier2 = true
+                                            )
+                                        }) {
+                                            is OrchestrationResult.Success -> reviewData = result.data
+                                            is OrchestrationResult.HardwareRestricted -> errorMessage = result.reason
+                                            is OrchestrationResult.RequiresModelDownload -> errorMessage = result.message
+                                            is OrchestrationResult.Error -> errorMessage = result.message
+                                        }
+                                    } catch (cancelled: CancellationException) {
+                                        throw cancelled
+                                    } catch (failure: Exception) {
+                                        errorMessage = "Error al analizar el PDF: ${failure.message ?: "error inesperado"}"
+                                    } finally {
+                                        isAnalyzing = false
+                                        pdfAnalysisJob = null
+                                    }
+                                }
+                            },
+                            enabled = !isAnalyzing && selectedPdfBytes != null &&
+                                runtime.supportsGemma && runtime.capabilityGate.isEligibleForVlm &&
+                                downloadState is DownloadState.Completed,
+                            colors = ButtonDefaults.buttonColors(containerColor = BrandForest, contentColor = Color.White),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth().height(46.dp)
+                        ) {
+                            Text("Analizar página 1 con Gemma", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+                }
 
                 // Actions: Cancel & Analyze
                 Row(
@@ -369,22 +517,29 @@ fun DocumentImportDialog(
                                 isAnalyzing = true
                                 errorMessage = ""
                                 try {
-
-                                        if (rawText.isBlank()) {
-                                            errorMessage = "Pega o carga el texto del extracto para continuar."
-                                            return@launch
-                                        }
-                                        val pages = DigitalPdfTextExtractor.extractPages(rawText.encodeToByteArray())
-                                        if (pages.isEmpty() || pages.all { it.isBlank() }) {
-                                            errorMessage = "No se detectó texto digital seleccionable en el documento."
-                                            return@launch
-                                        }
-                                        val bestPageIndex = PageDensityScanner.findBestPageIndex(pages)
-                                        val bestPageText = pages[bestPageIndex - 1]
-                                        reviewData = DocumentTextParser.parse(bestPageText, selectedFramework, bestPageIndex)
+                                    if (rawText.isBlank()) {
+                                        errorMessage = "Pega el texto del extracto para continuar."
                                         return@launch
+                                    }
+                                    val pastedText = rawText
+                                    val framework = selectedFramework
+                                    val parsed = withContext(Dispatchers.Default) {
+                                        val pages = pastedText
+                                            .split(Regex("(?:\u000C|---+\\s*(?:Page|Página)\\s*\\d+\\s*---+)", RegexOption.IGNORE_CASE))
+                                            .map { it.trim() }
+                                            .filter { it.isNotBlank() }
+                                        if (pages.isEmpty()) {
+                                            error("No se encontró texto pegado para analizar.")
+                                        }
+                                        val pageIndex = PageDensityScanner.findBestPageIndex(pages)
+                                        val pageText = pages.getOrElse(pageIndex - 1) { pages.first() }
+                                        DocumentTextParser.parse(pageText, framework, pageIndex)
+                                    }
+                                    reviewData = parsed
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
                                 } catch (e: Exception) {
-                                    errorMessage = "Error al procesar el extracto: ${e.message}"
+                                    errorMessage = "Error al procesar el texto pegado: ${e.message ?: "error inesperado"}"
                                 } finally {
                                     isAnalyzing = false
                                 }
@@ -404,7 +559,7 @@ fun DocumentImportDialog(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Procesando...", fontSize = 12.sp, color = Color.White)
                         } else {
-                            Text("Analizar extracto", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text("Analizar texto pegado", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
                     }
                 }

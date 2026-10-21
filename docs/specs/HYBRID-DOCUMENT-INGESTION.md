@@ -1,7 +1,7 @@
 # Especificación: Pipeline Híbrido de Ingesta y Análisis de Extractos Bancarios (PDF en Edge)
 
 **Estado:** Aprobado tras entrevista `/grill-me` (2026-10-12)  
-**Alcance:** Ingesta y extracción local de condiciones de préstamos y filas de extractos bancarios en Android y Web (Kotlin Multiplatform), sin depender de plantillas fijas de bancos ni servicios en la nube (100% privado en edge).
+**Alcance:** Ingesta y extracción local de condiciones de préstamos y filas de extractos bancarios en Android y Web (Kotlin Multiplatform), sin depender de plantillas fijas de bancos ni servicios en la nube. La visión con Gemma se ofrece en Android; Web conserva el análisis local de texto pegado y declara la ruta PDF visual no disponible hasta su implementación propia.
 
 ---
 
@@ -25,11 +25,11 @@ El módulo de ingesta de documentos permite a los usuarios de **finsim** cargar 
 | :--- | :--- | :--- |
 | **Propósito de entrada** | **Doble propósito:** Crear nuevo escenario u operar sobre pestaña de conciliación. | Maximiza la utilidad tanto en onboarding inicial como en auditoría mensual recurrente. |
 | **Marco regulatorio / País** | **Selector explícito previo en modal de carga.** | Evita adivinanzas heurísticas. Fija moneda por defecto, orden de imputación y reglas de prepago (ej. Ley 546 en Colombia) antes del análisis. |
-| **Transición de niveles (Triage)** | **Cascada automática con confirmación:** Tier 1 (texto digital, 0 MB) primero; si faltan campos o es escaneado, ofrecer Tier 2 (VLM, ~1.1 GB). | Evita descargas innecesarias de 1.1 GB para documentos digitales simples. |
-| **Control de hardware (RAM)** | **Puerta estricta por hardware (<6 GB RAM bloquea Tier 2).** | Previene que el Android LMKD cierre forzosamente la aplicación por falta de memoria. Permite completar manualmente. |
-| **Múltiples páginas** | **Escaneo rápido de densidad en Tier 1 + análisis de página ganadora.** | Identifica la página con mayor densidad de términos clave ('Saldo', 'Tasa', 'Seguros') y solo envía esa página al VLM (ahorra batería y calor). |
+| **Entradas y niveles** | El texto pegado se procesa con Tier 1. El PDF es una entrada visual separada; en Android se rasteriza y analiza con Gemma después de una acción explícita. | Evita tratar bytes PDF como texto y evita la descarga del modelo para texto manual suficiente. |
+| **Control de hardware (RAM)** | Tier 2 requiere Android, al menos 8 GiB de RAM total y ausencia de presión actual (`ActivityManager.MemoryInfo.lowMemory`). | Separa el umbral de RAM total de la presión disponible y conserva el camino manual. |
+| **Páginas** | El texto pegado puede segmentarse y Tier 1 elige su página con mayor densidad. El análisis PDF actual procesa explícitamente la página 1 a 150 DPI. | La UI indica la página analizada y no afirma extracción del documento completo. |
 | **Revisión de resultados** | **Modal / Bottom Sheet interactivo con campos editables.** | Ningún dato sobreescribe el modelo en silencio. El usuario verifica y ajusta los valores antes de confirmar. |
-| **Almacenamiento del modelo** | **Persistente en disco con botón explícito de 'Liberar espacio'.** | Permite reusar el modelo offline sin volver a descargarlo, pero otorga control total para recuperar los ~1.1 GB cuando el usuario quiera. |
+| **Almacenamiento del modelo** | Persistente en el almacenamiento privado de Android; el artefacto está fijado a una revisión, nombre, tamaño de 2.583.085.056 bytes y SHA-256. | Permite uso offline y verifica descarga e integridad antes de la inferencia; la UI informa el tamaño de 2,58 GB y ofrece liberar espacio. |
 
 ---
 
@@ -37,28 +37,22 @@ El módulo de ingesta de documentos permite a los usuarios de **finsim** cargar 
 
 ```mermaid
 flowchart TD
-    User["Usuario selecciona País y suelta PDF"] --> Render["Renderizado nativo (PdfRenderer API 35+ / pdf.js)"]
-    Render --> PageTriage["Escaneo rápido de densidad (Tier 1: 0 MB)\nIdentifica página con mayor relevancia ('Saldo', 'Tasa')"]
-    
-    PageTriage --> DigitalCheck{"¿Texto digital completo detectado en Tier 1?"}
-    
-    DigitalCheck -- "Sí (Campos clave hallados)" --> ReviewModal["Modal de Confirmación\n(Campos editables con etiqueta 'Texto nativo')"]
-    DigitalCheck -- "No / PDF escaneado / Tablas complejas" --> HardwareCheck{"Chequeo de Hardware\n(RAM >= 6 GB o WebGPU disponible)"}
-    
-    HardwareCheck -- "No (< 6 GB)" --> LowRamNotice["Aviso de memoria insuficiente\nPermite completar campos faltantes a mano"]
-    HardwareCheck -- "Sí (>= 6 GB)" --> ModelCheck{"¿Modelo Gemma 4 E2B descargado?"}
-    
-    ModelCheck -- "No" --> DownloadPrompt["Prompt de descarga:\n'Descargar motor de visión local (~1.1 GB)'"]
-    DownloadPrompt -- "Acepta" --> Download["Descarga con progreso -> Almacenamiento local"]
-    Download --> VLMInference
-    DownloadPrompt -- "Rechaza" --> LowRamNotice
-    
-    ModelCheck -- "Ya descargado" --> VLMInference["Inferencia VLM Local (Gemma 4 E2B / LiteRT-LM)\nDecodificación restringida XGrammar -> JSON estructurado"]
-    
+    User["Usuario elige texto pegado o PDF"] --> TextPath{"¿Texto pegado?"}
+    TextPath -- "Sí" --> Tier1["Tier 1 local: analizar texto pegado y elegir su página más relevante"]
+    Tier1 --> ReviewModal["Revisión editable de una página"]
+    TextPath -- "PDF" --> AndroidCheck{"¿Android con soporte Gemma?"}
+    AndroidCheck -- "No" --> ManualFallback["PDF visual no disponible; pegar texto para continuar"]
+    AndroidCheck -- "Sí" --> HardwareCheck{"RAM total >= 8 GiB y lowMemory = false?"}
+    HardwareCheck -- "No" --> ManualFallback
+    HardwareCheck -- "Sí" --> ModelCheck{"¿Artefacto fijado y verificado?"}
+    ModelCheck -- "No" --> DownloadPrompt["Descarga explícita del modelo (2,58 GB)"]
+    DownloadPrompt -- "Cancelar" --> ManualFallback
+    DownloadPrompt -- "Descarga íntegra y hash válidos" --> Rasterize
+    ModelCheck -- "Sí" --> Rasterize["Rasterizar página 1 a 150 DPI, solo en memoria (PDF <= 25 MiB, <= 12 MP)"]
+    Rasterize --> VLMInference["LiteRT-LM Android: imagen real, salida JSON determinista, speculative decoding apagado"]
     VLMInference --> ReviewModal
-    LowRamNotice --> ReviewModal
-    
-    ReviewModal -- "Usuario hace clic en [Confirmar e importar]" --> Workspace["Actualizar Scenario o StatementRow en WorkspaceStore"]
+    ManualFallback --> ReviewModal
+    ReviewModal -- "Confirmar e importar" --> Workspace["Actualizar Scenario o StatementRow"]
 ```
 
 ---
@@ -114,31 +108,20 @@ data class ExtractedInsurance(
 
 ```
 kmp/
-├── shared/src/commonMain/kotlin/com/finsim/
-│   ├── ingestion/
-│   │   ├── DocumentIngestionPipeline.kt      // Orquestador en cascada (interfaz expect/actual)
-│   │   ├── ExtractedDocumentData.kt          // Contratos de datos inmutables
-│   │   ├── PageDensityScanner.kt             // Escaneo de palabras clave en texto plano
-│   │   └── DeviceCapabilityGate.kt           // Interfaz de consulta de RAM / WebGPU
-│   └── domain/
-│       └── ...                               // Scenario, Rate, Currency, Decimal
-│
-├── composeApp/src/commonMain/kotlin/com/finsim/app/
-│   ├── ui/ingestion/
-│   │   ├── DocumentImportDialog.kt           // Modal previo: País, selector de archivo y estado
-│   │   ├── ModelDownloadProgressCard.kt      // UI de progreso de descarga (~1.1 GB) y botón 'Liberar espacio'
-│   │   └── ExtractionReviewSheet.kt          // Bottom sheet de confirmación con campos editables
-│   └── App.kt                                // Puntos de entrada en Toolbar y Reconciliation
-│
-├── composeApp/src/androidMain/kotlin/com/finsim/app/ingestion/
-│   ├── AndroidPdfRasterizer.kt               // PdfRenderer (API 35+) escalado a 150 DPI
-│   ├── AndroidDeviceCapability.kt            // ActivityManager.MemoryInfo (RAM disponible y total)
-│   └── LiteRtVlmRunner.kt                    // LiteRT-LM con Gemma 4 E2B INT4 y NPU QNN
-│
-└── composeApp/src/wasmJsMain/kotlin/com/finsim/app/ingestion/
-    ├── WasmPdfRasterizer.kt                  // Renderizado vía canvas / pdf.js
-    ├── WasmDeviceCapability.kt               // Verificación de navigator.gpu y navigator.deviceMemory
-    └── WebLlmVlmRunner.kt                    // WebLLM / ONNX Runtime WebGPU
+├── shared/src/commonMain/kotlin/com/finsim/ingestion/
+│   ├── HybridDocumentOrchestrator.kt         // Texto pegado, gate, página e invocación Tier 2
+│   ├── DocumentIngestionRuntime.kt           // Dependencias por plataforma
+│   ├── PageRasterizer.kt                     // Contrato y límites de memoria
+│   ├── ExtractedDocumentData.kt              // Contratos revisables
+│   └── VlmJsonGrammar.kt                     // Salida JSON estricta
+├── shared/src/androidMain/kotlin/com/finsim/ingestion/
+│   ├── PageRasterizer.android.kt             // PdfRenderer sobre descriptor de bytes en memoria
+│   ├── AndroidModelDownloader.kt              // Descarga fijada y streaming
+│   ├── AndroidModelStorage.kt                 // Archivo privado persistente y SHA-256
+│   └── AndroidGemmaVisionRunner.kt             // LiteRT-LM 0.18 con imagen real y backend CPU
+└── composeApp/src/{commonMain,androidMain,wasmJsMain}/.../ingestion/
+    ├── DocumentImportDialog.kt               // Texto pegado y PDF como entradas separadas
+    └── PdfDocumentPicker.*                    // SAF en Android; indisponibilidad honesta en Web
 ```
 
 ---
@@ -148,16 +131,16 @@ kmp/
 1. **Fase 1: Contratos, Diálogo de Carga y Tier 1 (0 MB)**
    - Creación de contratos [`ExtractedDocumentData`](file:///C:/Users/Lenovo/Documents/finsim/kmp/shared/src/commonMain/kotlin/com/finsim/ingestion/ExtractedDocumentData.kt).
    - Diálogo de carga con selector de país/marco regulatorio ([`DocumentImportDialog`](file:///C:/Users/Lenovo/Documents/finsim/kmp/composeApp/src/commonMain/kotlin/com/finsim/app/ui/ingestion/DocumentImportDialog.kt)).
-   - Rasterizador nativo de páginas a 150 DPI en Android (`PdfRenderer`) y Web.
-   - Escáner rápido de texto digital y palabras clave (Tier 1).
+   - Tier 1 para texto pegado y selección de su página más relevante.
+   - Selector SAF Android y rasterizador PDF nativo a 150 DPI sin archivos temporales; Web informa la indisponibilidad visual.
    - Modal de revisión final con campos editables antes de aplicar a [`WorkspaceStore`](file:///C:/Users/Lenovo/Documents/finsim/kmp/shared/src/commonMain/kotlin/com/finsim/workspace/WorkspaceStore.kt).
 
 2. **Fase 2: Puerta de Hardware y Gestor de Descarga de Modelo**
-   - Implementación de [`DeviceCapabilityGate`](file:///C:/Users/Lenovo/Documents/finsim/kmp/shared/src/commonMain/kotlin/com/finsim/ingestion/DeviceCapabilityGate.kt) (bloqueo estricto si RAM < 6 GB).
-   - Gestor de descarga bajo demanda para el modelo Gemma 4 E2B INT4 (~1.1 GB) con barra de progreso.
-   - Opción explícita de *"Eliminar modelo de IA local / Liberar 1.1 GB"* en ajustes/barra de herramientas.
+   - Gate Android de RAM total >= 8 GiB y presión de memoria actual separada.
+   - Descarga streaming bajo demanda de Gemma 4 E2B fijado (2.583.085.056 bytes) con validación de nombre, tamaño y SHA-256.
+   - Opción explícita para eliminar el modelo local y liberar hasta 2,58 GB.
 
 3. **Fase 3: Motor de Inferencia VLM Local (Tier 2)**
-   - Integración de LiteRT-LM en Android con delegación a NPU/GPU.
-   - Decodificación restringida XGrammar / JSON Schema para extracción garantizada sin alucinaciones de formato.
+   - Integración real de LiteRT-LM en Android con entrada de imagen, backend CPU, sampler determinista y speculative decoding deshabilitado.
+   - Decodificación restringida JSON para evitar formatos de salida ambiguos; los valores ausentes se conservan como ausentes.
    - Pruebas con extractos reales (digitales y escaneados) y verificación de temperatura/batería.

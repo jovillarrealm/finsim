@@ -1,9 +1,9 @@
 # Issue #32 — Runner Gemma Android real
 
 - Responsable de implementación: `/root/issue32_implement_luna`, reemplazo secuencial del implementador anterior.
-- Estado: runtime, descarga y rasterización Android implementados; falta la integración con la punta revisada de #45, corregir/actualizar los callers de prueba dependientes, repetir la suite completa y completar revisión independiente. **#32 sigue abierta y no se presenta como inferencia ejecutada.**
+- Estado: punta revisada de #45 integrada en `c1199b4`; runtime Android, descarga, rasterización y diálogo de importación cableados. El árbol final de código `4d6117c0ac6ff7a959f3bade166c9b596bea0343` pasa Wasm y host; la suite JVM pasó en un árbol anterior con los mismos fuentes compartidos. El APK debug se construyó antes del último cambio de dispatcher. Pendientes revisión independiente y prueba sintética en Samsung. **#32 sigue abierta; no se descargó el modelo ni se ejecutó inferencia.**
 - Rama: `codex/spec37-issue32`.
-- Base del worktree: `4a17aee` (incluye #34).
+- Base del trabajo: checkpoint `3cf6f577` más merge de #45 `c1199b4` (sobre #34).
 - Worktree: `C:/Users/Lenovo/.codex/worktrees/spec37-issue32/finsim`.
 - Alcance canónico: [#32](https://github.com/jovillarrealm/finsim/issues/32), aclaraciones de [#37](https://github.com/jovillarrealm/finsim/issues/37) y handoff en `C:/Users/Lenovo/AppData/Local/Temp/finsim-spec37/AGENT-CONTEXT.md` / `COORDINATION.md`.
 
@@ -21,33 +21,46 @@ La prueba mínima anterior con Kotlin 2.2.20 no podía leer metadata Kotlin 2.4 
 - El gate exige al menos 8 GiB de RAM total y bloquea presión actual por separado. En Android, `getDeviceCapabilityGate()` consulta `ActivityManager`; sin contexto falla cerrado. Web/JS/Wasm declaran Gemma no disponible. La condición de RAM no se presenta como garantía de espacio libre suficiente.
 - `AndroidPdfRasterizer` alimenta `PdfRenderer` con un descriptor seekable sobre los bytes en memoria; no escribe PDF ni raster a temporales. La actividad registra el contexto de aplicación requerido.
 - `FakeVlmVisionRunner` ya no decodifica bytes de imagen como texto ni fabrica una respuesta; siempre falla en análisis y nunca reporta modelo listo. Los tests de orquestación que deban cubrir éxito usarán un stub local con literal controlado y etiqueta de contrato, no un test de inferencia.
-- Se actualizó el texto del componente de descarga al tamaño fijado y a errores de disponibilidad. Se conservó el cambio previo sin commit en `GemmaEligibilityTest.kt` que evita que una elegibilidad forzada eluda el gate de 8 GiB.
+- Se actualizó el texto del componente de descarga al tamaño fijado y a errores de disponibilidad. Se conserva la prueba en `GemmaEligibilityTest.kt` que evita que una elegibilidad forzada eluda el gate de 8 GiB.
+- `DocumentImportDialog` consume un runtime por plataforma, muestra descarga solo en Android y mantiene separado el texto pegado de los bytes PDF. Texto pegado va al parser Tier 1; el PDF va al rasterizador y al runner real solo tras gate y modelo validado. El flujo web muestra indisponibilidad y conserva la entrada manual.
+- Android SAF lee el PDF en `Dispatchers.IO` sin permiso persistente ni copia a disco. El límite es 25 MiB por archivo y 12 millones de píxeles por página rasterizada a 150 DPI; los excesos y OOM reportan errores claros. El diálogo mantiene el PDF solo en memoria y muestra que procesa la página 1; la hoja de revisión indica la página analizada.
+- El orquestador ya no decodifica `pdfBytes` para extracción ni para escoger página. Si no hay texto manual, la página elegida es la primera. Cancelación se propaga como cancelación y el diálogo cancela descarga/cierra el runner al cerrarse.
+- Los dos casos que antes esperaban éxito del fake ahora usan un stub de test con literal controlado, con nombres/comentarios que aclaran que acreditan el contrato de orquestación y no inferencia. Se añadió cobertura para PDF con texto seleccionable que debe pasar por raster, cancelación y exceso del límite de tamaño.
 
 ## Verificación
 
-Todas las tareas Gradle de esta etapa usaron Gradle 9.3.1, JDK 21.0.12.1, `--max-workers=1` y Kotlin in-process. El slot se liberó después de la compilación; esperar nueva autorización/integración antes de otro build.
+Las tareas Gradle válidas se ejecutaron secuencialmente con Gradle 9.3.1, JDK 21.0.12.1, `--max-workers=1` y Kotlin in-process. Base: `c1199b4f287117c08dbf525c06c864c08d14a2a1`. Árboles de código registrados: `f79650b6f7b76f4086bfc78069fe4da802be407d` (primera corrida completa), `7fa87835b4aed53adbc0111f157ffdbb03764364` (cierre coordinado del runtime), `4d6117c0ac6ff7a959f3bade166c9b596bea0343` (dispatcher final multiplataforma). Las diferencias entre ellos están en el cierre del runtime en la UI común; los fuentes `shared` no cambiaron después de la primera corrida.
 
 | Comprobación | Resultado |
 | --- | --- |
-| `:shared:jvmTest` completa | **118 ejecutadas, 116 pasan y 2 fallan.** Los fallos son exclusivamente `HybridDocumentOrchestratorTest.testEmptyOrScannedDocumentTriggersTier2WhenModelDownloadedAndHardwareEligible` (línea 58) y `testForceTier2BypassesTier1EvenWithHighConfidenceDigitalText` (línea 218): ambos esperaban éxito simulado del viejo fake. Se conserva este resultado; `HybridDocumentOrchestratorTest` no se modifica hasta que #45 termine revisión e integración. |
-| Pruebas dirigidas `GemmaEligibilityTest`, `ModelDownloadManagerTest`, `VlmVisionRunnerTest`, `DeviceCapabilityGateTest` | **PASS, 13 pruebas, cero fallos/errores/omitidas.** |
-| `:androidApp:assembleDebug` | **PASS.** Incluyó `:shared:compileAndroidMain`, por lo que compilaron LiteRT-LM, descarga, almacenamiento Android, gate y rasterizador. Se empaquetó `liblitertlm_jni.so`; esto no demuestra carga del modelo ni inferencia. |
-| `:composeApp:compileKotlinWasmJs` | **PASS.** Web compila con el gate de Gemma deshabilitado. |
-| `:composeApp:testAndroidHostTest` | **NO EJECUTADO.** La corrida conjunta se detuvo tras los dos fallos de `:shared:jvmTest`; queda pendiente después de integrar #45. |
-| `git diff --check` | **PASS** en el árbol actual; repetir al cerrar la integración. |
+| `:shared:jvmTest`, árbol `f79650b…` | **PASS, 143 pruebas, cero fallos/errores/omitidas.** Incluye contratos de orquestación y límites de rasterización. Los fuentes compartidos no cambiaron en los árboles UI posteriores. |
+| `:composeApp:testAndroidHostTest`, árboles `f79650b…`, `7fa87835…` y `4d6117c…` | **PASS, 5 pruebas en cada corrida, cero fallos/errores/omitidas.** Compila el diálogo Compose final y el selector SAF Android. |
+| `:androidApp:assembleDebug`, árbol `7fa87835…` | **PASS.** Generó `kmp/androidApp/build/outputs/apk/debug/androidApp-debug.apk` (62.795.772 bytes). El árbol final cambió `Dispatchers.IO` a `Dispatchers.Default`; no se reconstruyó el APK después de ese cambio. Ningún APK se instaló. |
+| `:composeApp:compileKotlinWasmJs`, árbol `f79650b…` | **PASS.** Compila el actual web indisponible y la ruta manual. |
+| `:composeApp:compileKotlinWasmJs`, árbol `7fa87835…` | **FAIL**, `Dispatchers.IO` no existe en Wasm. Se conservó el fallo y se cambió a `Dispatchers.Default`. |
+| `:composeApp:compileKotlinWasmJs`, árbol `4d6117c…` | **PASS** después de esa corrección multiplataforma. |
+| `git diff --cached --check` | **PASS** en los árboles registrados antes de las corridas; repetido después de actualizar esta ficha. |
 | Instalación/ejecución móvil, descarga de pesos e inferencia física | **NO EJECUTADAS.** No se inició AVD ni se manipuló el teléfono; no se descargaron 2,6 GB. No se acredita rendimiento, extracción real, memoria en hardware ni launch. |
 
-La primera orden Gradle falló antes de tareas por cómo PowerShell separó el argumento `-P`; se corrigió y la ejecución válida usó el argumento entre comillas. No se cuenta como fallo de código.
+Una primera orden Gradle falló antes de ejecutar tareas porque PowerShell/Gradle parseó mal `-Pkotlin.compiler.execution.strategy=in-process`; se corrigió pasando la propiedad como argumento del proyecto. Fue un error de invocación y no se cuenta como fallo de código. El fallo Wasm de `7fa87835…` sí fue de código y queda visible arriba, junto con la corrección y el pase final.
 
-Después de estas pasadas se endureció el gate Android por defecto para consultar la presión real mediante el contexto de aplicación, se limpian los chunks parciales del almacenamiento en memoria de pruebas y se eliminó la salida literal configurable del fake común. La compilación final de esos últimos cambios queda pendiente de la punta revisada de #45, respetando la coordinación del único slot.
+La corrida histórica anterior al wiring registró 118 pruebas con 116 pases y 2 fallos: ambos esperaban éxito del fake común. En esta entrega esos casos quedaron como stubs de contrato explícitos y la suite actual completa pasó 143/143. El runner de producción no interpreta bytes de imagen como texto y los stubs no acreditan inferencia.
 
-Warnings observados sin fallo: Android SDK reportó XML schema 4 a herramientas que conocen hasta 3; opt-ins Wasm existentes; deprecaciones de `MenuAnchorType`; librerías nativas LiteRT no strippeadas y empaquetadas tal cual.
+Warnings observados sin fallo: Android SDK reportó XML schema 4 a herramientas que conocen hasta 3; opt-ins Wasm existentes; deprecaciones de `MenuAnchorType`; y librerías nativas LiteRT empaquetadas tal cual.
+
+## Prueba física pendiente en Samsung
+
+La ruta que consume la prueba es `DocumentImportDialog` → SAF `PdfDocumentPickerButton` → `DocumentIngestionRuntime.android` → `HybridDocumentOrchestrator(forceTier2 = true)` → `AndroidPdfRasterizer` (página 1, 150 DPI, solo memoria) → `AndroidGemmaVisionRunner`. En el diálogo se selecciona Colombia, se elige el PDF sintético de una página, se descarga el modelo desde la tarjeta, se espera a que aparezca como instalado y se pulsa **Analizar página 1 con Gemma**. El texto pegado debe quedar vacío para que la entrada sea inequívocamente visual. El diálogo muestra los valores para revisión; el usuario confirma o corrige antes de importar.
+
+El texto sintético colombiano de `DocumentImportDialog` puede servir de contenido para el PDF de prueba: capital original COP 30.000.000, plazo pactado 48 meses, tasa E.A. 19,50 %, cuota mensual COP 850.000, abono a capital COP 350.000 e interés corriente COP 477.500. Para preparar el fixture, copia ese bloque de demostración en un editor local y expórtalo como PDF de una página. El texto de muestra de la UI no es por sí solo un PDF adjunto.
+
+La corrida real debe registrar dispositivo/Android/API, `totalRamGb`, estado `lowMemory` del gate, SHA/tamaño del modelo validado, memoria disponible antes de carga, pico PSS, latencia de inicialización e inferencia, campos devueltos y resultado de revisión, además de errores/cierre de la app. `AndroidGemmaVisionRunner` emite la línea `Gemma real image inference complete` con `GemmaInferenceDiagnostics` en Logcat. Aún faltan el PDF sintético accesible al teléfono, la descarga real de 2.583.085.056 bytes, esos valores medidos y la inferencia real. No instalar el APK debug generado sobre la instalación release; tras integrar #40/#41, preparar la actualización firmada con la misma clave antes de coordinar la instalación.
 
 ## Integración y límites pendientes
 
-- #45 terminó su candidato y está en segunda revisión independiente. No se tocaron en esta entrega sus contratos, `HybridDocumentOrchestrator`, parser, grammar ni review sheet. El coordinador enviará la punta después de integrar #45; entonces conectar el runner/descarga/raster al flujo manual y actualizar solo los callers/tests necesarios. Tests de orquestación deben usar un stub explícito con literal controlado y nombrarse como contrato de orquestación, nunca como inferencia.
-- Luego repetir suite compartida completa (resolver los dos fallos viejos), pruebas pertinentes de host, build Android/Wasm y diff-check. El slot pesado está sujeto a coordinación de `/root`.
-- Revisar la ruta manual cuando modelo/plataforma/presión no permitan Gemma y confirmar que el raster permanece en memoria durante la integración con UI.
+- #45 está integrado en `c1199b4`; se ajustaron solo los tests de contrato necesarios en esta entrega. La ruta manual sigue disponible en plataformas sin Gemma o cuando el gate/modelo no permite visión.
+- Revisión independiente Luna/max pendiente. El APK no se instaló ni ejecutó; la medición real del gate y del comportamiento con el modelo requiere coordinación física con #43/#47 y la actualización firmada de #44.
+- Después de la revisión, `/root` coordina integración y estado de GitHub. Esta entrega no hace push, merge ni cierre.
 - Corrida física con el archivo real y fixture autorizado sigue pendiente; requiere coordinación separada de pesos/dispositivo. Nunca reportar PASS por omisión.
 - Sin push, merge, cierre de issue ni cambios a `docs/tracking.md`, SPEC37 o tablero compartido.
 
