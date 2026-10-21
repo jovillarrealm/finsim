@@ -65,3 +65,9 @@
 - #32 pasa143pruebas shared y prepara la revalidación host/APK/Wasm tras ajustar cancelación/liberación del runtime. No se han descargado pesos ni probado inferencia. Conserva el único slot Gradle pesado.
 - #40 corrige el acceso a campos fuera del viewport y el cierre/tiempo límite de los casos. La corrida web bloqueada se conserva como incompleta, con resultados parciales; no representa PASS. #41/#42 esperan su integración para reanudar sus mismos implementadores.
 - Siguiente frontera: revisión independiente de #32/#40 al entregar; completar #43 y reservar #44. #33 espera #32; #46/#47 y el catálogo #48 siguen pendientes. GitHub conserva el alcance y las decisiones vigentes.
+
+## Reserva siguiente — #44
+
+- #44 queda reservada para `/root/issue44_implement` y después `/root/issue44_review`, ambos Luna/max, al liberarse un slot. Rama prevista `codex/spec37-issue44`, worktree previsto `C:/Users/Lenovo/.codex/worktrees/spec37-issue44/finsim`, desde la punta de integración publicada al iniciar. No se ha iniciado todavía.
+- Reutilizar el perfil Android que entregue #43; coordinar un único propietario del teléfono y el único slot Gradle. La base firmada #34 está instalada y preservada externamente. Antes de reemplazarla, guardar un escenario sintético identificable y comprobar persistencia por UI; actualización con misma firma y datos conservados, sin desinstalar ni limpiar almacenamiento. El candidato debe incorporar las entregas pertinentes ya revisadas y declarar su fuente/hash real.
+- Alcance: persistencia, importación/exportación, portapapeles, CSV/Arrow, offline y actualización real. Nada de inferencia simulada ni apagado global de red sin restauración; preferir restricción de red del proceso o entorno verificable y documentar cualquier impedimento. No atribuir host/JVM a interacción APK.
