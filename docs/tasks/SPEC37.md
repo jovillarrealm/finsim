@@ -125,3 +125,9 @@ Fuente `391e158c23a71db050db4745c56f6770266cfdea`, APK instalado/verificado SHA2
 
 Mismo reemplazo Luna/max reactivado, único subagente, para inspeccionar raster Android y entrega multimodal; fondo/transparencia siguen como hipótesis sin confirmar. Sin prueba privada, raw logging ni integración de candidatos; #32 permanece abierta. Modelo/escenario preservados y siguiente revisión con el mismo revisor pendiente.
 
+
+## Cuarta corrida #32 y revisión del avance seguro
+
+APK de fondo blanco fuente `07f7079fccc848e97b2d8029ee627abf60d7691a`, SHA256 `84ee6aedfcad95522cb6032c29da3106cd6ac532c2ad9d89d17daac5ef2c3a6e`, instalado/verificado con datos/modelo preservados. Mismo sintético/página1/Colombia/texto vacío: **FAIL**, JSON válido222caracteres,73fragmentos,10claves conocidas vacías y0desconocidas. Inicialización623ms, inferencia11251ms, total18005ms, pico PSS2546642KiB. Fondo blanco cambia imagen139859→230302bytes sin resolver lectura.
+
+[Resumen anterior a revisión](https://github.com/jovillarrealm/finsim/issues/32#issuecomment-6326703328): tres pruebas estáticas dirigidas y builds release aprobados; ninguna aceptación de extracción/rendimiento ni prueba del PDF hipotecario correcto. El implementador de reemplazo finalizó en `851b141fbda4acbe355e01465863cf46ed343c71`. El mismo revisor32 Luna/max es ahora el único subagente activo, evaluando desde `0ef0c4e78116250a1cd1e62da6f4a28a9fcfb702`, Standards y Spec secuenciales. Captura temporal totalmente retirada, diagnóstico seguro y tres ajustes mínimos aún sin integrar. Se mantiene #32 abierta/FAIL; avanzar después con tickets independientes sin encadenar ajustes del modelo sin causa demostrada.
