@@ -500,4 +500,11 @@ class DocumentTextParserTest {
             extracted.toStatementRow()
         }
     }
+
+    @Test
+    fun emptyExtractionCannotCreateLoanThroughExistingMapperSeam() {
+        assertFailsWith<IllegalArgumentException> {
+            ExtractedDocumentData().toScenario()
+        }
+    }
 }
