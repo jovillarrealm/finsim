@@ -1,7 +1,7 @@
 # Issue #32 — Runner Gemma Android real
 
 - Responsable de implementación: `/root/issue32_implement_luna`, reemplazo secuencial del implementador anterior.
-- Estado: la revisión independiente inicial encontró dos defectos de cancelación, corregidos en el seguimiento de este candidato. Las pruebas JVM y Android host, el APK debug y Wasm pasan sobre el árbol de código actual. Pendientes segunda revisión independiente y fixture sintético en Samsung. **#32 sigue abierta; no se descargó el modelo ni se ejecutó inferencia.**
+- Estado: la revisión independiente inicial y su seguimiento reportaron defectos de cancelación/limpieza; las correcciones actuales pasan las pruebas JVM y Android host, el APK debug y Wasm. Pendiente nueva revisión independiente y fixture sintético en Samsung. **#32 sigue abierta; no se descargó el modelo ni se ejecutó inferencia.**
 - Rama: `codex/spec37-issue32`.
 - Base del trabajo: checkpoint `3cf6f577`, merge de #45 `c1199b4`, y coordinación integrada en `94627d9`, `0fcd8fb` y `1bcc238`.
 - Worktree: `C:/Users/Lenovo/.codex/worktrees/spec37-issue32/finsim`.
@@ -58,18 +58,45 @@ La validación final se ejecutó una vez, secuencialmente, con Gradle 9.3.1, JDK
 
 Esta corrida valida compilación, contratos y cancelación coordinada; no acredita inferencia LiteRT-LM ni descarga real. La segunda revisión y la evidencia física Samsung siguen pendientes.
 
+## Segundo seguimiento de revisión independiente
+
+La revisión de `d10809451291a8e78c3a3e81b576c978495d2d26` encontró cuatro P2: la ventana en que `cancelProcess()` aún no tenía una inferencia activa; una lectura HTTP bloqueada no se interrumpía al cancelar; un resultado terminal tardío podía sobrescribir el reintento; y los `.part`/marcadores UUID quedaban huérfanos tras morir el proceso. Se corrigieron con cambios localizados:
+
+- El puente LiteRT usa `sendMessageAsync` y callback de terminación. Un handshake serializa el despacho de la petición con la cancelación: si aún no empezó, no se llama al no-op nativo; si empezó, se solicita cancelación y se espera `onDone`/`onError` antes de cerrar la conversación.
+- `AndroidModelDownloader` usa OkHttp 5.5.0 y conserva el `Call` de cada intento. En cancelación invoca `Call.cancel()`, cancela el worker y espera su terminación antes de retornar; mantiene el streaming, la revisión URL fijada, el límite de bytes, `Accept-Encoding: identity`, extensión, tamaño y SHA-256.
+- `ModelDownloadManager` conserva token y `Job` por intento. Progreso, `Completed` y `Error` solo se publican mientras ese token siga activo; callbacks tardíos verifican el `Job` original.
+- `AndroidModelStorage` asigna parciales y marcadores por UUID, mantiene un registro de rutas activas en proceso y elimina UUID huérfanos al construir almacenamiento o borrar el modelo, preservando los parciales de otros intentos activos.
+
+La prueba HTTP levanta un servidor local que anuncia el tamaño fijado, envía un byte y deja el cuerpo abierto. Un interceptor de test señala el segundo `read` bloqueado; el plazo monotónico de 1,2 s empieza antes de cancelar e incluye el retorno de la cancelación y la finalización del worker. El test también comprueba `Call.isCanceled()`. La cobertura nativa controla el despacho y el callback terminal; dos regresiones verifican que `Error` y `Completed` tardíos no alteran el reintento; otra cubre limpieza de UUID al iniciar y borrar preservando el parcial activo.
+
+La selección de OkHttp responde a un fallo reproducible de `HttpURLConnection`: en las corridas dirigidas `7ce5ae648ecda264a757769e069a1d9b96fba7b3` y `a05810c94f83ae6c9823aafc430ca506fac3ff65`, `cancel()` regresó pero `InputStream.close()`/`disconnect()` y el worker no acabaron dentro del plazo; cambiar el orden no liberó la lectura. La primera salida completa se preservó en `C:/Users/Lenovo/AppData/Local/Temp/finsim-spec37/issue32-followup-http-measured-failure-20261021`; la segunda misma aserción quedó en la salida de Gradle antes de reemplazarse por la corrida verde. OkHttp ofrece cancelación de `Call` y declara compatibilidad Android API 21+ / Java 8+; la app configura minSdk 26 y la biblioteca shared minSdk 24. El APK mergeado incluye el provider AndroidX Startup de OkHttp. Fuentes: [requisitos y dependencia oficial](https://github.com/square/okhttp/blob/master/README.md#requirements), [API pública `Call.cancel()`](https://github.com/square/okhttp/blob/master/okhttp/src/commonJvmAndroid/kotlin/okhttp3/Call.kt) y [registro oficial 5.5.0](https://github.com/square/okhttp/blob/master/CHANGELOG.md#version-550).
+
+La primera validación posterior al cambio de transporte tuvo un error de compilación del test (`Call.isCanceled` debía invocarse como método); no llegó a ejecutar pruebas. La llamada se corrigió y la siguiente corrida dirigida pasó. Eso se registra como preparación, separado del fallo real de `HttpURLConnection`.
+
+La validación conjunta de esta corrección se ejecutó en serie sobre árbol de fuentes `a334aac9909825929bb22d4a5bafb4dacf1b8bf8`, con Gradle 9.3.1, JDK 21.0.12.1, `--max-workers=1` y Kotlin in-process. Sus XML se preservaron en `C:/Users/Lenovo/AppData/Local/Temp/finsim-spec37/issue32-followup-http-okhttp-20261021`.
+
+| Comprobación | Resultado |
+| --- | --- |
+| `:shared:jvmTest` | **PASS, 144/144**, cero fallos/errores/omitidas. |
+| `:shared:testAndroidHostTest` | **PASS, 150/150**, cero fallos/errores/omitidas; incluye el test de cancelación HTTP local. |
+| `:androidApp:assembleDebug` | **PASS.** APK `kmp/androidApp/build/outputs/apk/debug/androidApp-debug.apk`, 63.241.784 bytes, SHA-256 `1CDC0903EAAB1C8309D5EAEB943C78D2ECC4F90687F7EA8867087AEB1B82065D`. No se instaló. |
+| `:shared:compileKotlinWasmJs` | **PASS.** |
+| `git diff --check HEAD` | **PASS** después de actualizar esta ficha. |
+
+OkHttp imprime en Android host test un aviso diagnóstico porque ese entorno no incluye Robolectric (`android.util.Log.isLoggable` no está implementado); el test pasa y no requiere AndroidX Startup manual en esta app. Este aviso no se contó como fallo. No se probaron descarga externa, el APK en Samsung, gate físico, consumo de memoria ni inferencia. La nueva revisión independiente de este delta queda pendiente; #32 sigue abierta.
+
 ## Prueba física pendiente en Samsung
 
 La ruta que consume la prueba es `DocumentImportDialog` → SAF `PdfDocumentPickerButton` → `DocumentIngestionRuntime.android` → `HybridDocumentOrchestrator(forceTier2 = true)` → `AndroidPdfRasterizer` (página 1, 150 DPI, solo memoria) → `AndroidGemmaVisionRunner`. En el diálogo se selecciona Colombia, se elige el PDF sintético de una página, se descarga el modelo desde la tarjeta, se espera a que aparezca como instalado y se pulsa **Analizar página 1 con Gemma**. El texto pegado debe quedar vacío para que la entrada sea inequívocamente visual. El diálogo muestra los valores para revisión; el usuario confirma o corrige antes de importar.
 
-El texto sintético colombiano de `DocumentImportDialog` puede servir de contenido para el PDF de prueba: capital original COP 30.000.000, plazo pactado 48 meses, tasa E.A. 19,50 %, cuota mensual COP 850.000, abono a capital COP 350.000 e interés corriente COP 477.500. Para preparar el fixture, copia ese bloque de demostración en un editor local y expórtalo como PDF de una página. El texto de muestra de la UI no es por sí solo un PDF adjunto.
+El fixture aprobado ya está creado en `C:/Users/Lenovo/AppData/Local/Temp/finsim-spec37/synthetic-fixture/synthetic-loan-cop-01.pdf` (2.391 bytes, SHA-256 `2324B53F2250C8627A5F30C4A115712D5E92A5B5C549114B20EF6C843F84C5A0`). Usa ese PDF por SAF en la corrida autorizada y conserva sus datos; no lo recrees a partir del texto de demostración de la UI, que es distinto.
 
-La corrida real debe registrar dispositivo/Android/API, `totalRamGb`, estado `lowMemory` del gate, SHA/tamaño del modelo validado, memoria disponible antes de carga, pico PSS, latencia de inicialización e inferencia, campos devueltos y resultado de revisión, además de errores/cierre de la app. `AndroidGemmaVisionRunner` emite la línea `Gemma real image inference complete` con `GemmaInferenceDiagnostics` en Logcat. Aún faltan el PDF sintético accesible al teléfono, la descarga real de 2.583.085.056 bytes, esos valores medidos y la inferencia real. No instalar el APK debug generado sobre la instalación release; tras integrar #40/#41, preparar la actualización firmada con la misma clave antes de coordinar la instalación.
+La corrida real debe registrar dispositivo/Android/API, `totalRamGb`, estado `lowMemory` del gate, SHA/tamaño del modelo validado, memoria disponible antes de carga, pico PSS, latencia de inicialización e inferencia, campos devueltos y resultado de revisión, además de errores/cierre de la app. `AndroidGemmaVisionRunner` emite la línea `Gemma real image inference complete` con `GemmaInferenceDiagnostics` en Logcat. El fixture sintético ya existe en `C:/Users/Lenovo/AppData/Local/Temp/finsim-spec37/synthetic-fixture/synthetic-loan-cop-01.pdf` (2.391 bytes, SHA-256 `2324B53F2250C8627A5F30C4A115712D5E92A5B5C549114B20EF6C843F84C5A0`); se debe usar ese archivo sin sustituir sus datos por el texto de demostración de la UI. Aún faltan la descarga real de 2.583.085.056 bytes, los valores medidos y la inferencia real. No instalar el APK debug generado. Tras la segunda revisión de #32, preparar el APK release firmado con la misma clave antes de #40/#41 y coordinar entonces la instalación; no desinstalar ni borrar datos.
 
 ## Integración y límites pendientes
 
 - #45 está integrado en `c1199b4`; se ajustaron solo los tests de contrato necesarios en esta entrega. La ruta manual sigue disponible en plataformas sin Gemma o cuando el gate/modelo no permite visión.
-- Segunda revisión independiente Luna/max pendiente. El APK no se instaló ni ejecutó; la medición real del gate y del comportamiento con el modelo requiere coordinación física con #43/#47 y la actualización firmada de #44.
+- Segunda revisión independiente Luna/max pendiente. El APK no se instaló ni ejecutó; la medición real del gate y del comportamiento con el modelo requiere coordinación física y la actualización firmada posterior a la revisión #32, antes de #40/#41.
 - Después de la segunda revisión, `/root` coordina integración y estado de GitHub. Esta entrega no hace push ni cierra el issue.
 - Corrida física con el archivo real y fixture autorizado sigue pendiente; requiere coordinación separada de pesos/dispositivo. Nunca reportar PASS por omisión.
 - Los merges coordinadores `94627d9`, `0fcd8fb` y `1bcc238` están incorporados localmente. Sin push ni cierre del issue, y sin cambios a `docs/tracking.md`, SPEC37 o tablero compartido por esta implementación.

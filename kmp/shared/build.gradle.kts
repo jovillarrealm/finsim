@@ -31,6 +31,7 @@ kotlin {
     sourceSets {
         androidMain.dependencies {
             implementation(libs.litertlm.android)
+            implementation(libs.okhttp)
         }
         commonMain.dependencies {
             implementation(libs.kotlinx.serialization.json)

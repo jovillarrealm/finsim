@@ -9,6 +9,8 @@ import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.ResponseFormat
 import com.google.ai.edge.litertlm.SamplerConfig
 import java.io.File
@@ -17,7 +19,9 @@ import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
@@ -88,15 +92,16 @@ class AndroidGemmaVisionRunner(
                 ).use { conversation ->
                     cancellableNativeConversationCall(
                         cancelProcess = conversation::cancelProcess
-                    ) {
-                        conversation.sendMessage(
+                    ) { callback ->
+                        conversation.sendMessageAsync(
                             com.google.ai.edge.litertlm.Contents.of(
                                 Content.Text(buildStatementPrompt(framework, targetMode)),
                                 Content.ImageBytes(imageBytes)
                             ),
+                            callback,
                             maxOutputToken = MAX_OUTPUT_TOKENS,
                             responseFormat = ResponseFormat.json(VlmJsonGrammar.JSON_SCHEMA_PROMPT)
-                        ).toString()
+                        )
                     }
                 }
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
@@ -260,20 +265,98 @@ class AndroidGemmaVisionRunner(
     }
 }
 
-/** Runs LiteRT-LM's blocking sendMessage while forwarding coroutine cancellation to native inference. */
-internal suspend fun <T> cancellableNativeConversationCall(
+/** Bridges LiteRT-LM's callback API to a suspending response string and waits for native shutdown. */
+internal suspend fun cancellableNativeConversationCall(
     cancelProcess: () -> Unit,
-    sendMessage: () -> T
-): T = suspendCancellableCoroutine { continuation ->
-    continuation.invokeOnCancellation {
-        // Cancellation races with native completion/close; cancelProcess is a best-effort interrupt.
-        runCatching(cancelProcess)
-    }
-    if (!continuation.isActive) return@suspendCancellableCoroutine
+    sendMessage: (MessageCallback) -> Unit
+): String {
+    val nativeTerminal = CompletableDeferred<Unit>()
+    val dispatchAccepted = AtomicBoolean(false)
+    return try {
+        suspendCancellableCoroutine { continuation ->
+            val dispatchMonitor = Any()
+            val callbackMonitor = Any()
+            var dispatchStarted = false
+            var dispatchReturnedToCallback = false
+            var cancellationSent = false
+            var callbackCompleted = false
+            var pendingResult: Result<String>? = null
+            val response = StringBuilder()
 
-    try {
-        continuation.resumeWith(Result.success(sendMessage()))
-    } catch (failure: Throwable) {
-        continuation.resumeWith(Result.failure(failure))
+            fun completeCallback(result: () -> Result<String>) {
+                var resultToResume: Result<String>? = null
+                val resumeNow = synchronized(callbackMonitor) {
+                    if (callbackCompleted) {
+                        false
+                    } else {
+                        callbackCompleted = true
+                        val completedResult = result()
+                        nativeTerminal.complete(Unit)
+                        if (dispatchReturnedToCallback) {
+                            resultToResume = completedResult
+                            true
+                        } else {
+                            pendingResult = completedResult
+                            false
+                        }
+                    }
+                }
+                if (resumeNow) continuation.resumeWith(checkNotNull(resultToResume))
+            }
+
+            val callback = object : MessageCallback {
+                override fun onMessage(message: Message) {
+                    synchronized(callbackMonitor) {
+                        if (!callbackCompleted) response.append(message.toString())
+                    }
+                }
+
+                override fun onDone() {
+                    completeCallback { Result.success(response.toString()) }
+                }
+
+                override fun onError(throwable: Throwable) = completeCallback { Result.failure(throwable) }
+            }
+
+            continuation.invokeOnCancellation {
+                val cancelAfterDispatch = synchronized(dispatchMonitor) {
+                    if (dispatchStarted && !cancellationSent) {
+                        cancellationSent = true
+                        true
+                    } else {
+                        false
+                    }
+                }
+                if (cancelAfterDispatch) runCatching(cancelProcess)
+            }
+
+            var dispatchFailure: Throwable? = null
+            synchronized(dispatchMonitor) {
+                if (continuation.isActive) {
+                    dispatchStarted = true
+                    try {
+                        // sendMessageAsync enters JNI before returning. The cancellation handler
+                        // takes the same monitor, so cancellation cannot precede that start.
+                        dispatchAccepted.set(true)
+                        sendMessage(callback)
+                    } catch (failure: Throwable) {
+                        dispatchFailure = failure
+                    }
+                }
+            }
+
+            var resultToResume: Result<String>? = null
+            synchronized(callbackMonitor) {
+                dispatchReturnedToCallback = true
+                resultToResume = pendingResult
+                pendingResult = null
+            }
+            dispatchFailure?.let { failure -> completeCallback { Result.failure(failure) } }
+            resultToResume?.let(continuation::resumeWith)
+        }
+    } finally {
+        if (dispatchAccepted.get()) {
+            withContext(NonCancellable) { nativeTerminal.await() }
+        }
     }
 }
