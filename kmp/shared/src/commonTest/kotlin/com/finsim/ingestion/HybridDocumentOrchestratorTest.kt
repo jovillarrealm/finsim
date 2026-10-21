@@ -261,6 +261,100 @@ class HybridDocumentOrchestratorTest {
     }
 
     @Test
+    fun vlmOrchestrationRejectsJsonMoneyWithExcessPrecisionBeforeNormalization() = runTest {
+        val payload = """{"principal":12.34,"ratePercentage":"18.5","interestPaid":1.005}"""
+        val rasterizer = InMemoryPageRasterizer(
+            pageMap = mapOf(1 to payload.encodeToByteArray())
+        )
+        val vlmRunner = object : VlmVisionRunner {
+            override suspend fun isModelReady(): Boolean = true
+
+            override suspend fun analyzePage(
+                imageBytes: ByteArray,
+                framework: RegulatoryFramework,
+                targetMode: ImportTargetMode
+            ): ExtractedDocumentData = VlmJsonGrammar.parseVlmResponse(
+                rawOutput = imageBytes.decodeToString(),
+                framework = framework,
+                targetMode = targetMode
+            )
+        }
+        val orchestrator = HybridDocumentOrchestrator(
+            rasterizer = rasterizer,
+            vlmRunner = vlmRunner,
+            capabilityGate = FakeDeviceCapabilityGate(totalRamGb = 8.0),
+            modelStorage = InMemoryModelStorage(downloaded = true, sizeBytes = 1100000000L)
+        )
+
+        val result = orchestrator.processDocument(
+            pdfBytes = "%PDF synthetic fixture".encodeToByteArray(),
+            rawText = "",
+            framework = RegulatoryFramework.COLOMBIA_SFC,
+            targetMode = ImportTargetMode.SCENARIO,
+            forceTier2 = true
+        )
+
+        assertTrue(result is OrchestrationResult.Error, "Excess-precision VLM amount must be rejected, got $result")
+        assertContains(result.message, "dos decimales")
+        assertEquals(1, rasterizer.callCount)
+    }
+
+    @Test
+    fun vlmParserRejectsExcessPrecisionAcrossEveryMonetaryJsonField() {
+        val invalidPayloads = listOf(
+            """{"principal":1.005}""",
+            """{"originalPrincipal":1.005}""",
+            """{"capitalBalance":1.005}""",
+            """{"compoundBalance":1.005}""",
+            """{"finalBalance":1.005}""",
+            """{"monthlyPayment":1.005}""",
+            """{"basePayment":1.005}""",
+            """{"totalPayment":1.005}""",
+            """{"principalPaid":1.005}""",
+            """{"interestPaid":1.005}""",
+            """{"insurancePaid":1.005}""",
+            """{"insurances":[{"name":"Seguro","amount":1.005}]}"""
+        )
+
+        invalidPayloads.forEach { payload ->
+            val error = assertFailsWith<IllegalArgumentException>(payload) {
+                VlmJsonGrammar.parseVlmResponse(
+                    rawOutput = payload,
+                    framework = RegulatoryFramework.COLOMBIA_SFC
+                )
+            }
+            assertTrue(error.message.orEmpty().contains("dos decimales"), payload)
+        }
+    }
+
+    @Test
+    fun vlmParserPreservesCanonicalAmountsAndRejectsAmbiguousLocalizedStrings() {
+        val extracted = VlmJsonGrammar.parseVlmResponse(
+            rawOutput = """{"principal":12.34,"originalPrincipal":-12.34,"monthlyPayment":"30.000.000,00","principalPaid":-12.34,"interestPaid":12.34,"insurances":[{"name":"Seguro","amount":12.34},{"name":"Sin importe","amount":null}]}""",
+            framework = RegulatoryFramework.COLOMBIA_SFC
+        )
+
+        assertEquals("-12.34", extracted.originalPrincipal)
+        assertEquals("30000000.00", extracted.monthlyPayment)
+        assertEquals("-12.34", extracted.principalPaid)
+        assertEquals("12.34", extracted.interestCharged)
+        assertEquals("12.34", extracted.insurances[0].monthlyCost)
+        assertNull(extracted.totalInsurance)
+        assertNull(extracted.closingBalance)
+        assertNull(extracted.insurances[1].monthlyCost)
+
+        listOf("1.005", "1,005").forEach { ambiguous ->
+            val error = assertFailsWith<IllegalArgumentException> {
+                VlmJsonGrammar.parseVlmResponse(
+                    rawOutput = """{"principal":"$ambiguous"}""",
+                    framework = RegulatoryFramework.COLOMBIA_SFC
+                )
+            }
+            assertTrue(error.message.orEmpty().contains("ambiguo"), ambiguous)
+        }
+    }
+
+    @Test
     fun nominalRateFrequencyMustBeExplicitInVlmPayload() {
         val absent = VlmJsonGrammar.parseVlmResponse(
             rawOutput = """{"ratePercentage":"48","rateKind":"nominal"}""",

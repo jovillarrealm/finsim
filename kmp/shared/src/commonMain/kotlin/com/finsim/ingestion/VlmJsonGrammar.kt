@@ -53,6 +53,7 @@ object VlmJsonGrammar {
     val JSON_SCHEMA_PROMPT: String = """
         {
           "type": "object",
+          "description": "Los importes numéricos deben usar decimales JSON canónicos, sin separadores de miles. Las cadenas de importes pueden usar formato bancario solo cuando los separadores sean inequívocos; no redondear ni reinterpretar formatos ambiguos.",
           "properties": {
             "bankName": { "type": ["string", "null"] },
             "documentKind": { "type": ["string", "null"], "enum": ["LOAN_STATEMENT", "ACCOUNT_SUMMARY", "UNKNOWN", null] },
@@ -155,19 +156,19 @@ object VlmJsonGrammar {
         }
 
         val bankName = jsonElement.getStringOrNull("bankName")
-        val principal = jsonElement.getStringOrNull("principal")?.let { DocumentTextParser.cleanCurrencyNumber(it) }
-        val originalPrincipal = jsonElement.getStringOrNull("originalPrincipal")?.let { DocumentTextParser.cleanCurrencyNumber(it) }
-        val capitalBalance = jsonElement.getStringOrNull("capitalBalance")?.let { DocumentTextParser.cleanCurrencyNumber(it) }
-        val compoundBalance = jsonElement.getStringOrNull("compoundBalance")?.let { DocumentTextParser.cleanCurrencyNumber(it) }
+        val principal = jsonElement.getMoneyOrNull("principal")
+        val originalPrincipal = jsonElement.getMoneyOrNull("originalPrincipal")
+        val capitalBalance = jsonElement.getMoneyOrNull("capitalBalance")
+        val compoundBalance = jsonElement.getMoneyOrNull("compoundBalance")
+        val finalBalance = jsonElement.getMoneyOrNull("finalBalance")
         val reportedBalanceMeaning = when (jsonElement.getStringOrNull("balanceMeaning")?.uppercase()) {
             "PRINCIPAL" -> BalanceMeaning.PRINCIPAL
             "COMPOUND_DEBT" -> BalanceMeaning.COMPOUND_DEBT
             else -> BalanceMeaning.UNKNOWN
         }
         val reviewedCapitalBalance = capitalBalance ?: principal.takeIf { reportedBalanceMeaning == BalanceMeaning.PRINCIPAL }
-        val reviewedCompoundBalance = compoundBalance ?: jsonElement.getStringOrNull("finalBalance")
+        val reviewedCompoundBalance = compoundBalance ?: finalBalance
             ?.takeIf { reportedBalanceMeaning == BalanceMeaning.COMPOUND_DEBT }
-            ?.let { DocumentTextParser.cleanCurrencyNumber(it) }
         val balanceMeaning = when {
             reportedBalanceMeaning == BalanceMeaning.PRINCIPAL && compoundBalance != null -> BalanceMeaning.UNKNOWN
             reportedBalanceMeaning == BalanceMeaning.COMPOUND_DEBT && (capitalBalance != null || principal != null) -> BalanceMeaning.UNKNOWN
@@ -208,9 +209,9 @@ object VlmJsonGrammar {
         }
         val statementMonth = jsonElement.getIntOrNull("statementMonth")
         val statementCutDate = jsonElement.getStringOrNull("statementCutDate")
-        val monthlyPayment = jsonElement.getStringOrNull("monthlyPayment")?.let { DocumentTextParser.cleanCurrencyNumber(it) }
-        val basePayment = jsonElement.getStringOrNull("basePayment")?.let { DocumentTextParser.cleanCurrencyNumber(it) }
-        val totalPayment = jsonElement.getStringOrNull("totalPayment")?.let { DocumentTextParser.cleanCurrencyNumber(it) }
+        val monthlyPayment = jsonElement.getMoneyOrNull("monthlyPayment")
+        val basePayment = jsonElement.getMoneyOrNull("basePayment")
+        val totalPayment = jsonElement.getMoneyOrNull("totalPayment")
         val reportedPaymentMeaning = when (jsonElement.getStringOrNull("paymentMeaning")?.uppercase()) {
             "BASE_PAYMENT" -> PaymentMeaning.BASE_PAYMENT
             "TOTAL_PAYMENT" -> PaymentMeaning.TOTAL_PAYMENT
@@ -222,10 +223,9 @@ object VlmJsonGrammar {
             totalPayment != null -> PaymentMeaning.TOTAL_PAYMENT
             else -> PaymentMeaning.UNKNOWN
         }
-        val principalPaid = jsonElement.getStringOrNull("principalPaid")?.let { DocumentTextParser.cleanCurrencyNumber(it) }
-        val interestPaid = jsonElement.getStringOrNull("interestPaid")?.let { DocumentTextParser.cleanCurrencyNumber(it) }
-        val insurancePaid = jsonElement.getStringOrNull("insurancePaid")?.let { DocumentTextParser.cleanCurrencyNumber(it) }
-        val finalBalance = jsonElement.getStringOrNull("finalBalance")?.let { DocumentTextParser.cleanCurrencyNumber(it) }
+        val principalPaid = jsonElement.getMoneyOrNull("principalPaid")
+        val interestPaid = jsonElement.getMoneyOrNull("interestPaid")
+        val insurancePaid = jsonElement.getMoneyOrNull("insurancePaid")
 
         val insurancesList = mutableListOf<ExtractedInsurance>()
         val insurancesArray = jsonElement["insurances"] as? JsonArray
@@ -233,8 +233,7 @@ object VlmJsonGrammar {
             for (item in insurancesArray) {
                 if (item is JsonObject) {
                     val name = item.getStringOrNull("name").orEmpty()
-                    val amountRaw = item.getStringOrNull("amount")
-                    val amountClean = amountRaw?.let { DocumentTextParser.cleanCurrencyNumber(it) }
+                    val amountClean = item.getMoneyOrNull("amount")
                     val amountMeaning = when (item.getStringOrNull("amountMeaning")?.uppercase()) {
                         "PERIODIC_CHARGE" -> InsuranceAmountMeaning.PERIODIC_CHARGE
                         "INSURED_VALUE" -> InsuranceAmountMeaning.INSURED_VALUE
@@ -303,6 +302,71 @@ object VlmJsonGrammar {
         }
         return null
     }
+
+    private fun JsonObject.getMoneyOrNull(key: String): String? = get(key)?.let { element ->
+        when (element) {
+            JsonNull -> null
+            is JsonPrimitive -> if (element.isString) {
+                parseVlmMoneyText(element.content, key)
+            } else {
+                parseCanonicalJsonMoney(element.content, key)
+            }
+            else -> throw IllegalArgumentException("El importe JSON '$key' debe ser un número o una cadena.")
+        }
+    }
+
+    /** JSON numeric values are canonical decimal lexemes; never route them through the bank-text cleaner. */
+    private fun parseCanonicalJsonMoney(raw: String, key: String): String {
+        require(CANONICAL_JSON_DECIMAL.matches(raw)) {
+            "El importe JSON '$key' debe usar un decimal canónico sin separadores localizados ni exponentes."
+        }
+        return parseImportMoney(raw, "El importe JSON '$key'").toFixed(2)
+    }
+
+    /**
+     * VLM strings can contain a bank's explicit grouping/decimal convention. A lone separator with
+     * three trailing digits is ambiguous (for example, 1.005) and needs human review.
+     */
+    private fun parseVlmMoneyText(raw: String, key: String): String? {
+        val text = raw
+            .replace("$", "")
+            .replace(CURRENCY_CODE, "")
+            .trim()
+        if (text.isEmpty()) return null
+
+        val canonical = when {
+            PLAIN_INTEGER.matches(text) -> text
+            PLAIN_DOT_DECIMAL.matches(text) -> text
+            PLAIN_COMMA_DECIMAL.matches(text) -> text.replace(',', '.')
+            GROUPED_COMMA_DECIMAL.matches(text) -> text.replace(",", "")
+            GROUPED_DOT_DECIMAL.matches(text) -> text.replace(".", "").replace(',', '.')
+            GROUPED_COMMA_INTEGER.matches(text) -> text.replace(",", "")
+            GROUPED_DOT_INTEGER.matches(text) -> text.replace(".", "")
+            AMBIGUOUS_SINGLE_SEPARATOR.matches(text) -> throw IllegalArgumentException(
+                "El importe JSON '$key' tiene un formato ambiguo; usa un decimal sin separadores de miles o una agrupación inequívoca."
+            )
+            else -> {
+                val excessDecimals = EXCESS_DECIMALS.matches(text)
+                if (excessDecimals) {
+                    return parseImportMoney(text.replace(',', '.'), "El importe JSON '$key'").toFixed(2)
+                }
+                throw IllegalArgumentException("El importe JSON '$key' tiene un formato bancario no reconocido; revísalo antes de importar.")
+            }
+        }
+        return parseImportMoney(canonical, "El importe JSON '$key'").toFixed(2)
+    }
+
+    private val CANONICAL_JSON_DECIMAL = Regex("""-?(?:0|[1-9]\d*)(?:\.\d+)?""")
+    private val CURRENCY_CODE = Regex("""(?i)\b(?:COP|USD|ARS|MXN|EUR)\b""")
+    private val PLAIN_INTEGER = Regex("""[+-]?\d+""")
+    private val PLAIN_DOT_DECIMAL = Regex("""[+-]?\d+\.\d{1,2}""")
+    private val PLAIN_COMMA_DECIMAL = Regex("""[+-]?\d+,\d{1,2}""")
+    private val GROUPED_COMMA_DECIMAL = Regex("""[+-]?\d{1,3}(?:,\d{3})+\.\d{1,2}""")
+    private val GROUPED_DOT_DECIMAL = Regex("""[+-]?\d{1,3}(?:\.\d{3})+,\d{1,2}""")
+    private val GROUPED_COMMA_INTEGER = Regex("""[+-]?\d{1,3}(?:,\d{3}){2,}""")
+    private val GROUPED_DOT_INTEGER = Regex("""[+-]?\d{1,3}(?:\.\d{3}){2,}""")
+    private val AMBIGUOUS_SINGLE_SEPARATOR = Regex("""[+-]?\d+[.,]\d{3}""")
+    private val EXCESS_DECIMALS = Regex("""[+-]?\d+[.,]\d{4,}""")
 
     private fun JsonObject.getIntOrNull(key: String): Int? {
         val el = get(key) ?: return null
