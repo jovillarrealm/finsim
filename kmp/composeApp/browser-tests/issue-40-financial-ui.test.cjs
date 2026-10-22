@@ -131,29 +131,30 @@ async function enter(page, target, value, touch = false) {
 }
 
 async function choose(page, label, option, index = 0, touch = false) {
-  const inlineChoice = page.getByRole('button', { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}: `) });
-  const field = (await inlineChoice.count() ? inlineChoice : page.getByLabel(label, { exact: true })).nth(index);
+  const inlineChoice = page.getByRole('button', { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}: `) });
+  const usesInlineChoices = await inlineChoice.count() > 0;
+  const field = (usesInlineChoices ? inlineChoice : page.getByLabel(label, { exact: true })).nth(index);
   await activate(page, field, touch);
   const optionTarget = page.getByRole('button', { name: option, exact: true }).last();
   await expect(optionTarget).toBeVisible();
   await activate(page, optionTarget, touch);
-  await page.keyboard.press('Escape');
+  if (!usesInlineChoices) await page.keyboard.press('Escape');
   await page.waitForTimeout(1000);
 }
 
-test('[WEB-40-ORIGIN-A11Y] Navigate to payment origin and change it by keyboard without losing the form tree', { timeout: 120_000 }, async () => {
+test('[WEB-40-ORIGIN-A11Y] Keep the form tree while selecting payment origin by keyboard after scrolling', { timeout: 120_000 }, async () => {
   const { browser, page } = await open(twoMonthArs, { focus: 'none' });
   try {
     const origin = page.getByRole('button', { name: 'Origen: Préstamo original', exact: true });
     await page.mouse.move(5, 880);
-    // The Compose canvas owns keyboard traversal. Keep this a real journey from
-    // page entry; the proxy divs in the shadow tree are not focusable DOM nodes.
+    // Traverse from page entry with real Tab presses; the shadow-tree proxy
+    // divs are not focusable DOM nodes.
     for (let i = 0; i < 49; i++) {
       await page.keyboard.press('Tab');
       await page.waitForTimeout(150);
     }
-    // The inline options open below the trigger, so move the focused row away
-    // from the viewport edge before activating it.
+    // Real wheel input moves the focused row away from the viewport edge so
+    // the inline options below it can be seen and selected.
     await page.mouse.move(640, 450);
     for (let i = 0; i < 4; i++) {
       await page.mouse.wheel(0, 150);
@@ -161,24 +162,10 @@ test('[WEB-40-ORIGIN-A11Y] Navigate to payment origin and change it by keyboard 
     }
     await page.mouse.move(5, 880);
     await expect(origin).toBeVisible();
-    if (process.env.FINSIM_WEB_DIAGNOSTICS) {
-      await page.screenshot({ path: `${process.env.FINSIM_WEB_DIAGNOSTICS}\\origin-after-49-tabs.png` });
-    }
     await page.keyboard.press('Enter');
 
     const original = page.getByRole('button', { name: 'Préstamo original', exact: true }).last();
     const current = page.getByRole('button', { name: 'Saldo actual', exact: true }).last();
-    if (process.env.FINSIM_WEB_DIAGNOSTICS) {
-      await page.screenshot({ path: `${process.env.FINSIM_WEB_DIAGNOSTICS}\\origin-after-enter.png` });
-      console.log(JSON.stringify({
-        originCount: await origin.count(),
-        originalCount: await page.getByRole('button', { name: 'Préstamo original', exact: true }).count(),
-        originalVisible: await original.isVisible().catch(() => false),
-        currentCount: await page.getByRole('button', { name: 'Saldo actual', exact: true }).count(),
-        currentVisible: await current.isVisible().catch(() => false),
-        rateTypeCount: await page.getByLabel('Tipo de tasa', { exact: true }).count()
-      }));
-    }
     await expect(original).toBeVisible();
     await expect(current).toBeVisible();
     await expect(page.getByLabel('Tipo de tasa', { exact: true })).toBeVisible();
@@ -226,7 +213,13 @@ test('[WEB-40-CONDITIONS] Configure current balance, nominal rate, agreed paymen
 
     await activate(page, page.getByRole('button', { name: '+ Agregar seguro', exact: true }));
     await enter(page, page.getByLabel('Nombre del seguro', { exact: true }), 'Seguro fijo');
+    await choose(page, 'Modalidad', '% del saldo mensual');
+    await expect(page.getByLabel('Tasa mensual (% saldo)', { exact: true })).toBeVisible();
+    await enter(page, page.getByLabel('Tasa mensual (% saldo)', { exact: true }), '0.5');
+    await choose(page, 'Modalidad', 'Monto fijo mensual');
     await enter(page, page.getByLabel('Monto mensual ($ARS)', { exact: true }), '5');
+    await choose(page, 'Vigencia', 'Hasta mes específico');
+    await enter(page, page.getByLabel('Último mes de cobertura (1..1200)', { exact: true }), '1');
 
     const profileToggle = page.getByLabel('Régimen de precancelación argentino', { exact: true });
     await expect(profileToggle).toBeVisible();
@@ -245,11 +238,14 @@ test('[WEB-40-CONDITIONS] Configure current balance, nominal rate, agreed paymen
     assert.equal(saved.insurance.length, 1);
     assert.equal(saved.insurance[0].kind, 'fixed');
     assert.equal(saved.insurance[0].value, '5');
+    assert.equal(saved.insurance[0].endsAtPayoff, false);
+    assert.equal(saved.insurance[0].endMonth, '1');
     assert.equal(saved.argentinaProfile.originationDate, '2025-01');
     assert.equal(saved.argentinaProfile.originalTermMonths, 36);
 
     await expect(copied(page, 'Cuota base Modificado')).toContainText('ARS 507,51');
     await expect(copied(page, 'Seguro generado Modificado mes 1')).toContainText('ARS 5,00');
+    await expect(copied(page, 'Seguro generado Modificado mes 2')).toContainText('ARS 0,00');
     await expect(copied(page, 'total pagado Modificado mes 1')).toContainText('ARS 512,51');
   } finally {
     await browser.close();
