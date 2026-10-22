@@ -1,6 +1,32 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { evaluateWebCases, loadWebCatalogs, parseTapResults, validateWebCatalog } from './verify-web.mjs';
+import { mkdtemp, rmdir, unlink, utimes, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { artifactManifest, evaluateWebCases, loadWebCatalogs, parseTapResults, validateWebCatalog } from './verify-web.mjs';
+
+test('artifact identity reads real bytes and changes even when a timestamp is preserved', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'finsim-web-manifest-'));
+  const asset = path.join(directory, 'asset.bin');
+  try {
+    const timestamp = new Date('2020-01-01T00:00:00Z');
+    await writeFile(asset, Buffer.from('abc'));
+    await utimes(asset, timestamp, timestamp);
+    const before = await artifactManifest(directory);
+    assert.equal(before.files, 1);
+    assert.deepEqual(before.entries, [{
+      path: 'asset.bin', bytes: 3,
+      sha256: 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    }]);
+    await writeFile(asset, Buffer.from('abd'));
+    await utimes(asset, timestamp, timestamp);
+    const after = await artifactManifest(directory);
+    assert.notEqual(after.sha256, before.sha256);
+  } finally {
+    await unlink(asset);
+    await rmdir(directory);
+  }
+});
 
 test('TAP results preserve exact case titles, failures, and skips', () => {
   const results = parseTapResults(`

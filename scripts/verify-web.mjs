@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { lstat, mkdir, readdir, readlink, rename, stat, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readdir, readFile, readlink, rename, stat, writeFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import net from 'node:net';
 import os from 'node:os';
@@ -166,7 +166,7 @@ function hashBytes(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-async function artifactManifest(directory) {
+export async function artifactManifest(directory) {
   const entries = [];
   async function visit(current) {
     for (const entry of await readdir(current, { withFileTypes: true })) {

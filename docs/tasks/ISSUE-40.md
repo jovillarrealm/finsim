@@ -29,3 +29,11 @@
 - Pendiente: segunda revisión independiente de las tres correcciones P2. Tras su aprobación, ejecutar el `verify:web` completo con una nueva distribución y registrar su identidad/hash, manifiesto HTTP, resultados de ambas órdenes y límites del catálogo.
 - Android físico, lector de pantalla, desplazamiento exclusivamente por teclado y rasterización/tabularidad de glifos permanecen NOT_RUN. Los resultados de host Android anteriores no equivalen a pruebas en dispositivo físico.
 - No cerrar #40 hasta integrar y verificar el perfil final. No se hicieron cambios al tablero ni a otras fichas.
+
+## Corrección de coordinación tras la ejecución completa de `04809ea`
+
+La segunda revisión confirmó resueltos los tres P2 y la heurística P3, sin nuevos hallazgos. En `04809ea` limpio, coordinación ejecutó JVM compartido 153/153, host Android compartido 162/162 y host de aplicación 5/5: todos PASS, sin fallos, errores ni omisiones. Los casos comunes se repiten entre destinos.
+
+El perfil `2026-10-22T05-33-07-185Z-8d94f6c2` terminó FAIL después de un build Wasm exitoso: `artifactManifest` no pudo leer los archivos porque se había eliminado la importación `readFile` al retirar reuse. No se sirvió la distribución ni se ejecutaron suites browser en esa corrida (NOT_RUN); el error no se atribuye a finanzas ni a interfaz.
+
+Coordinación restauró la importación compartida por el manifiesto y el cálculo de hashes de evidencia. La nueva regresión lee bytes de un archivo temporal, comprueba un SHA-256 conocido y verifica que el manifiesto cambie con el contenido aunque conserve el timestamp. Self-checks actuales 5/5 PASS; la corrección del verificador requiere seguimiento del mismo revisor antes de repetir el perfil. El producto Kotlin no cambió respecto de `04809ea`; las identidades del productor y del verificador se registrarán en la siguiente ejecución.
