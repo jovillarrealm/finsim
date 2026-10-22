@@ -175,3 +175,11 @@ Primera prueba del caso hipotecario privado correcto en ese APK: **FAIL end-to-e
 Siguiente tarea independiente: reanudar #40 en su worktree preservado con un único implementador Luna/max, después revisor por turno. No más ajustes del modelo en esta fase. Código aún fuera de main, sin despliegue.
 
 Reanudación40: `/root/issue40_resume_luna`, único subagente activo Luna/max. Checkpoint previo4489483 preserva12paths heredados; merge de670a95b en1c62c6e conserva comandos web/dispositivo. Investiga el popup de accesibilidad antes de nuevos recorridos. La ficha32 incluye ya el resultado de coordinación físico/sintético/privado y sus límites.
+
+## #40 — perfil completo fallido, corrección dirigida y revisión independiente
+
+La implementación queda en `549638b1d027d6f47cb6f3061364e574238ced84`, rama `codex/spec37-issue40`, worktree limpio. El perfil web oficial construido desde `ab68e2d` conserva **FAIL**: `npm test` 21/23 y `test:e2e` 17/19. Las 13 pruebas heredadas pasaron en ambas suites. La distribución de ocho archivos, SHA-256 `781f439ea25a33a6a39b88d3392c7b0362e3176e50cdfba4db15a87d5916fc30`, coincidió byte a byte con lo servido.
+
+Las capturas posteriores del mismo Wasm confirmaron que los dos fallos ocurrían al buscar celdas de M2 fuera del viewport vertical mientras el helper seguía desplazando columnas. La corrección compartida usa gestos reales y anclas visibles para preparar ambos ejes. La prueba dirigida posterior pasó 2/2: configuración 125,347 s y eventos 235,832 s; este último conserva un margen estrecho de 4,168 s respecto de su límite. El perfil completo no se repitió después de la corrección y su FAIL sigue vigente.
+
+[Resumen previo a revisión](https://github.com/jovillarrealm/finsim/issues/40#issuecomment-6333104639). Único subagente activo: `/root/issue40_review`, Luna/max, Standards y Spec secuenciales sobre el delta desde `475ce87` (merge-base `670a95b`), incluyendo todo el formulario, dominio y verificador heredados. Revisará también la reutilización de builds basada en fechas. Coordinación ejecuta las pruebas host actuales, sin tocar fuentes. Android físico de este cambio, lector de pantalla, navegación exclusivamente por teclado y rasterización tabular permanecen sin acreditar. #40 sigue abierto y no integrado; #32 mantiene sus resultados semánticos FAIL.
