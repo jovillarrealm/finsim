@@ -85,10 +85,8 @@ class AndroidGemmaVisionRunner(
     ): ExtractedDocumentData = inferenceMutex.withLock {
         lastDiagnostics = null
         withContext(Dispatchers.IO) {
-            val syntheticProbeIdentity = TemporarySyntheticFixtureProbe.rasterGate.consumeForInference(imageBytes)
             val runStartedMs = System.nanoTime() / 1_000_000L
             val messageChunks = AtomicInteger()
-            val literalControlChunks = AtomicInteger()
             var stage = "input_validation"
             var outcome = "in_progress"
             var errorType: String? = null
@@ -99,11 +97,6 @@ class AndroidGemmaVisionRunner(
             var initializationMs: Long? = null
             var inferenceStartedMs = 0L
             var inferenceMs: Long? = null
-            var literalControlStartedMs = 0L
-            var literalControlMs: Long? = null
-            var literalControlStatus: SyntheticLiteralStatus? = null
-            var literalControlErrorType: String? = null
-            var syntheticFieldStatuses: Map<String, SyntheticFieldStatus>? = null
             var response: String? = null
             var inspection: VlmJsonResponseInspection? = null
             try {
@@ -121,45 +114,6 @@ class AndroidGemmaVisionRunner(
                 initializationMs = initTime
                 stage = "post_model_initialization_eligibility_check"
                 requireEligible()
-
-                if (syntheticProbeIdentity != null) {
-                    stage = "synthetic_literal_control"
-                    literalControlStartedMs = System.nanoTime() / 1_000_000L
-                    try {
-                        val controlConversation = activeEngine.createConversation(
-                            ConversationConfig(
-                                samplerConfig = SamplerConfig(topK = 1, topP = 1.0, temperature = 0.0, seed = 7),
-                                maxOutputToken = TemporarySyntheticFixtureProbe.CONTROL_MAX_OUTPUT_TOKENS,
-                                enableResponseFormat = false,
-                                enableSpeculativeDecoding = false
-                            )
-                        )
-                        val literalResponse = controlConversation.use {
-                            cancellableNativeConversationCall(
-                                cancelProcess = it::cancelProcess,
-                                onMessageChunk = { literalControlChunks.incrementAndGet() }
-                            ) { callback ->
-                                it.sendMessageAsync(
-                                    com.google.ai.edge.litertlm.Contents.of(
-                                        Content.ImageBytes(imageBytes),
-                                        Content.Text(TemporarySyntheticFixtureProbe.CONTROL_PROMPT)
-                                    ),
-                                    callback,
-                                    maxOutputToken = TemporarySyntheticFixtureProbe.CONTROL_MAX_OUTPUT_TOKENS
-                                )
-                            }
-                        }
-                        literalControlStatus = SyntheticFixtureComparison.compareLiteralLine(literalResponse)
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (oom: OutOfMemoryError) {
-                        throw oom
-                    } catch (failure: Exception) {
-                        literalControlErrorType = failure::class.simpleName
-                    } finally {
-                        literalControlMs = System.nanoTime() / 1_000_000L - literalControlStartedMs
-                    }
-                }
 
                 stage = "conversation_creation"
                 val conversation = activeEngine.createConversation(
@@ -204,16 +158,14 @@ class AndroidGemmaVisionRunner(
                 }
                 stage = "json_mapping"
                 val extracted = VlmJsonGrammar.parseVlmResponse(generatedResponse, framework, targetMode)
-                if (syntheticProbeIdentity != null) {
-                    syntheticFieldStatuses = SyntheticFixtureComparison.compareStructuredFields(extracted)
-                }
                 stage = "field_validation"
+                // Candidate presence only opens review; it does not establish semantic accuracy.
                 hasRecognizedValues = extracted.hasRecognizedValues()
                 if (hasRecognizedValues != true) {
                     outcome = "no_usable_fields"
                     error("Gemma no devolvió campos utilizables del documento.")
                 }
-                outcome = "success"
+                outcome = "candidates_available_unverified"
                 extracted
             } catch (cancelled: CancellationException) {
                 outcome = "cancelled"
@@ -264,27 +216,10 @@ class AndroidGemmaVisionRunner(
                     errorType = errorType
                 )
                 lastDiagnostics = diagnostics
-                if (syntheticProbeIdentity != null) {
-                    val fields = syntheticFieldStatuses ?: SyntheticFixtureComparison.unavailableStatuses()
-                    Log.i(
-                        LOG_TAG,
-                        "Synthetic fixture comparison (temporary): " +
-                            "pdfSha256=${syntheticProbeIdentity.pdfSha256}, " +
-                            "imageSha256=${syntheticProbeIdentity.imageSha256}, " +
-                            "imageWidth=${syntheticProbeIdentity.width}, imageHeight=${syntheticProbeIdentity.height}, " +
-                            "imageBytesLength=${imageBytes.size}, modelRevision=${GemmaModelArtifact.revision}, " +
-                            "modelSha256=${GemmaModelArtifact.sha256}, " +
-                            "literalStatus=${literalControlStatus?.name?.lowercase() ?: "not_run"}, " +
-                            "literalLatencyMs=$literalControlMs, literalChunks=${literalControlChunks.get()}, " +
-                            "literalErrorType=$literalControlErrorType, structuredLatencyMs=$inferenceMs, " +
-                            "totalLatencyMs=${diagnostics.totalLatencyMs}, peakProcessPssKb=${diagnostics.peakProcessPssKb}, " +
-                            "fields=${SyntheticFixtureComparison.formatStatuses(fields)}"
-                    )
-                }
-                if (outcome == "success") {
-                    Log.i(LOG_TAG, "Gemma real image inference complete: $diagnostics")
+                if (outcome == "candidates_available_unverified") {
+                    Log.i(LOG_TAG, "Gemma produced unverified candidates: $diagnostics")
                 } else {
-                    Log.w(LOG_TAG, "Gemma real image inference ended without success: $diagnostics")
+                    Log.w(LOG_TAG, "Gemma inference ended without candidate availability: $diagnostics")
                 }
             }
         }

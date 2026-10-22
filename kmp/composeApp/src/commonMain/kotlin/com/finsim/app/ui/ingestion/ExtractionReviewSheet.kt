@@ -175,30 +175,25 @@ fun ExtractionReviewSheet(
                     .padding(20.dp)
                     .verticalScroll(scrollState)
             ) {
-                // Header & Engine Badge
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (targetMode == ImportTargetMode.RECONCILIATION) "Auditoría de extracto" else "Revisión de extracción",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = BrandDark
-                        )
-                        Text(
-                            text = if (targetMode == ImportTargetMode.RECONCILIATION)
-                                "Verifica los cobros efectivos del extracto para auditar."
-                            else
-                                "Verifica y edita las condiciones detectadas antes de importar.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextForestMuted
-                        )
-                    }
+                    Text(
+                        text = if (targetMode == ImportTargetMode.RECONCILIATION) "Auditoría de extracto" else "Revisión de extracción",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = BrandDark
+                    )
+                    Text(
+                        text = if (targetMode == ImportTargetMode.RECONCILIATION)
+                            "Verifica los cobros efectivos del extracto para auditar."
+                        else
+                            "Verifica y edita las condiciones detectadas antes de importar.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextForestMuted
+                    )
 
-                    // Engine Badge
                     val isVlm = extractedData.engine == ExtractionEngine.TIER_2_LOCAL_VLM
                     Surface(
                         color = if (isVlm) BrandLime else BrandSageLight,
@@ -227,10 +222,9 @@ fun ExtractionReviewSheet(
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         Text(
                             text = "Marco: ${framework.label} · Pág. ${extractedData.analyzedPage}",
@@ -239,10 +233,10 @@ fun ExtractionReviewSheet(
                             fontWeight = FontWeight.Medium
                         )
                         Text(
-                            text = "Confianza: ${(extractedData.confidence * 100).toInt()}%",
+                            text = "Datos por revisar",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = BrandForest
+                            color = TextForestMuted
                         )
                     }
                 }
