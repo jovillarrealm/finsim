@@ -410,7 +410,7 @@ test('[WEB-40-MONTH-SYNC] Touch month selection stays synchronized across chart,
   }
 });
 
-test('[WEB-40-TNUM-UI] Equal-length financial values keep the visible result control width stable', { timeout: 120_000 }, async () => {
+test('[WEB-40-TNUM-UI] Equal-length financial values keep the visible result control width stable', { timeout: 120_000 }, async t => {
   const scenario = { ...twoMonthArs, termMonths: 12, payment: '111.11', rate: { kind: 'monthly', value: '0' } };
   const { browser, page } = await open(scenario);
   try {
@@ -434,7 +434,23 @@ test('[WEB-40-TNUM-UI] Equal-length financial values keep the visible result con
     const second = await result.boundingBox();
     assert.ok(second?.width > 0);
     if (process.env.FINSIM_WEB_DIAGNOSTICS) await page.screenshot({ path: `${process.env.FINSIM_WEB_DIAGNOSTICS}\\tnum-888.png` });
-    assert.ok(Math.abs(first.width - second.width) <= 1, `El ancho visible cambió: ${first.width} → ${second.width}px`);
+
+    await enter(page, page.getByLabel('Cuota pactada (opcional)', { exact: true }), '88.88');
+    await activate(page, page.getByRole('button', { name: 'Actualizar condiciones del préstamo', exact: true }));
+    await expect(tree).toContainText('Condiciones actualizadas.');
+    await reveal(page, result);
+    await expect(result).toContainText('ARS 88,88');
+    await page.mouse.move(5, page.viewportSize().height - 5);
+    await page.waitForTimeout(250);
+    const shorter = await result.boundingBox();
+    assert.ok(shorter?.width > 0);
+    if (process.env.FINSIM_WEB_DIAGNOSTICS) await page.screenshot({ path: `${process.env.FINSIM_WEB_DIAGNOSTICS}\\tnum-88.png` });
+    t.diagnostic(`Anchos UI visibles (111,11 / 888,88 / 88,88): ${first.width} / ${second.width} / ${shorter.width}px.`);
+    if (Math.abs(first.width - shorter.width) <= 1) {
+      t.skip('La caja visible no distingue longitudes de texto; tabularidad queda NOT_RUN.');
+      return;
+    }
+    assert.ok(Math.abs(first.width - second.width) <= 1, `El ancho visible cambió para cifras de igual longitud: ${first.width} → ${second.width}px`);
   } finally {
     await browser.close();
   }
