@@ -25,6 +25,13 @@ const twoMonthArs = {
 };
 
 const tableWheelPoints = new WeakMap();
+const preparedTableMonths = new WeakMap();
+const tableHeaders = [
+  'Mes', 'Fecha', 'Saldo inicial', 'Capital habitual', 'Capital adicional',
+  'Interés generado', 'Seguro generado', 'Intereses pagados', 'Seguros pagados',
+  'Otros cargos', 'Pago total', 'Saldo final', 'saldo de capital', 'Interés pendiente',
+  'Seguro pendiente', 'Capital vencido', 'Mora', 'Deuda', 'No aplicado'
+];
 
 async function open(scenario, { mobile = false, focus = 'form' } = {}) {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
@@ -131,15 +138,9 @@ async function reveal(page, target) {
   throw new Error(`Control sin geometría visible tras barrido desde el inicio: ${target} ${JSON.stringify(positions)}`);
 }
 
-async function revealHorizontally(page, target) {
+async function revealHorizontally(page, target, direction = 1) {
   const startedAt = Date.now();
   const viewport = page.viewportSize();
-  const anchors = [
-    'Mes', 'Fecha', 'Saldo inicial', 'Capital habitual', 'Capital adicional',
-    'Interés generado', 'Seguro generado', 'Intereses pagados', 'Seguros pagados',
-    'Otros cargos', 'Pago total', 'Saldo final', 'saldo de capital', 'Interés pendiente',
-    'Seguro pendiente', 'Capital vencido', 'Mora', 'Deuda', 'No aplicado'
-  ];
   trace(`reveal-horizontal:start ${target}`);
   let lastWheelPoint = tableWheelPoints.get(page) ?? null;
   if (lastWheelPoint) trace(`reveal-horizontal:resume-table-pointer point=${lastWheelPoint.x},${lastWheelPoint.y}`);
@@ -152,13 +153,19 @@ async function revealHorizontally(page, target) {
 
     let anchorBox = null;
     let anchorLabel = '';
-    for (const label of anchors) {
-      const candidate = page.getByText(label, { exact: true }).first();
-      const box = await candidate.count() ? await candidate.boundingBox() : null;
-      if (box?.width > 0 && box.x < viewport.width && box.x + box.width > 0 && box.y >= 56 && box.y + box.height <= viewport.height) {
-        anchorBox = box;
-        anchorLabel = label;
-        break;
+    let anchorVisibleWidth = 0;
+    for (const label of tableHeaders) {
+      const candidates = page.getByText(label, { exact: true });
+      for (let index = 0; index < await candidates.count(); index++) {
+        const box = await candidates.nth(index).boundingBox();
+        const visibleWidth = box?.width > 0
+          ? Math.min(viewport.width, box.x + box.width) - Math.max(0, box.x)
+          : 0;
+        if (visibleWidth > anchorVisibleWidth && box.y >= 56 && box.y + box.height <= viewport.height) {
+          anchorBox = box;
+          anchorLabel = label;
+          anchorVisibleWidth = visibleWidth;
+        }
       }
     }
     if (!anchorBox && !lastWheelPoint) {
@@ -177,12 +184,81 @@ async function revealHorizontally(page, target) {
     }
     trace(`reveal-horizontal:scroll step=${i} ${anchorBox ? `anchor=${anchorLabel} box=${JSON.stringify(anchorBox)}` : 'at-last-table-pointer'} point=${point.x},${point.y}`);
     await page.mouse.move(point.x, point.y);
-    await page.mouse.wheel(220, 0);
+    await page.mouse.wheel(220 * direction, 0);
     await page.waitForTimeout(200);
   }
   trace(`reveal-horizontal:fail ${target} ${Date.now() - startedAt}ms`);
   if (process.env.FINSIM_WEB_DIAGNOSTICS) await page.screenshot({ path: `${process.env.FINSIM_WEB_DIAGNOSTICS}\\horizontal-reveal-failure.png` });
   throw new Error(`Control sin geometría horizontal visible tras desplazar la tabla: ${target}`);
+}
+
+async function prepareTableMonth(page, month) {
+  if (preparedTableMonths.get(page) === month) return;
+
+  const viewport = page.viewportSize();
+  const start = page.getByText('Mes', { exact: true }).first();
+  const pageScrollAnchor = page.getByText('Desplaza horizontalmente para ver todas las columnas y verticalmente para explorar todos los meses:', { exact: true });
+  await reveal(page, pageScrollAnchor);
+  await revealHorizontally(page, start, -1);
+  await reveal(page, start);
+
+  const targetY = Math.round(viewport.height * 0.25);
+  for (let step = 0; step < 10; step++) {
+    const before = await start.boundingBox();
+    if (!before?.width) throw new Error(`El encabezado Mes perdió geometría durante la preparación: ${JSON.stringify(before)}`);
+    if (before.y <= targetY + 35) break;
+    const anchor = await pageScrollAnchor.boundingBox();
+    if (!anchor?.width || anchor.y < 56 || anchor.y + anchor.height > viewport.height - 4) {
+      throw new Error(`La instrucción sobre la tabla no quedó visible para desplazar la página: ${JSON.stringify(anchor)}`);
+    }
+    await page.mouse.move(anchor.x + anchor.width / 2, anchor.y + anchor.height / 2);
+    await page.mouse.wheel(0, Math.min(80, Math.max(40, before.y - targetY - 25)));
+    await page.waitForTimeout(200);
+    const after = await start.boundingBox();
+    if (!after?.width) throw new Error(`El encabezado Mes perdió geometría durante el desplazamiento: ${JSON.stringify(after)}`);
+    tableWheelPoints.delete(page);
+    if (after.y >= before.y - 2) {
+      trace(`table-start:page-scroll-boundary step=${step} before=${JSON.stringify(before)} after=${JSON.stringify(after)} targetY=${targetY}`);
+      break;
+    }
+    trace(`table-start:page-scroll step=${step} before=${JSON.stringify(before)} after=${JSON.stringify(after)} anchor=${JSON.stringify(anchor)}`);
+  }
+
+  const monthRow = page.getByRole('button', { name: new RegExp(`^Seleccionar M${month}(?: |$)`) });
+  for (let step = 0; step < 8; step++) {
+    const rowBox = await monthRow.count() ? await monthRow.boundingBox() : null;
+    if (rowBox?.width > 0 && rowBox.x >= 0 && rowBox.x + rowBox.width <= viewport.width && rowBox.y >= 56 && rowBox.y + rowBox.height <= viewport.height - 4) break;
+
+    const rows = page.getByRole('button', { name: /^Seleccionar M\d+(?: |$)/ });
+    let anchor = null;
+    for (let index = 0; index < await rows.count(); index++) {
+      const candidate = rows.nth(index);
+      const box = await candidate.boundingBox();
+      if (box?.width > 0 && box.x >= 0 && box.x + box.width <= viewport.width && box.y >= 56 && box.y + box.height <= viewport.height - 4) {
+        const label = await candidate.innerText();
+        anchor = { candidate, box, month: Number(label.match(/^Seleccionar M(\d+)/)?.[1]) };
+        break;
+      }
+    }
+    if (!anchor) throw new Error(`No hay una fila mensual visible para revelar M${month}: ${JSON.stringify(rowBox)}`);
+    const deltaY = rowBox?.height && rowBox.y + rowBox.height > viewport.height - 4
+      ? Math.min(160, rowBox.y + rowBox.height - viewport.height + 40)
+      : rowBox?.height && rowBox.y < 56
+        ? -Math.min(160, 100 - rowBox.y)
+        : month > anchor.month ? 120 : -120;
+    await page.mouse.move(anchor.box.x + anchor.box.width / 2, anchor.box.y + anchor.box.height / 2);
+    await page.mouse.wheel(0, deltaY);
+    await page.waitForTimeout(200);
+    trace(`table-row:scroll target=M${month} targetBox=${JSON.stringify(rowBox)} anchor=M${anchor.month} anchorBox=${JSON.stringify(anchor.box)} deltaY=${deltaY}`);
+  }
+  const rowBox = await monthRow.count() ? await monthRow.boundingBox() : null;
+  if (!rowBox?.width || rowBox.x < 0 || rowBox.x + rowBox.width > viewport.width || rowBox.y < 56 || rowBox.y + rowBox.height > viewport.height - 4) {
+    throw new Error(`La fila M${month} no quedó visible después de preparar ambos ejes: ${JSON.stringify(rowBox)}`);
+  }
+  await expect(monthRow).toBeVisible();
+  trace(`table-row:prepared month=${month} header=${JSON.stringify(await start.boundingBox())} box=${JSON.stringify(rowBox)} viewport=${JSON.stringify(viewport)}`);
+
+  preparedTableMonths.set(page, month);
 }
 
 async function activate(page, target, touch = false) {
@@ -293,12 +369,7 @@ async function selectedMonth(page, month, touch = false) {
 const copied = (page, name) => page.getByRole('button', { name: `Copiar ${name}`, exact: true });
 
 async function assertTableCell(page, column, month, value) {
-  const monthRow = page.getByRole('button', { name: new RegExp(`^Seleccionar M${month}(?: |$)`) });
-  const monthRowBox = await monthRow.count() ? await monthRow.boundingBox() : null;
-  const viewport = page.viewportSize();
-  if (monthRowBox?.width > 0 && monthRowBox.x >= 0 && monthRowBox.x + monthRowBox.width <= viewport.width) {
-    await reveal(page, monthRow);
-  }
+  await prepareTableMonth(page, month);
   const cell = page.getByRole('button', {
     name: `Copiar tabla ${column} Modificado mes ${month}`, exact: true
   });
