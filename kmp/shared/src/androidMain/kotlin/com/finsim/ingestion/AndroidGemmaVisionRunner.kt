@@ -160,7 +160,7 @@ class AndroidGemmaVisionRunner(
                 val extracted = VlmJsonGrammar.parseVlmResponse(generatedResponse, framework, targetMode)
                 stage = "field_validation"
                 // Candidate presence only opens review; it does not establish semantic accuracy.
-                hasRecognizedValues = extracted.hasRecognizedValues()
+                hasRecognizedValues = extracted.hasCandidatesForReview()
                 if (hasRecognizedValues != true) {
                     outcome = "no_usable_fields"
                     error("Gemma no devolvió campos utilizables del documento.")
@@ -298,21 +298,18 @@ class AndroidGemmaVisionRunner(
 
     // LiteRT-LM uses the JSON schema to constrain decoding; this prompt must explain field meanings.
     private fun buildStatementPrompt(framework: RegulatoryFramework, targetMode: ImportTargetMode): String =
-        """Extrae solo valores visibles en esta página de estado financiero para ${framework.label} y destino ${targetMode.label}. No infieras, calcules ni completes datos ausentes. Usa null cuando un valor no aparezca o no sea legible. Conserva los dígitos decimales impresos y omite símbolos monetarios y separadores de miles en los campos numéricos.
+        """Extrae solo valores visibles en esta página de estado financiero para ${framework.label} y destino ${targetMode.label}. No infieras, calcules ni completes datos ausentes. Usa `null` solo cuando el valor no aparezca o no sea legible. Conserva los dígitos decimales impresos y omite símbolos monetarios y separadores de miles en los campos numéricos.
 
             Guía para clasificar los campos JSON:
             - `documentKind` distingue un extracto de préstamo, un resumen de cuenta u otro documento (`UNKNOWN`). `currencies` contiene solo monedas impresas explícitamente.
             - `principal` es un importe de capital cuyo momento no está claro; `originalPrincipal` es el monto desembolsado al inicio. `capitalBalance` es el capital pendiente actual. `compoundBalance` es la deuda total solo cuando la fuente la identifica como tal. Usa `balanceMeaning` como `PRINCIPAL`, `COMPOUND_DEBT` o `UNKNOWN` según el rótulo y contexto visibles; un saldo final no demuestra por sí solo cuál significado tiene.
             - `ratePercentage` conserva la tasa porcentual impresa. `rateKind` identifica tasa anual, mensual o nominal; `nominalFrequency` es el número explícito de capitalizaciones por año. No conviertas tasas ni deduzcas frecuencias.
-            - `originalTermMonths` es el plazo inicial y `remainingTermMonths` los pagos que faltan. Usa `termMonths` solo si el plazo está claro y marca `termMeaning` como `ORIGINAL`, `REMAINING` o `UNKNOWN`.
+            - `originalTermMonths` es el plazo inicial y `remainingTermMonths` los pagos que faltan. Si el plazo es legible pero no se sabe si es inicial o restante, conserva el número en `termMonths` y marca `termMeaning` como `UNKNOWN`; usa los campos específicos solo si el rótulo confirma el sentido.
             - `basePayment` es la cuota de capital e intereses, sin seguro. `totalPayment` incluye seguros u otros cargos solo si el documento los incluye en el total. Si aparecen ambas cuotas, registra ambas; no derives una de otra. Usa `monthlyPayment` cuando hay una cuota mensual pero su categoría no está clara. Marca `paymentMeaning` como `BASE_PAYMENT`, `TOTAL_PAYMENT` o `UNKNOWN`.
             - `principalPaid`, `interestPaid` e `insurancePaid` son componentes cobrados o pagados en el periodo, no saldos ni cuotas. En `insurances`, distingue un cargo periódico de un valor asegurado con `amountMeaning` (`PERIODIC_CHARGE`, `INSURED_VALUE` o `UNKNOWN`). `finalBalance` es el saldo al cierre del periodo solo si está rotulado.
-            Clasifica cada importe por su rótulo y contexto cercano de esta página. Si el significado no es seguro, deja el campo financiero en null y el significado en `UNKNOWN`; nunca uses cero para representar ausencia. Devuelve únicamente el objeto JSON solicitado, sin explicación ni Markdown."""
+            Clasifica cada importe por su rótulo y contexto cercano. Si el número es legible pero el sentido no está confirmado, consérvalo en el campo genérico correspondiente (`principal`, `monthlyPayment`, `termMonths` o `insurances[].amount`) y marca el sentido como `UNKNOWN`. No lo copies a un campo de significado específico ni lo derives en otro campo. Usa `null` solo para datos ausentes o ilegibles; nunca uses cero para representar ausencia. Devuelve únicamente el objeto JSON solicitado, sin explicación ni Markdown."""
 
-    private fun ExtractedDocumentData.hasRecognizedValues(): Boolean = listOf(
-        bankNameCandidate, statementMonth?.toString(), statementCutDate, closingBalance, originalPrincipal,
-        termMonths?.toString(), rate?.valuePercent, monthlyPayment, principalPaid, interestCharged, totalInsurance
-    ).any { !it.isNullOrBlank() } || insurances.isNotEmpty()
+
 
     @Synchronized
     override fun close() {
@@ -359,6 +356,12 @@ class AndroidGemmaVisionRunner(
         const val BYTES_PER_GIB = 1024.0 * 1024.0 * 1024.0
     }
 }
+
+internal fun ExtractedDocumentData.hasCandidatesForReview(): Boolean = listOf(
+    bankNameCandidate, statementMonth?.toString(), statementCutDate, closingBalance, originalPrincipal,
+    unclassifiedPrincipal, originalTermMonths?.toString(), remainingTermMonths?.toString(), termMonths?.toString(),
+    rate?.valuePercent, basePayment, totalPayment, monthlyPayment, principalPaid, interestCharged, totalInsurance
+).any { !it.isNullOrBlank() } || insurances.isNotEmpty()
 
 /** Bridges LiteRT-LM's callback API to a suspending response string and waits for native shutdown. */
 internal suspend fun cancellableNativeConversationCall(
