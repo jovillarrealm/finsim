@@ -43,7 +43,6 @@ fun LoanForm(
     var draft by remember(scenario) { mutableStateOf(LoanConditionsDraft.from(scenario)) }
     var errorMessage by remember { mutableStateOf("") }
     var currencyExpanded by remember { mutableStateOf(false) }
-    var sourceExpanded by remember { mutableStateOf(false) }
     var rateExpanded by remember { mutableStateOf(false) }
 
     Card(
@@ -174,42 +173,23 @@ fun LoanForm(
                         }
                     },
                     second = { fieldModifier ->
-                        ExposedDropdownMenuBox(
-                            expanded = sourceExpanded,
-                            onExpandedChange = { sourceExpanded = it },
-                            modifier = fieldModifier
-                        ) {
-                            OutlinedTextField(
-                                value = draft.state.paymentOrigin.displayName,
-                                onValueChange = {},
-                                readOnly = true,
-                                singleLine = true,
-                                label = { Text("Origen") },
-                                shape = RoundedCornerShape(8.dp),
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sourceExpanded) },
-                                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true).accessibleField("Origen")
+                        Box(modifier = fieldModifier) {
+                            ComparisonChoice(
+                                label = "Origen",
+                                choices = listOf(PaymentOrigin.Original.displayName, PaymentOrigin.Current.displayName),
+                                selected = draft.state.paymentOrigin.displayName,
+                                onSelect = { selected ->
+                                    val origin = when (selected) {
+                                        PaymentOrigin.Original.displayName -> PaymentOrigin.Original
+                                        PaymentOrigin.Current.displayName -> PaymentOrigin.Current
+                                        else -> null
+                                    }
+                                    if (origin != null) {
+                                        draft = draft.updatePaymentOrigin(origin)
+                                        errorMessage = ""
+                                    }
+                                }
                             )
-                            ExposedDropdownMenu(
-                                expanded = sourceExpanded,
-                                onDismissRequest = { sourceExpanded = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(PaymentOrigin.Original.displayName) },
-                                    onClick = {
-                                        draft = draft.updatePaymentOrigin(PaymentOrigin.Original)
-                                        errorMessage = ""
-                                        sourceExpanded = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(PaymentOrigin.Current.displayName) },
-                                    onClick = {
-                                        draft = draft.updatePaymentOrigin(PaymentOrigin.Current)
-                                        errorMessage = ""
-                                        sourceExpanded = false
-                                    }
-                                )
-                            }
                         }
                     }
                 )
