@@ -110,6 +110,31 @@ async function reveal(page, target) {
   throw new Error(`Control sin geometría visible tras barrido desde el inicio: ${target} ${JSON.stringify(positions)}`);
 }
 
+async function revealHorizontally(page, target) {
+  const viewport = page.viewportSize();
+  const anchors = ['Mes', 'Fecha', 'Saldo inicial', 'Capital habitual'];
+  for (let i = 0; i < 12; i++) {
+    const targetBox = await target.count() ? await target.boundingBox() : null;
+    if (targetBox?.width > 0 && targetBox.x >= 0 && targetBox.x + targetBox.width <= viewport.width) return targetBox;
+
+    let anchorBox = null;
+    for (const label of anchors) {
+      const candidate = page.getByText(label, { exact: true }).first();
+      const box = await candidate.count() ? await candidate.boundingBox() : null;
+      if (box?.width > 0 && box.x < viewport.width && box.x + box.width > 0 && box.y >= 56 && box.y + box.height <= viewport.height) {
+        anchorBox = box;
+        break;
+      }
+    }
+    if (!anchorBox) break;
+    await page.mouse.move(anchorBox.x + Math.min(anchorBox.width / 2, viewport.width - anchorBox.x - 1), anchorBox.y + anchorBox.height / 2);
+    await page.mouse.wheel(220, 0);
+    await page.waitForTimeout(200);
+  }
+  if (process.env.FINSIM_WEB_DIAGNOSTICS) await page.screenshot({ path: `${process.env.FINSIM_WEB_DIAGNOSTICS}\\horizontal-reveal-failure.png` });
+  throw new Error(`Control sin geometría horizontal visible tras desplazar la tabla: ${target}`);
+}
+
 async function activate(page, target, touch = false) {
   const box = await reveal(page, target);
   if (touch) await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
@@ -118,14 +143,16 @@ async function activate(page, target, touch = false) {
 }
 
 async function enter(page, target, value, touch = false) {
-  const box = await reveal(page, target);
-  const inset = Math.min(40, Math.max(12, box.width / 8));
-  if (touch) await page.touchscreen.tap(box.x + inset, box.y + box.height / 2);
-  else await page.mouse.click(box.x + inset, box.y + box.height / 2);
-  await page.waitForTimeout(100);
+  await activate(page, target, touch);
   await page.keyboard.press('Control+A');
+  await page.waitForTimeout(150);
   await page.keyboard.press('Backspace');
-  await expect(target).toHaveText('');
+  const afterDelete = (await target.textContent())?.trim() ?? '';
+  if (afterDelete === '') await expect(target).toHaveText('');
+  else {
+    await page.keyboard.press('Control+A');
+    await page.waitForTimeout(150);
+  }
   await page.keyboard.insertText(String(value));
   await expect(target).toHaveText(String(value));
 }
@@ -136,6 +163,7 @@ async function choose(page, label, option, index = 0, touch = false) {
   const field = (usesInlineChoices ? inlineChoice : page.getByLabel(label, { exact: true })).nth(index);
   await activate(page, field, touch);
   const optionTarget = page.getByRole('button', { name: option, exact: true }).last();
+  await reveal(page, optionTarget);
   await expect(optionTarget).toBeVisible();
   await activate(page, optionTarget, touch);
   if (!usesInlineChoices) await page.keyboard.press('Escape');
@@ -166,16 +194,17 @@ test('[WEB-40-ORIGIN-A11Y] Keep the form tree while selecting payment origin by 
 
     const original = page.getByRole('button', { name: 'Préstamo original', exact: true }).last();
     const current = page.getByRole('button', { name: 'Saldo actual', exact: true }).last();
+    const rateType = page.getByRole('button', { name: /^Tipo de tasa: / });
     await expect(original).toBeVisible();
     await expect(current).toBeVisible();
-    await expect(page.getByLabel('Tipo de tasa', { exact: true })).toBeVisible();
+    await expect(rateType).toHaveCount(1);
     await page.keyboard.press('Tab');
     await page.keyboard.press('Tab');
     await page.keyboard.press('Enter');
 
     const selectedOrigin = page.getByRole('button', { name: 'Origen: Saldo actual', exact: true });
     await expect(selectedOrigin).toBeVisible();
-    await expect(page.getByLabel('Tipo de tasa', { exact: true })).toBeVisible();
+    await expect(rateType).toHaveCount(1);
     await expect(original).toHaveCount(0);
     await expect(current).toHaveCount(0);
 
@@ -186,7 +215,7 @@ test('[WEB-40-ORIGIN-A11Y] Keep the form tree while selecting payment origin by 
     await page.keyboard.press('Enter');
 
     await expect(page.getByRole('button', { name: 'Origen: Préstamo original', exact: true })).toBeVisible();
-    await expect(page.getByLabel('Tipo de tasa', { exact: true })).toBeVisible();
+    await expect(rateType).toHaveCount(1);
     await expect(original).toHaveCount(0);
     await expect(current).toHaveCount(0);
   } finally {
@@ -214,14 +243,17 @@ test('[WEB-40-CONDITIONS] Configure current balance, nominal rate, agreed paymen
     await activate(page, page.getByRole('button', { name: '+ Agregar seguro', exact: true }));
     await enter(page, page.getByLabel('Nombre del seguro', { exact: true }), 'Seguro fijo');
     await choose(page, 'Modalidad', '% del saldo mensual');
-    await expect(page.getByLabel('Tasa mensual (% saldo)', { exact: true })).toBeVisible();
+    const percentageField = page.getByLabel('Tasa mensual (% saldo)', { exact: true });
+    await reveal(page, percentageField);
+    await expect(percentageField).toBeVisible();
     await enter(page, page.getByLabel('Tasa mensual (% saldo)', { exact: true }), '0.5');
     await choose(page, 'Modalidad', 'Monto fijo mensual');
-    await enter(page, page.getByLabel('Monto mensual ($ARS)', { exact: true }), '5');
+    await enter(page, page.getByLabel('Monto mensual (ARS)', { exact: true }), '5');
     await choose(page, 'Vigencia', 'Hasta mes específico');
     await enter(page, page.getByLabel('Último mes de cobertura (1..1200)', { exact: true }), '1');
 
     const profileToggle = page.getByLabel('Régimen de precancelación argentino', { exact: true });
+    await reveal(page, profileToggle);
     await expect(profileToggle).toBeVisible();
     await activate(page, profileToggle);
     await enter(page, page.getByLabel('Fecha originación (AAAA-MM)', { exact: true }), '2025-01');
@@ -230,6 +262,10 @@ test('[WEB-40-CONDITIONS] Configure current balance, nominal rate, agreed paymen
     await enter(page, page.getByLabel('Alícuota IVA (%)', { exact: true }), '21');
 
     await activate(page, page.getByRole('button', { name: 'Actualizar condiciones del préstamo', exact: true }));
+    const tree = page.locator('#cmp_a11y_root');
+    await expect(tree).toContainText('Condiciones actualizadas.');
+    await activate(page, page.getByRole('button', { name: 'Guardar', exact: true }));
+    await expect(tree).toContainText('Escenario guardado en este dispositivo.');
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('finsim.scenario')));
     assert.equal(saved.currency, 'ARS');
     assert.equal(saved.source, 'current');
@@ -239,9 +275,11 @@ test('[WEB-40-CONDITIONS] Configure current balance, nominal rate, agreed paymen
     assert.equal(saved.insurance[0].kind, 'fixed');
     assert.equal(saved.insurance[0].value, '5');
     assert.equal(saved.insurance[0].endsAtPayoff, false);
-    assert.equal(saved.insurance[0].endMonth, '1');
+    assert.equal(saved.insurance[0].endMonth, 1);
     assert.equal(saved.argentinaProfile.originationDate, '2025-01');
     assert.equal(saved.argentinaProfile.originalTermMonths, 36);
+    assert.equal(saved.argentinaProfile.commissionRate, '0.03');
+    assert.equal(saved.argentinaProfile.vatRate, '0.21');
 
     await expect(copied(page, 'Cuota base Modificado')).toContainText('ARS 507,51');
     await expect(copied(page, 'Seguro generado Modificado mes 1')).toContainText('ARS 5,00');
@@ -260,6 +298,7 @@ test('[WEB-40-ARS-GATE] The Argentine prepayment profile is unavailable outside 
 
     await choose(page, 'Moneda', 'ARS');
     const profileToggle = page.getByLabel('Régimen de precancelación argentino', { exact: true });
+    await reveal(page, profileToggle);
     await expect(profileToggle).toBeVisible();
     await activate(page, profileToggle);
     await enter(page, page.getByLabel('Fecha originación (AAAA-MM)', { exact: true }), '2025-01');
@@ -268,9 +307,13 @@ test('[WEB-40-ARS-GATE] The Argentine prepayment profile is unavailable outside 
     await choose(page, 'Moneda', 'COP');
     await expect(profileToggle).toHaveCount(0);
     await activate(page, page.getByRole('button', { name: 'Actualizar condiciones del préstamo', exact: true }));
+    const tree = page.locator('#cmp_a11y_root');
+    await expect(tree).toContainText('Condiciones actualizadas.');
+    await activate(page, page.getByRole('button', { name: 'Guardar', exact: true }));
+    await expect(tree).toContainText('Escenario guardado en este dispositivo.');
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('finsim.scenario')));
     assert.equal(saved.currency, 'COP');
-    assert.equal(saved.argentinaProfile, null);
+    assert.ok(saved.argentinaProfile == null, 'El perfil argentino debe quedar ausente o nulo fuera de ARS.');
   } finally {
     await browser.close();
   }
@@ -331,18 +374,30 @@ test('[WEB-40-MONTH-SYNC] Touch month selection stays synchronized across chart,
 
     await selectedMonth(page, 6, true);
     await expect(tree).toContainText('Mes seleccionado: 6.');
+    await expect(tree).toContainText('Mes M6');
+    await expect(tree).toContainText('Saldo: Orig ARS 400,00 / Mod ARS 400,00');
+    await expect(tree).toContainText('Capital: ARS 100,00');
+    await expect(tree).toContainText('Intereses: ARS 0,00');
+    await expect(tree).toContainText('Seguros: ARS 0,00');
     await activate(page, page.getByRole('button', { name: 'Ver tabla', exact: true }), true);
-    await expect(page.getByText('Capital habitual', { exact: true }).first()).toBeVisible();
+    const tableStartHeader = page.getByText('Mes', { exact: true }).first();
+    await reveal(page, tableStartHeader);
+    await expect(tableStartHeader).toBeVisible();
     await activate(page, page.getByRole('button', { name: 'Seleccionar M3', exact: true }), true);
     await expect(tree).toContainText('Detalle del mes 3');
     await expect(tree).toContainText('Mes seleccionado: 3.');
+    await expect(tree).toContainText('Mes M3');
+    await expect(tree).toContainText('Saldo: Orig ARS 700,00 / Mod ARS 700,00');
+    await expect(tree).toContainText('Capital: ARS 100,00');
+    await expect(tree).toContainText('Intereses: ARS 0,00');
+    await expect(tree).toContainText('Seguros: ARS 0,00');
     await expect(page.getByText('No aplicado', { exact: true })).toHaveCount(1);
-    const numericCell = page.getByRole('button', { name: 'Copiar tabla Capital habitual Modificado mes 3', exact: true });
-    await reveal(page, numericCell);
-    const numericFeatures = await numericCell.evaluate(element => [element, ...element.querySelectorAll('*')]
-      .map(node => `${getComputedStyle(node).fontFeatureSettings} ${getComputedStyle(node).fontVariantNumeric}`)
-      .join(' '));
-    assert.match(numericFeatures, /tnum|tabular-nums/i);
+    const habitualPrincipalCell = page.getByRole('button', { name: 'Copiar tabla Capital habitual Modificado mes 3', exact: true });
+    await revealHorizontally(page, habitualPrincipalCell);
+    await expect(habitualPrincipalCell).toContainText('ARS 100,00');
+    const closingBalanceCell = page.getByRole('button', { name: 'Copiar tabla saldo de capital Modificado mes 3', exact: true });
+    await revealHorizontally(page, closingBalanceCell);
+    await expect(closingBalanceCell).toContainText('ARS 700,00');
 
     await reveal(page, chart);
     const after = await chart.boundingBox();
@@ -350,6 +405,36 @@ test('[WEB-40-MONTH-SYNC] Touch month selection stays synchronized across chart,
     assert.equal(after.x, before.x);
     assert.equal(after.width, before.width);
     assert.equal(after.height, before.height);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('[WEB-40-TNUM-UI] Equal-length financial values keep the visible result control width stable', { timeout: 120_000 }, async () => {
+  const scenario = { ...twoMonthArs, termMonths: 12, payment: '111.11', rate: { kind: 'monthly', value: '0' } };
+  const { browser, page } = await open(scenario);
+  try {
+    const result = copied(page, 'Cuota base Modificado');
+    await reveal(page, result);
+    await expect(result).toContainText('ARS 111,11');
+    await page.mouse.move(5, page.viewportSize().height - 5);
+    await page.waitForTimeout(250);
+    const first = await result.boundingBox();
+    assert.ok(first?.width > 0);
+    if (process.env.FINSIM_WEB_DIAGNOSTICS) await page.screenshot({ path: `${process.env.FINSIM_WEB_DIAGNOSTICS}\\tnum-111.png` });
+
+    await enter(page, page.getByLabel('Cuota pactada (opcional)', { exact: true }), '888.88');
+    await activate(page, page.getByRole('button', { name: 'Actualizar condiciones del préstamo', exact: true }));
+    const tree = page.locator('#cmp_a11y_root');
+    await expect(tree).toContainText('Condiciones actualizadas.');
+    await reveal(page, result);
+    await expect(result).toContainText('ARS 888,88');
+    await page.mouse.move(5, page.viewportSize().height - 5);
+    await page.waitForTimeout(250);
+    const second = await result.boundingBox();
+    assert.ok(second?.width > 0);
+    if (process.env.FINSIM_WEB_DIAGNOSTICS) await page.screenshot({ path: `${process.env.FINSIM_WEB_DIAGNOSTICS}\\tnum-888.png` });
+    assert.ok(Math.abs(first.width - second.width) <= 1, `El ancho visible cambió: ${first.width} → ${second.width}px`);
   } finally {
     await browser.close();
   }
