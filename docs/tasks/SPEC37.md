@@ -147,3 +147,13 @@ APK1989AAFB…DB47 instalado/verificado preservando escenario/modelo; fuentes de
 
 Único subagente: investigador adicional reactivado para comprobar si el esquema llega al prompt del modelo o solo al decodificador, sin nuevos builds/ajustes. Causa raíz aún no confirmada. Sonda temporal no integrada ni apta para PDF privado; retirarla antes de candidato final. Prueba dirigida4/4 y release aprobado; corrida completa previa **FAIL**157casos/1aserción en test de reintentos. Root identificó posible carrera en ese test (latch antes del progreso legítimo del reintento), corrección todavía pendiente. #32 abierta con criterios semánticos vigentes.
 
+
+## Candidato final sin sonda y revisión — reanudación 2026-10-21
+
+La spec #37 en GitHub ya muestra estado aceptado/en implementación y dos PDFs, con enlaces a las decisiones vigentes de disponibilidad móvil, Moneda19, Luna/max secuencial y aceptación semántica. El texto histórico conserva su procedencia; no se amplía el alcance financiero.
+
+Implementador de reemplazo32 finalizó en `b78288341c6171f4ba1b3dafad9c49fa13ec8c30`; código de build `d5b7a24ac19b08f8ff7d5092242173dca3618bbd`, árbol KMP `7c13f05d91d2b672b0e024ff3234da1dc7fbcdb8`. Sonda/helper/tests/hooks retirados. Se conserva guía de campos; el runtime indica `candidates_available_unverified`. La revisión apila cabecera/metadatos y muestra «Datos por revisar» en vez de confianza heurística85%.
+
+Host153/153, release firmado y firma aprobados. APK SHA256 `e0d2540961419c3d0141755b1623729a85b7ea8bf2ebf792f7d764ab88686e61`; físico/visual150% de este binario todavía pendiente. La corrida previa9055 sigue **FAIL semántico** por cuotas, tasa, plazos y componentes omitidos; no se atribuye a este build ni se transforma en aprobación. [Resumen previo a revisión](https://github.com/jovillarrealm/finsim/issues/32#issuecomment-6330422386).
+
+Único subagente activo: mismo revisor32 Luna/max, revisando desde su último punto851b141. Distinguir defectos del delta y requisitos funcionales aún incumplidos; código integrable no implica spec completada. Después coordinación comprobará el APK exacto conservando datos/modelo y avanzará con entregas independientes. #32 sigue abierta; PDF hipotecario correcto todavía sin prueba.
