@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** Places two or three form controls in one column on compact screens and a row on wide screens. */
+/** Places two form controls in one column on compact screens and a row on wide screens. */
 @Composable
 fun AdaptiveFieldRow(
     isCompact: Boolean,
@@ -37,38 +37,6 @@ fun AdaptiveFieldRow(
         ) {
             first(Modifier.weight(1f))
             second(Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-fun AdaptiveFieldRow(
-    isCompact: Boolean,
-    first: @Composable (Modifier) -> Unit,
-    second: @Composable (Modifier) -> Unit,
-    third: @Composable (Modifier) -> Unit,
-    modifier: Modifier = Modifier,
-    spacing: Dp = 10.dp,
-    verticalAlignment: Alignment.Vertical = Alignment.CenterVertically
-) {
-    if (isCompact) {
-        Column(
-            modifier = modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(spacing)
-        ) {
-            first(Modifier.fillMaxWidth())
-            second(Modifier.fillMaxWidth())
-            third(Modifier.fillMaxWidth())
-        }
-    } else {
-        Row(
-            modifier = modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing),
-            verticalAlignment = verticalAlignment
-        ) {
-            first(Modifier.weight(1f))
-            second(Modifier.weight(1f))
-            third(Modifier.weight(1f))
         }
     }
 }
@@ -86,27 +54,6 @@ fun AdaptiveFieldRow(
             isCompact = maxWidth < 600.dp,
             first = first,
             second = second,
-            spacing = spacing,
-            verticalAlignment = verticalAlignment
-        )
-    }
-}
-
-@Composable
-fun AdaptiveFieldRow(
-    modifier: Modifier = Modifier,
-    spacing: Dp = 10.dp,
-    verticalAlignment: Alignment.Vertical = Alignment.CenterVertically,
-    first: @Composable (Modifier) -> Unit,
-    second: @Composable (Modifier) -> Unit,
-    third: @Composable (Modifier) -> Unit
-) {
-    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        AdaptiveFieldRow(
-            isCompact = maxWidth < 600.dp,
-            first = first,
-            second = second,
-            third = third,
             spacing = spacing,
             verticalAlignment = verticalAlignment
         )

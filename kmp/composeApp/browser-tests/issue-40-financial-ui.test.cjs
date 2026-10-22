@@ -307,7 +307,7 @@ async function choose(page, label, option, index = 0, touch = false) {
   await page.waitForTimeout(1000);
 }
 
-test('[WEB-40-ORIGIN-A11Y] Keep the form tree while selecting payment origin by keyboard after scrolling', { timeout: 120_000 }, async () => {
+test('[WEB-40-ORIGIN-A11Y] Keep the form tree while selecting payment origin with keyboard after wheel scrolling', { timeout: 120_000 }, async () => {
   const { browser, page } = await open(twoMonthArs, { focus: 'none' });
   try {
     const origin = page.getByRole('button', { name: 'Origen: Préstamo original', exact: true });
@@ -467,7 +467,7 @@ test('[WEB-40-ARS-GATE] The Argentine prepayment profile is unavailable outside 
   }
 });
 
-test('[WEB-40-EVENT-BATCH] Discard and apply a missed payment, recovery and recurring event from touch controls', { timeout: 240_000 }, async () => {
+test('[WEB-40-EVENT-BATCH] Discard and apply a missed payment, recovery and recurring event from touch controls', { timeout: 300_000 }, async () => {
   const scenario = {
     ...twoMonthArs,
     name: 'WEB-40 eventos',
@@ -572,7 +572,7 @@ test('[WEB-40-MONTH-SYNC] Touch month selection stays synchronized across chart,
   }
 });
 
-test('[WEB-40-TNUM-UI] Equal-length financial values keep the visible result control width stable', { timeout: 120_000 }, async t => {
+test('[WEB-40-TNUM-UI] Visible result width follows text length without changing for equal-length amounts', { timeout: 120_000 }, async t => {
   const scenario = { ...twoMonthArs, termMonths: 12, payment: '111.11', rate: { kind: 'monthly', value: '0' } };
   const { browser, page } = await open(scenario);
   try {

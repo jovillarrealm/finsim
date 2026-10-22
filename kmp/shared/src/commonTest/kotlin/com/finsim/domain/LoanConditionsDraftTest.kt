@@ -412,6 +412,29 @@ class LoanConditionsDraftTest {
     }
 
     @Test
+    fun `fixed insurance rejects fractional cents while percentage keeps precision`() {
+        val base = LoanConditionsDraft.from(sampleScenario())
+
+        val fractionalCent = base.addInsurance(name = "Vida", kind = "fixed", valueStr = "1.005")
+        assertFalse(fractionalCent.isValid)
+        assertContains(fractionalCent.errors[LoanField.Insurance].orEmpty(), "máximo dos decimales")
+        assertNull(fractionalCent.commit())
+
+        val exactCents = base.addInsurance(name = "Vida", kind = "fixed", valueStr = "1.00")
+        assertTrue(exactCents.isValid)
+        assertEquals("1.00", exactCents.commit()?.insurance?.single()?.value)
+
+        val precisePercentage = base.addInsurance(name = "Vida", kind = "percentage", valueStr = "0.123456")
+        assertTrue(precisePercentage.isValid)
+        assertEquals("0.00123456", precisePercentage.commit()?.insurance?.single()?.value)
+
+        val invalidDomainInsurance = sampleScenario().copy(
+            insurance = listOf(Insurance(id = "life", name = "Vida", kind = "fixed", value = "1.005"))
+        )
+        assertFailsWith<IllegalArgumentException> { invalidDomainInsurance.validate() }
+    }
+
+    @Test
     fun `argentina prepayment profile state transitions, validation and commit`() {
         val scenario = sampleScenario(currency = Currency.ARS, termMonths = 36)
         val draft = LoanConditionsDraft.from(scenario)

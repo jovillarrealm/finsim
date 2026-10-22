@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { evaluateWebCases, parseTapResults, validateReusableBuild, validateWebCatalog } from './verify-web.mjs';
+import { evaluateWebCases, loadWebCatalogs, parseTapResults, validateWebCatalog } from './verify-web.mjs';
 
 test('TAP results preserve exact case titles, failures, and skips', () => {
   const results = parseTapResults(`
@@ -51,64 +51,15 @@ test('web catalogs require unique stable IDs and complete evidence fields', () =
   assert.match(validateWebCatalog([{ ...entry, expectationSource: '' }]).join('\n'), /expectationSource/i);
 });
 
-test('reusable Wasm build accepts only an unchanged product source and exact artifact', () => {
-  const previous = {
-    build: { status: 'PASS', exitCode: 0 },
-    steps: [
-      { id: 'WEB-TOOLCHAIN', status: 'PASS' },
-      { id: 'WEB-BUILD', status: 'PASS' },
-    ],
-    source: {
-      commit: 'abc123',
-      workingTree: { sha256: 'old-tree', trackedFilesChanged: 4, untrackedFiles: 2 },
-    },
-    artifact: { sha256: 'artifact-1' },
-  };
-  const current = {
-    commit: 'abc123',
-    workingTree: { sha256: 'new-tree', trackedFilesChanged: 4, untrackedFiles: 2 },
-  };
+test('issue 40 mixed-navigation and result-geometry cases have exact catalog entries', async () => {
+  const { cases } = await loadWebCatalogs();
+  assert.deepEqual(validateWebCatalog(cases), []);
+  const origin = cases.find(item => item.id === 'WEB-40-ORIGIN-A11Y');
+  const resultGeometry = cases.find(item => item.id === 'WEB-40-TNUM-UI');
 
-  assert.deepEqual(validateReusableBuild({
-    previous,
-    current,
-    changedSinceBuild: ['scripts/verify-web.mjs', 'scripts/verify-web.test.mjs', 'kmp/composeApp/browser-tests/issue-40-financial-ui.test.cjs'],
-    buildInputChangesSince: [],
-    artifactHash: 'artifact-1',
-  }), []);
-  assert.deepEqual(validateReusableBuild({
-    previous,
-    current,
-    changedSinceBuild: ['kmp/composeApp/browser-tests/issue-40-financial-ui.test.cjs'],
-    buildInputChangesSince: [],
-    artifactHash: 'artifact-1',
-  }), []);
-  assert.match(validateReusableBuild({
-    previous,
-    current,
-    changedSinceBuild: ['kmp/composeApp/browser-tests/issue-41-transfer.test.cjs'],
-    buildInputChangesSince: [],
-    artifactHash: 'artifact-1',
-  }).join('\n'), /hash completo del árbol difiere/i);
-  assert.match(validateReusableBuild({
-    previous,
-    current,
-    changedSinceBuild: ['package.json'],
-    buildInputChangesSince: [],
-    artifactHash: 'artifact-1',
-  }).join('\n'), /hash completo del árbol difiere/i);
-  assert.match(validateReusableBuild({
-    previous,
-    current,
-    changedSinceBuild: ['scripts/verify-web.mjs', 'kmp/shared/src/commonMain/Loan.kt'],
-    buildInputChangesSince: ['kmp/shared/src/commonMain/Loan.kt'],
-    artifactHash: 'artifact-1',
-  }).join('\n'), /entrada de producto/i);
-  assert.match(validateReusableBuild({
-    previous,
-    current,
-    changedSinceBuild: ['scripts/verify-web.mjs'],
-    buildInputChangesSince: [],
-    artifactHash: 'artifact-2',
-  }).join('\n'), /hash del artefacto/i);
+  assert.equal(origin?.title, '[WEB-40-ORIGIN-A11Y] Keep the form tree while selecting payment origin with keyboard after wheel scrolling');
+  assert.match(origin?.expectation ?? '', /wheel|rueda/i);
+  assert.equal(resultGeometry?.title, '[WEB-40-TNUM-UI] Visible result width follows text length without changing for equal-length amounts');
+  assert.match(resultGeometry?.expectation ?? '', /bounding boxes|cajas/i);
+  assert.match(resultGeometry?.expectation ?? '', /rasterización/i);
 });

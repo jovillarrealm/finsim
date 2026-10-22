@@ -43,5 +43,23 @@ export default [
     expectationSource: 'docs/financial-conventions.md §4 y §6: límite operativo de 1.200 meses y estado incompleto.',
     platform: 'Chrome · WebAssembly · navegador con viewport táctil 360×800',
     source: 'kmp/composeApp/browser-tests/loan-results.test.cjs'
+  },
+  {
+    id: 'WEB-40-ORIGIN-A11Y',
+    title: '[WEB-40-ORIGIN-A11Y] Keep the form tree while selecting payment origin with keyboard after wheel scrolling',
+    requirement: 'UI-02 · mantener el árbol accesible al seleccionar el origen del saldo',
+    expectation: 'Tras llegar al control con Tab y usar la rueda real para posicionar la fila, Enter abre el origen; Tab+Enter selecciona Saldo actual, Space vuelve a abrir y Tab+Enter regresa a Préstamo original. Tipo de tasa permanece disponible en el árbol. El recorrido combina rueda de ratón con teclado; no mide desplazamiento exclusivamente por teclado.',
+    expectationSource: 'Criterio UI-02 de #37 y las acciones/roles observados en la prueba; la rueda es una precondición explícita para mostrar las opciones.',
+    platform: 'Chrome · WebAssembly · escritorio 1280×900',
+    source: 'kmp/composeApp/browser-tests/issue-40-financial-ui.test.cjs'
+  },
+  {
+    id: 'WEB-40-TNUM-UI',
+    title: '[WEB-40-TNUM-UI] Visible result width follows text length without changing for equal-length amounts',
+    requirement: 'UI-02 · geometría del control de resultados visibles',
+    expectation: 'En el mismo botón de resultado, ARS 111,11 y ARS 888,88 conservan el mismo ancho y ARS 88,88 tiene ancho distinto; si el control no distingue cadenas de longitudes distintas, el caso queda NOT_RUN. Esta comparación de cajas no mide la tabularidad ni la rasterización de los glifos del Canvas.',
+    expectationSource: 'Criterio UI-02 de #37; la prueba usa los mismos controles visibles y compara sus bounding boxes para cadenas de igual y distinta longitud.',
+    platform: 'Chrome · WebAssembly · escritorio 1280×900',
+    source: 'kmp/composeApp/browser-tests/issue-40-financial-ui.test.cjs'
   }
 ];

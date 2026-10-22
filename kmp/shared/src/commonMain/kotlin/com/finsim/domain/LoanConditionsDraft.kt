@@ -1,6 +1,7 @@
 package com.finsim.domain
 
 import com.finsim.core.Decimal
+import com.finsim.domain.types.Money
 import kotlin.jvm.JvmInline
 
 /**
@@ -656,6 +657,14 @@ class LoanConditionsDraft private constructor(
                 } catch (_: Exception) {
                     errors[LoanField.Insurance] = "El valor del seguro debe ser un número válido."
                     break
+                }
+                if (ins.kind == "fixed") {
+                    try {
+                        Money.parse(rawVal, state.currency)
+                    } catch (error: Exception) {
+                        errors[LoanField.Insurance] = error.message ?: "El valor del seguro debe ser un importe monetario válido."
+                        break
+                    }
                 }
                 if (!ins.endsAtPayoff) {
                     val endM = ins.endMonthStr.trim().toIntOrNull()

@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { lstat, mkdir, readFile, readdir, readlink, rename, stat, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readdir, readlink, rename, stat, writeFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import net from 'node:net';
 import os from 'node:os';
@@ -101,34 +101,6 @@ export function validateWebCatalog(catalog) {
     if (item?.title && titles.has(item.title)) errors.push(`Título duplicado: ${item.title}.`);
     if (item?.id) ids.add(item.id);
     if (item?.title) titles.add(item.title);
-  }
-  return errors;
-}
-
-export function validateReusableBuild({ previous, current, changedSinceBuild, buildInputChangesSince = [], artifactHash }) {
-  const errors = [];
-  if (previous?.build?.status !== 'PASS' || previous.build.exitCode !== 0) errors.push('El reporte no contiene un build Wasm exitoso.');
-  if (!previous?.steps?.some(step => step.id === 'WEB-TOOLCHAIN' && step.status === 'PASS')) errors.push('El reporte no confirma un toolchain Gradle/JDK compatible.');
-  if (!previous?.steps?.some(step => step.id === 'WEB-BUILD' && step.status === 'PASS')) errors.push('El reporte no confirma la distribución Wasm generada.');
-  if (!previous?.source?.commit || previous.source.commit !== current?.commit) errors.push('El commit del build no coincide con la fuente actual.');
-  if (previous?.source?.workingTree?.trackedFilesChanged !== current?.workingTree?.trackedFilesChanged ||
-      previous?.source?.workingTree?.untrackedFiles !== current?.workingTree?.untrackedFiles) {
-    errors.push('Cambió el inventario de archivos locales desde el build.');
-  }
-  if (!previous?.artifact?.sha256 || previous.artifact.sha256 !== artifactHash) errors.push('El hash del artefacto no coincide con el build.');
-  if (buildInputChangesSince.length) errors.push(`Cambió una entrada de producto, compilación o dependencias después del build: ${buildInputChangesSince.join(', ')}.`);
-
-  const workspaceMatches = previous?.source?.workingTree?.sha256 === current?.workingTree?.sha256;
-  const verifierOnlyChanges = new Set([
-    'scripts/verify-web.mjs',
-    'scripts/verify-web.test.mjs',
-    'kmp/composeApp/browser-tests/issue-40-financial-ui.test.cjs',
-  ]);
-  if (!workspaceMatches && (changedSinceBuild.length === 0 || changedSinceBuild.some(file => !verifierOnlyChanges.has(file)))) {
-    errors.push('El hash completo del árbol difiere y contiene cambios posteriores fuera del verificador web, su selfcheck y el caso browser #40.');
-  }
-  if (changedSinceBuild.some(file => !verifierOnlyChanges.has(file))) {
-    errors.push(`Hay archivos modificados después del build fuera del verificador/selfcheck: ${changedSinceBuild.filter(file => !verifierOnlyChanges.has(file)).join(', ')}.`);
   }
   return errors;
 }
@@ -322,15 +294,12 @@ function safeText(value) {
 
 function renderMarkdown(report) {
   const tree = report.source.workingTree;
-  const buildIdentity = report.build.identity;
   const cases = report.catalog.cases.map(item => `### ${safeText(item.id)} — ${safeText(item.status)}\n\n**Criterio:** ${safeText(item.requirement)} · ${safeText(item.platform)}\n\n**Expectativa:** ${safeText(item.expectation)}\n\n**Fuente de expectativa:** ${safeText(item.expectationSource)}\n\n**Resultado observado:** ${safeText(item.actual ?? item.reason)}\n\n**Caso:** \`${safeText(item.title)}\` en \`${safeText(item.source)}\``).join('\n\n');
   const executions = report.suites.map(suite => `- **${safeText(suite.name)}:** ${suite.status}; ${suite.passed} PASS, ${suite.failed} FAIL, ${suite.notRun} NOT_RUN. [Salida](${safeText(suite.log)})`).join('\n');
   const steps = report.steps.map(step => `- **${safeText(step.id)} · ${step.status}:** ${safeText(step.actual ?? step.reason)}${step.log ? ` [Log](${safeText(step.log)})` : ''}`).join('\n');
   const coverage = report.coverageNotRun.map(item => `- **${safeText(item.criterion)} · ${safeText(item.platform)} · ${item.status}:** ${safeText(item.reason)} Retomar: ${safeText(item.resume)}`).join('\n');
   const evidence = report.evidenceFiles.map(item => `- \`${safeText(item.path)}\` · SHA-256 \`${item.sha256}\``).join('\n');
-  const identityText = buildIdentity
-    ? `**Fuente que produjo el artefacto:** \`${safeText(buildIdentity.buildCommit)}\` · árbol \`${safeText(buildIdentity.buildWorkingTreeSha256)}\`  \n**Fuente del verificador actual:** \`${safeText(buildIdentity.verifierCommit)}\` · árbol \`${safeText(buildIdentity.verifierWorkingTreeSha256)}\`  \n**Diferencia posterior al build:** ${buildIdentity.changedSinceBuild.map(file => `\`${safeText(file)}\``).join(', ') || 'ninguna'}  \n**Entradas de producto/build/dependencias posteriores:** ${buildIdentity.buildInputChangesSince.map(file => `\`${safeText(file)}\``).join(', ') || 'ninguna'}  \n**Reporte original del build:** \`${safeText(buildIdentity.referenceReport)}\` · SHA-256 \`${safeText(buildIdentity.referenceReportSha256)}\`  \n**Árbol local completo idéntico:** ${buildIdentity.workspaceHashMatches ? 'sí' : 'no; la diferencia está delimitada arriba'}`
-    : 'Este runner construyó la distribución desde el árbol local identificado al inicio de esta ejecución.';
+  const identityText = 'Este runner construyó la distribución desde el árbol local identificado al inicio de esta ejecución.';
   return `# WEB — verificación de la distribución Wasm\n\n**Estado de ejecución:** ${safeText(report.executionState ?? 'INCOMPLETE')} · fase ${safeText(report.progress?.phase ?? 'inicializando')}${report.progress?.activeSuite ? ` · suite ${safeText(report.progress.activeSuite)}` : ''}${report.progress?.activeCase ? ` · caso ${safeText(report.progress.activeCase)}` : ''}  \n**Estado del alcance web:** ${report.result.status} (exit ${report.result.exitCode})  \n**Ejecución:** \`${report.runId}\` · ${report.startedAt}  \n**Origen actual:** \`${safeText(report.source.branch)}@${safeText(report.source.commit)}\`  \n**Cambios locales:** ${tree.hasLocalChanges ? 'sí' : 'no'} · SHA-256 \`${tree.sha256}\`  \n**Entorno:** ${safeText(report.environment.os)} ${safeText(report.environment.arch)} · Node ${safeText(report.environment.node)} · Gradle ${safeText(report.environment.gradleVersion ?? 'no disponible')} · Chrome ${safeText(report.environment.chrome ?? 'no disponible')}  \n**Evidencia:** \`${safeText(report.evidenceDirectory)}\`\n\n## Identidad de la fuente\n\n${identityText}\n\n## Distribución servida\n\n- **Comando de build:** \`${safeText(report.build.command ?? 'no ejecutado')}\`\n- **Artefacto:** \`${safeText(report.artifact.path)}\` · ${report.artifact.files ?? 0} archivos · SHA-256 \`${safeText(report.artifact.sha256 ?? 'no disponible')}\`\n- **URL:** ${safeText(report.server.url ?? 'no servida')}\n- **Verificación HTTP:** ${safeText(report.artifact.served ?? 'no ejecutada')}\n\n## Pasos de verificación\n\n${steps || 'Sin pasos.'}\n\n## Suites solicitadas\n\n${executions}\n\nLa prueba completa incluye validación del verificador y toda la suite browser. La orden test:e2e ejecuta la suite browser sola. Los casos browser se repiten en ambas órdenes; el reporte conserva cada resultado y la intersección, sin tratar las órdenes como suites independientes.\n\n## Casos del catálogo\n\n${cases || 'No se cargaron casos.'}\n\n## Cobertura pendiente\n\n${coverage || 'Sin omisiones registradas.'}\n\nEl viewport táctil representa interacción web en Chrome y no certifica una APK, lector de pantalla ni teléfono físico.\n\n## Evidencia externa\n\n${evidence || 'Sin logs.'}\n`;
 }
 
@@ -530,61 +499,6 @@ async function runBrowserChecks(report, directory, discovered, manifest) {
   }
 }
 
-async function loadReusableBuild(referencePath, source) {
-  const absolutePath = path.resolve(referencePath);
-  const bytes = await readFile(absolutePath);
-  const previous = JSON.parse(bytes.toString('utf8'));
-  const currentRelativePath = path.relative(root, distRoot).replaceAll(path.sep, '/');
-  if (previous.artifact?.path !== currentRelativePath || !previous.artifact.sha256) throw new Error('La ruta o identidad del artefacto no coincide con el build referenciado.');
-  const manifest = await artifactManifest(distRoot);
-  const previousFinishedAt = Date.parse(previous.finishedAt);
-  if (!Number.isFinite(previousFinishedAt)) throw new Error('El reporte de build no tiene un cierre temporal verificable.');
-  const candidates = [
-    ...git(['diff', '--name-only', 'HEAD', '--'], { encoding: 'utf8' }).split(/\r?\n/).filter(Boolean),
-    ...git(['ls-files', '--others', '--exclude-standard'], { encoding: 'utf8' }).split(/\r?\n/).filter(Boolean),
-  ];
-  const changedSinceBuild = [];
-  for (const file of [...new Set(candidates)].sort()) {
-    try {
-      const info = await stat(path.join(root, file));
-      if (info.mtimeMs > previousFinishedAt) changedSinceBuild.push(file.replaceAll(path.sep, '/'));
-    } catch {
-      changedSinceBuild.push(file.replaceAll(path.sep, '/'));
-    }
-  }
-  const buildInputChangesSince = changedSinceBuild.filter(isBuildInputPath);
-  const previousManifestPath = path.resolve(previous.evidenceDirectory, previous.artifact.manifest ?? 'wasm-manifest.json');
-  const previousManifestBytes = await readFile(previousManifestPath);
-  const previousManifest = JSON.parse(previousManifestBytes.toString('utf8'));
-  const previousManifestEvidence = previous.evidenceFiles?.find(item => item.path === previous.artifact.manifest);
-  if (!previousManifestEvidence || hashBytes(previousManifestBytes) !== previousManifestEvidence.sha256) {
-    throw new Error('El manifiesto guardado del build no coincide con su hash de evidencia.');
-  }
-  if (JSON.stringify(previousManifest) !== JSON.stringify(manifest)) {
-    throw new Error('Los hashes individuales del artefacto actual no coinciden con el manifiesto original del build.');
-  }
-  const reuseErrors = validateReusableBuild({ previous, current: source, changedSinceBuild, buildInputChangesSince, artifactHash: manifest.sha256 });
-  if (reuseErrors.length) throw new Error(reuseErrors.join(' '));
-  return {
-    manifest,
-    previous,
-    reportPath: absolutePath,
-    reportSha256: hashBytes(bytes),
-    changedSinceBuild,
-    buildInputChangesSince,
-    workspaceHashMatches: previous.source.workingTree.sha256 === source.workingTree.sha256,
-  };
-}
-
-function isBuildInputPath(file) {
-  const normalized = file.replaceAll('\\', '/');
-  if (normalized === 'kmp/composeApp/browser-tests/issue-40-financial-ui.test.cjs') return false;
-  return normalized === 'package.json' || normalized === 'package-lock.json' ||
-    normalized === 'settings.gradle.kts' || normalized === 'build.gradle.kts' ||
-    normalized === 'gradle.properties' || normalized.startsWith('gradle/') ||
-    normalized === 'gradlew' || normalized === 'gradlew.bat' || normalized.startsWith('kmp/');
-}
-
 async function main() {
   const startedAt = new Date();
   const runId = `${startedAt.toISOString().replaceAll(':', '-').replaceAll('.', '-')}-${randomUUID().slice(0, 8)}`;
@@ -610,11 +524,23 @@ async function main() {
     catalog: { files: discovered.files, cases: discovered.cases.map(item => ({ ...item, status: 'NOT_RUN', actual: 'El caso aún no se ha ejecutado.' })) },
     steps: [],
     suites: [emptySuite('npm test', 'npm-test.log'), emptySuite('npm run test:e2e', 'test-e2e.log')],
-    coverageNotRun: [{
-      criterion: 'Interacción en APK, dispositivo Android y lector de pantalla', status: 'NOT_RUN', platform: 'Android / hardware',
-      reason: 'Esta ejecución construye y prueba la distribución Wasm en Chrome; el viewport táctil emula el tamaño e input web, no ejecuta APK ni certifica hardware o lector de pantalla.',
-      resume: 'Verificar por separado el perfil Android cuando la implementación/runtime y un dispositivo de prueba estén disponibles; dejar el hardware físico identificado.',
-    }],
+    coverageNotRun: [
+      {
+        criterion: 'Interacción en APK, dispositivo Android y lector de pantalla', status: 'NOT_RUN', platform: 'Android / hardware',
+        reason: 'Esta ejecución construye y prueba la distribución Wasm en Chrome; el viewport táctil emula el tamaño e input web, no ejecuta APK ni certifica hardware o lector de pantalla.',
+        resume: 'Verificar por separado el perfil Android cuando la implementación/runtime y un dispositivo de prueba estén disponibles; dejar el hardware físico identificado.',
+      },
+      {
+        criterion: 'Desplazamiento exclusivamente por teclado hasta el control de origen', status: 'NOT_RUN', platform: 'Chrome · WebAssembly',
+        reason: 'WEB-40-ORIGIN-A11Y usa Tab/Enter/Space para el recorrido de selección, pero usa rueda real para mostrar la fila antes de elegir.',
+        resume: 'Mantener el resultado como recorrido mixto; medir desplazamiento solo por teclado únicamente si el criterio de aceptación lo requiere.',
+      },
+      {
+        criterion: 'Tabularidad de dígitos renderizados en Canvas', status: 'NOT_RUN', platform: 'Chrome · WebAssembly',
+        reason: 'WEB-40-TNUM-UI compara bounding boxes de controles y no mide el ancho rasterizado de glifos.',
+        resume: 'Usar una medición independiente de glifos renderizados si el criterio requiere probar tabularidad.',
+      },
+    ],
     evidenceFiles: [],
     intersection: { titleCount: 0, titles: [], explanation: 'Las dos órdenes ejecutan la suite browser; npm test añade las pruebas Node del verificador.' },
   };
@@ -629,7 +555,6 @@ async function main() {
     report.progress.phase = 'catalog-validated';
     await writeProgressReport(report, directory);
 
-    const reuseReportPath = process.env.FINSIM_WEB_REUSE_BUILD_REPORT;
     const dependencies = await nodeDependencies();
     report.steps.push(dependencies.ready
       ? { id: 'WEB-NODE-PREFLIGHT', status: 'PASS', actual: 'Vite preview y Playwright están instalados.' }
@@ -638,121 +563,73 @@ async function main() {
     await writeProgressReport(report, directory);
 
     if (!dependencies.ready || catalogErrors.length) {
-      if (reuseReportPath) {
-        report.steps.push({ id: 'WEB-BUILD-REUSE', status: 'NOT_RUN', reason: 'El preflight bloqueó la ruta de navegador antes de reutilizar el build.' });
-      } else {
-        report.steps.push({ id: 'WEB-TOOLCHAIN', status: 'NOT_RUN', reason: 'El preflight bloqueó el build antes de iniciar Gradle.' });
-        report.build = { command: null, status: 'NOT_RUN', exitCode: null };
-      }
+      report.steps.push({ id: 'WEB-TOOLCHAIN', status: 'NOT_RUN', reason: 'El preflight bloqueó el build antes de iniciar Gradle.' });
+      report.build = { command: null, status: 'NOT_RUN', exitCode: null };
       report.steps.push({ id: 'WEB-BROWSER-SUITES', status: 'NOT_RUN', reason: 'Faltan dependencias de preview o los catálogos no pasaron validación.' });
       report.progress.phase = 'node-preflight-blocked';
       await writeProgressReport(report, directory);
-    } else if (reuseReportPath) {
-      try {
-          const reusable = await loadReusableBuild(reuseReportPath, source);
-          const previous = reusable.previous;
-          report.environment.gradleVersion = previous.environment.gradleVersion;
-          report.environment.jvm = previous.environment.jvm;
-          report.build = {
-            command: previous.build.command,
-            status: 'PASS',
-            exitCode: 0,
-            reused: true,
-            reusedFrom: reusable.reportPath,
-            referenceReportSha256: reusable.reportSha256,
-            identity: {
-              buildCommit: previous.source.commit,
-              buildWorkingTreeSha256: previous.source.workingTree.sha256,
-              verifierCommit: source.commit,
-              verifierWorkingTreeSha256: source.workingTree.sha256,
-              workspaceHashMatches: reusable.workspaceHashMatches,
-              changedSinceBuild: reusable.changedSinceBuild,
-              buildInputChangesSince: reusable.buildInputChangesSince,
-              referenceReport: reusable.reportPath,
-              referenceReportSha256: reusable.reportSha256,
-            },
-          };
-          report.steps.push({
-            id: 'WEB-TOOLCHAIN-REUSE', status: 'PASS',
-            actual: `Reporte de build confirma Gradle ${previous.environment.gradleVersion} y JVM ${previous.environment.jvm}.`,
-          });
-          report.steps.push({
-            id: 'WEB-BUILD-REUSE', status: 'PASS',
-            actual: `Artefacto del build ${previous.source.workingTree.sha256} reutilizado. Solo cambió ${reusable.changedSinceBuild.join(', ') || 'ningún archivo'}; los insumos de producto/build/dependencias permanecen iguales. Hash del reporte original ${reusable.reportSha256}.`,
-          });
-          report.progress.phase = 'build-reuse-validated';
-          await writeProgressReport(report, directory);
-          await runBrowserChecks(report, directory, discovered, reusable.manifest);
-      } catch (error) {
-          report.build.status = 'NOT_RUN';
-          report.build.reuseValidation = 'FAIL';
-          report.steps.push({ id: 'WEB-BUILD-REUSE', status: 'FAIL', actual: error instanceof Error ? error.message : String(error) });
-          report.steps.push({ id: 'WEB-BROWSER-SUITES', status: 'NOT_RUN', reason: 'La validación rechazó el build referenciado; no se inició preview ni se ejecutaron las suites.' });
-          report.progress.phase = 'build-reuse-rejected';
-          await writeProgressReport(report, directory);
+    } else {
+      const gradlePath = 'C:/Users/Lenovo/.gradle/wrapper/dists/gradle-9.3.1-bin/23ovyewtku6u96viwx3xl3oks/gradle-9.3.1/bin/gradle.bat';
+      const javaHome = await stat(preferredJdk).then(() => preferredJdk, () => null);
+      const gradleEnv = { ...process.env };
+      if (javaHome) {
+        gradleEnv.JAVA_HOME = javaHome;
+        gradleEnv.PATH = `${path.join(javaHome, 'bin')}${path.delimiter}${process.env.PATH ?? ''}`;
       }
-    } else {
-    const gradlePath = 'C:/Users/Lenovo/.gradle/wrapper/dists/gradle-9.3.1-bin/23ovyewtku6u96viwx3xl3oks/gradle-9.3.1/bin/gradle.bat';
-    const javaHome = await stat(preferredJdk).then(() => preferredJdk, () => null);
-    const gradleEnv = { ...process.env };
-    if (javaHome) {
-      gradleEnv.JAVA_HOME = javaHome;
-      gradleEnv.PATH = `${path.join(javaHome, 'bin')}${path.delimiter}${process.env.PATH ?? ''}`;
-    }
-    const versionLog = 'gradle-version.log';
-    report.evidenceFiles.push({ path: versionLog, sha256: null });
-    const version = await runProcess(gradlePath, ['--version'], path.join(directory, versionLog), { env: gradleEnv, echo: false });
-    const versionText = version.output;
-    const gradleVersion = versionText.match(/^Gradle\s+(\S+)/m)?.[1] ?? null;
-    const jvm = versionText.match(/^(?:Launcher JVM|JVM|Daemon JVM):\s*(.+)$/m)?.[1]?.trim() ?? null;
-    report.environment.gradleVersion = gradleVersion;
-    report.environment.jvm = jvm;
-    if (version.exitCode !== 0 || !gradleVersion || !jvm) {
-      const status = version.error?.code === 'ENOENT' || version.exitCode === null ? 'BLOCKED' : 'FAIL';
-      report.steps.push({ id: 'WEB-TOOLCHAIN', status, reason: version.error?.message ?? version.output.slice(-2000), log: versionLog });
-      report.build = { command: commandText(gradlePath, ['--version']), status: 'NOT_RUN', exitCode: null };
-    } else if (gradleVersion !== expectedGradle || !/^21(?:\.|$)/.test(jvm)) {
-      report.steps.push({ id: 'WEB-TOOLCHAIN', status: 'FAIL', actual: `Se requiere Gradle ${expectedGradle} y JDK 21; se detectó Gradle ${gradleVersion}, JVM ${jvm}.`, log: versionLog });
-      report.build = { command: commandText(gradlePath, ['--version']), status: 'NOT_RUN', exitCode: null };
-    } else {
-      report.steps.push({ id: 'WEB-TOOLCHAIN', status: 'PASS', actual: `Gradle ${gradleVersion}; ${jvm}.`, log: versionLog });
-      const gradleArgs = [
-        '--no-daemon', '--max-workers=1', '-Pkotlin.compiler.execution.strategy=in-process',
-        '-Dorg.gradle.jvmargs=-Xmx2g', '-p', 'kmp', ':composeApp:wasmJsBrowserDistribution', '--rerun-tasks',
-      ];
-      report.build.command = commandText(gradlePath, gradleArgs);
-      const buildLog = 'wasm-build.log';
-      report.evidenceFiles.push({ path: buildLog, sha256: null });
-      const buildStartedAt = Date.now();
-      report.progress.phase = 'wasm-build-running';
-      await writeProgressReport(report, directory);
-      const build = await runProcess(gradlePath, gradleArgs, path.join(directory, buildLog), { env: gradleEnv });
-      report.build.exitCode = build.exitCode;
-      report.build.status = statusOf(build);
-      report.build.signal = build.signal;
-      report.build.reason = build.error?.message ?? (build.exitCode === 0 ? null : build.output.slice(-2000));
-      if (build.exitCode === 0) {
-        try {
-          const info = await stat(path.join(distRoot, 'index.html'));
-          if (!info.isFile() || info.mtimeMs < buildStartedAt - 1000) throw new Error('index.html no pertenece a una distribución recién construida.');
-          const manifest = await artifactManifest(distRoot);
-          report.artifact.sha256 = manifest.sha256;
-          report.artifact.files = manifest.files;
-          report.steps.push({ id: 'WEB-BUILD', status: 'PASS', actual: `La tarea de distribución Wasm terminó con exit 0 y generó ${manifest.files} archivos; árbol SHA-256 ${manifest.sha256}.`, log: buildLog });
-          report.progress.phase = 'wasm-build-complete';
-          await writeProgressReport(report, directory);
-          await runBrowserChecks(report, directory, discovered, manifest);
-        } catch (error) {
-          report.steps.push({ id: 'WEB-DISTRIBUTION', status: 'FAIL', actual: error instanceof Error ? error.message : String(error), log: buildLog });
-          report.progress.phase = 'distribution-failed';
+      const versionLog = 'gradle-version.log';
+      report.evidenceFiles.push({ path: versionLog, sha256: null });
+      const version = await runProcess(gradlePath, ['--version'], path.join(directory, versionLog), { env: gradleEnv, echo: false });
+      const versionText = version.output;
+      const gradleVersion = versionText.match(/^Gradle\s+(\S+)/m)?.[1] ?? null;
+      const jvm = versionText.match(/^(?:Launcher JVM|JVM|Daemon JVM):\s*(.+)$/m)?.[1]?.trim() ?? null;
+      report.environment.gradleVersion = gradleVersion;
+      report.environment.jvm = jvm;
+      if (version.exitCode !== 0 || !gradleVersion || !jvm) {
+        const status = version.error?.code === 'ENOENT' || version.exitCode === null ? 'BLOCKED' : 'FAIL';
+        report.steps.push({ id: 'WEB-TOOLCHAIN', status, reason: version.error?.message ?? version.output.slice(-2000), log: versionLog });
+        report.build = { command: commandText(gradlePath, ['--version']), status: 'NOT_RUN', exitCode: null };
+      } else if (gradleVersion !== expectedGradle || !/^21(?:\.|$)/.test(jvm)) {
+        report.steps.push({ id: 'WEB-TOOLCHAIN', status: 'FAIL', actual: `Se requiere Gradle ${expectedGradle} y JDK 21; se detectó Gradle ${gradleVersion}, JVM ${jvm}.`, log: versionLog });
+        report.build = { command: commandText(gradlePath, ['--version']), status: 'NOT_RUN', exitCode: null };
+      } else {
+        report.steps.push({ id: 'WEB-TOOLCHAIN', status: 'PASS', actual: `Gradle ${gradleVersion}; ${jvm}.`, log: versionLog });
+        const gradleArgs = [
+          '--no-daemon', '--max-workers=1', '-Pkotlin.compiler.execution.strategy=in-process',
+          '-Dorg.gradle.jvmargs=-Xmx2g', '-p', 'kmp', ':composeApp:wasmJsBrowserDistribution', '--rerun-tasks',
+        ];
+        report.build.command = commandText(gradlePath, gradleArgs);
+        const buildLog = 'wasm-build.log';
+        report.evidenceFiles.push({ path: buildLog, sha256: null });
+        const buildStartedAt = Date.now();
+        report.progress.phase = 'wasm-build-running';
+        await writeProgressReport(report, directory);
+        const build = await runProcess(gradlePath, gradleArgs, path.join(directory, buildLog), { env: gradleEnv });
+        report.build.exitCode = build.exitCode;
+        report.build.status = statusOf(build);
+        report.build.signal = build.signal;
+        report.build.reason = build.error?.message ?? (build.exitCode === 0 ? null : build.output.slice(-2000));
+        if (build.exitCode === 0) {
+          try {
+            const info = await stat(path.join(distRoot, 'index.html'));
+            if (!info.isFile() || info.mtimeMs < buildStartedAt - 1000) throw new Error('index.html no pertenece a una distribución recién construida.');
+            const manifest = await artifactManifest(distRoot);
+            report.artifact.sha256 = manifest.sha256;
+            report.artifact.files = manifest.files;
+            report.steps.push({ id: 'WEB-BUILD', status: 'PASS', actual: `La tarea de distribución Wasm terminó con exit 0 y generó ${manifest.files} archivos; árbol SHA-256 ${manifest.sha256}.`, log: buildLog });
+            report.progress.phase = 'wasm-build-complete';
+            await writeProgressReport(report, directory);
+            await runBrowserChecks(report, directory, discovered, manifest);
+          } catch (error) {
+            report.steps.push({ id: 'WEB-DISTRIBUTION', status: 'FAIL', actual: error instanceof Error ? error.message : String(error), log: buildLog });
+            report.progress.phase = 'distribution-failed';
+            await writeProgressReport(report, directory);
+          }
+        } else {
+          report.steps.push({ id: 'WEB-BUILD', status: report.build.status, reason: report.build.reason, log: buildLog });
+          report.progress.phase = 'wasm-build-failed';
           await writeProgressReport(report, directory);
         }
-      } else {
-        report.steps.push({ id: 'WEB-BUILD', status: report.build.status, reason: report.build.reason, log: buildLog });
-        report.progress.phase = 'wasm-build-failed';
-        await writeProgressReport(report, directory);
       }
-    }
 
     }
 
