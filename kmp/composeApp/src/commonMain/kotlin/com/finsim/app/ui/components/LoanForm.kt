@@ -33,7 +33,6 @@ import com.finsim.domain.*
  * apila los campos en 1 sola columna de ancho completo; en pantallas mayores (>= 600dp),
  * organiza los campos en pares de 2 columnas horizontales.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoanForm(
     scenario: Scenario,
@@ -42,8 +41,6 @@ fun LoanForm(
 ) {
     var draft by remember(scenario) { mutableStateOf(LoanConditionsDraft.from(scenario)) }
     var errorMessage by remember { mutableStateOf("") }
-    var currencyExpanded by remember { mutableStateOf(false) }
-    var rateExpanded by remember { mutableStateOf(false) }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -140,36 +137,18 @@ fun LoanForm(
                 AdaptiveFieldRow(
                     isCompact = isCompact,
                     first = { fieldModifier ->
-                        ExposedDropdownMenuBox(
-                            expanded = currencyExpanded,
-                            onExpandedChange = { currencyExpanded = it },
-                            modifier = fieldModifier
-                        ) {
-                            OutlinedTextField(
-                                value = draft.state.currency.name,
-                                onValueChange = {},
-                                readOnly = true,
-                                singleLine = true,
-                                label = { Text("Moneda") },
-                                shape = RoundedCornerShape(8.dp),
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = currencyExpanded) },
-                                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true).accessibleField("Moneda")
-                            )
-                            ExposedDropdownMenu(
-                                expanded = currencyExpanded,
-                                onDismissRequest = { currencyExpanded = false }
-                            ) {
-                                Currency.entries.forEach { curr ->
-                                    DropdownMenuItem(
-                                        text = { Text(curr.name) },
-                                        onClick = {
-                                            draft = draft.updateCurrency(curr)
-                                            errorMessage = ""
-                                            currencyExpanded = false
-                                        }
-                                    )
+                        Box(modifier = fieldModifier) {
+                            ComparisonChoice(
+                                label = "Moneda",
+                                choices = Currency.entries.map { it.name },
+                                selected = draft.state.currency.name,
+                                onSelect = { selected ->
+                                    Currency.entries.firstOrNull { it.name == selected }?.let { currency ->
+                                        draft = draft.updateCurrency(currency)
+                                        errorMessage = ""
+                                    }
                                 }
-                            }
+                            )
                         }
                     },
                     second = { fieldModifier ->
@@ -291,50 +270,18 @@ fun LoanForm(
                 AdaptiveFieldRow(
                     isCompact = isCompact,
                     first = { fieldModifier ->
-                        ExposedDropdownMenuBox(
-                            expanded = rateExpanded,
-                            onExpandedChange = { rateExpanded = it },
-                            modifier = fieldModifier
-                        ) {
-                            OutlinedTextField(
-                                value = draft.state.rateKind.displayName,
-                                onValueChange = {},
-                                readOnly = true,
-                                singleLine = true,
-                                label = { Text("Tipo de tasa") },
-                                shape = RoundedCornerShape(8.dp),
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = rateExpanded) },
-                                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true).accessibleField("Tipo de tasa")
+                        Box(modifier = fieldModifier) {
+                            ComparisonChoice(
+                                label = "Tipo de tasa",
+                                choices = RateKind.entries.map { it.displayName },
+                                selected = draft.state.rateKind.displayName,
+                                onSelect = { selected ->
+                                    RateKind.entries.firstOrNull { it.displayName == selected }?.let { rateKind ->
+                                        draft = draft.updateRateKind(rateKind)
+                                        errorMessage = ""
+                                    }
+                                }
                             )
-                            ExposedDropdownMenu(
-                                expanded = rateExpanded,
-                                onDismissRequest = { rateExpanded = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(RateKind.Monthly.displayName) },
-                                    onClick = {
-                                        draft = draft.updateRateKind(RateKind.Monthly)
-                                        errorMessage = ""
-                                        rateExpanded = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(RateKind.Annual.displayName) },
-                                    onClick = {
-                                        draft = draft.updateRateKind(RateKind.Annual)
-                                        errorMessage = ""
-                                        rateExpanded = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(RateKind.Nominal.displayName) },
-                                    onClick = {
-                                        draft = draft.updateRateKind(RateKind.Nominal)
-                                        errorMessage = ""
-                                        rateExpanded = false
-                                    }
-                                )
-                            }
                         }
                     },
                     second = { fieldModifier ->
@@ -627,7 +574,6 @@ fun LoanForm(
         }
     }
 }
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun InsuranceItemCard(
     item: InsuranceDraftItem,
@@ -637,9 +583,6 @@ private fun InsuranceItemCard(
     onUpdate: (InsuranceDraftItem) -> Unit,
     onRemove: () -> Unit
 ) {
-    var kindExpanded by remember { mutableStateOf(false) }
-    var vigenciaExpanded by remember { mutableStateOf(false) }
-
     Card(
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -690,40 +633,20 @@ private fun InsuranceItemCard(
                     )
                 },
                 second = { fieldModifier ->
-                    ExposedDropdownMenuBox(
-                        expanded = kindExpanded,
-                        onExpandedChange = { kindExpanded = it },
-                        modifier = fieldModifier
-                    ) {
-                        OutlinedTextField(
-                            value = if (item.kind == "percentage") "% del saldo" else "Monto fijo mensual",
-                            onValueChange = {},
-                            readOnly = true,
-                            singleLine = true,
-                            label = { Text("Modalidad") },
-                            shape = RoundedCornerShape(8.dp),
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = kindExpanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true).accessibleField("Modalidad")
+                    Box(modifier = fieldModifier) {
+                        ComparisonChoice(
+                            label = "Modalidad",
+                            choices = listOf("Monto fijo mensual", "% del saldo mensual"),
+                            selected = if (item.kind == "percentage") "% del saldo mensual" else "Monto fijo mensual",
+                            onSelect = { selected ->
+                                val kind = when (selected) {
+                                    "Monto fijo mensual" -> "fixed"
+                                    "% del saldo mensual" -> "percentage"
+                                    else -> null
+                                }
+                                if (kind != null) onUpdate(item.copy(kind = kind))
+                            }
                         )
-                        ExposedDropdownMenu(
-                            expanded = kindExpanded,
-                            onDismissRequest = { kindExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Monto fijo mensual") },
-                                onClick = {
-                                    onUpdate(item.copy(kind = "fixed"))
-                                    kindExpanded = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("% del saldo mensual") },
-                                onClick = {
-                                    onUpdate(item.copy(kind = "percentage"))
-                                    kindExpanded = false
-                                }
-                            )
-                        }
                     }
                 }
             )
@@ -745,40 +668,18 @@ private fun InsuranceItemCard(
                     )
                 },
                 second = { fieldModifier ->
-                    ExposedDropdownMenuBox(
-                        expanded = vigenciaExpanded,
-                        onExpandedChange = { vigenciaExpanded = it },
-                        modifier = fieldModifier
-                    ) {
-                        OutlinedTextField(
-                            value = if (item.endsAtPayoff) "Hasta liquidar préstamo" else "Hasta mes específico",
-                            onValueChange = {},
-                            readOnly = true,
-                            singleLine = true,
-                            label = { Text("Vigencia") },
-                            shape = RoundedCornerShape(8.dp),
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = vigenciaExpanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true).accessibleField("Vigencia")
+                    Box(modifier = fieldModifier) {
+                        ComparisonChoice(
+                            label = "Vigencia",
+                            choices = listOf("Hasta liquidar préstamo", "Hasta mes específico"),
+                            selected = if (item.endsAtPayoff) "Hasta liquidar préstamo" else "Hasta mes específico",
+                            onSelect = { selected ->
+                                when (selected) {
+                                    "Hasta liquidar préstamo" -> onUpdate(item.copy(endsAtPayoff = true))
+                                    "Hasta mes específico" -> onUpdate(item.copy(endsAtPayoff = false))
+                                }
+                            }
                         )
-                        ExposedDropdownMenu(
-                            expanded = vigenciaExpanded,
-                            onDismissRequest = { vigenciaExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Hasta liquidar préstamo") },
-                                onClick = {
-                                    onUpdate(item.copy(endsAtPayoff = true))
-                                    vigenciaExpanded = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Hasta mes específico") },
-                                onClick = {
-                                    onUpdate(item.copy(endsAtPayoff = false))
-                                    vigenciaExpanded = false
-                                }
-                            )
-                        }
                     }
                 }
             )
