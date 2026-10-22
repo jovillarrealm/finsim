@@ -9,8 +9,9 @@
     "test": "node --test --test-reporter=tap --test-concurrency=1 scripts/verify-web.test.mjs kmp/composeApp/browser-tests/*.test.cjs",
     "test:e2e": "node --test --test-reporter=tap --test-concurrency=1 kmp/composeApp/browser-tests/*.test.cjs",
     "verify:web": "node scripts/verify-web.mjs",
-    "test:verification": "node --test scripts/verify-financial.test.mjs",
+    "test:verification": "node --test scripts/verify-financial.test.mjs scripts/verify-device.test.mjs",
     "verify:financial": "node scripts/verify-financial.mjs",
+    "verify:device": "node scripts/verify-device.mjs",
     "test:kmp": "gradle -p kmp :shared:jvmTest :composeApp:testAndroidHostTest",
     "build": "gradle -p kmp :composeApp:wasmJsBrowserDistribution",
     "preview": "vite preview --host 127.0.0.1"

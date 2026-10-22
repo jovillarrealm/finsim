@@ -58,3 +58,61 @@
 
 # Suppress warnings for JVM management beans not present on Android
 -dontwarn java.lang.management.**
+
+# LiteRT-LM 0.18.0 JNI uses literal class and member names from native code.
+# Keep only those entry points stable while leaving the rest of the library optimized.
+-keep class com.google.ai.edge.litertlm.SamplerConfig {
+    public int getTopK();
+    public double getTopP();
+    public double getTemperature();
+    public int getSeed();
+}
+-keep class com.google.ai.edge.litertlm.ThinkingConfig {
+    public boolean getEnableThinking();
+    public int getThinkingTokenBudget();
+}
+-keep class com.google.ai.edge.litertlm.RepetitionPenaltyConfig {
+    public java.lang.Float getRepetitionPenalty();
+    public java.lang.Float getPresencePenalty();
+    public java.lang.Float getFrequencyPenalty();
+    public java.lang.Integer getWindowSize();
+}
+-keep class com.google.ai.edge.litertlm.NoRepeatNgramConfig {
+    public java.lang.Integer getNoRepeatNgramSize();
+    public java.lang.Integer getWindowSize();
+}
+-keep class com.google.ai.edge.litertlm.InputData$Text {
+    public java.lang.String getText();
+}
+-keep class com.google.ai.edge.litertlm.InputData$Audio {
+    public byte[] getBytes();
+}
+-keep class com.google.ai.edge.litertlm.InputData$Image {
+    public byte[] getBytes();
+}
+-keep class com.google.ai.edge.litertlm.LiteRtLmJniException {
+    public <init>(java.lang.String);
+}
+-keep class com.google.ai.edge.litertlm.BenchmarkInfo {
+    public <init>(double, double, int, int, double, double);
+}
+-keep interface com.google.ai.edge.litertlm.LiteRtLmJni$JniInferenceCallback {
+    public void onNext(java.lang.String);
+    public void onDone();
+    public void onError(int, java.lang.String);
+}
+-keepclassmembers class * implements com.google.ai.edge.litertlm.LiteRtLmJni$JniInferenceCallback {
+    public void onNext(java.lang.String);
+    public void onDone();
+    public void onError(int, java.lang.String);
+}
+-keep interface com.google.ai.edge.litertlm.LiteRtLmJni$JniMessageCallback {
+    public void onMessage(java.lang.String);
+    public void onDone();
+    public void onError(int, java.lang.String);
+}
+-keepclassmembers class * implements com.google.ai.edge.litertlm.LiteRtLmJni$JniMessageCallback {
+    public void onMessage(java.lang.String);
+    public void onDone();
+    public void onError(int, java.lang.String);
+}

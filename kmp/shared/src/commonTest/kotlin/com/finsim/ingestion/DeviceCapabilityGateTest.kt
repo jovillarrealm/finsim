@@ -5,7 +5,7 @@ import kotlin.test.*
 class DeviceCapabilityGateTest {
 
     @Test
-    fun testDeviceWith4GbRamIsIneligibleAndExplainsLmkdAnd6GbRequirement() {
+    fun testDeviceWith4GbRamIsIneligibleAndExplainsLmkdAnd8GiBRequirement() {
         val gate = FakeDeviceCapabilityGate(totalRamGb = 4.0)
 
         assertEquals(4.0, gate.totalRamGb)
@@ -18,8 +18,8 @@ class DeviceCapabilityGateTest {
             "Reason should explain LMKD (Low Memory Killer Daemon) risk: '$reason'"
         )
         assertTrue(
-            reason.contains("6", ignoreCase = false),
-            "Reason should reference the 6.0 GB minimum requirement: '$reason'"
+            reason.contains("8", ignoreCase = false),
+            "Reason should reference the 8.0 GB minimum requirement: '$reason'"
         )
 
         // Also verify via default invoke operator
@@ -29,14 +29,14 @@ class DeviceCapabilityGateTest {
     }
 
     @Test
-    fun testDeviceWith6GbRamIsEligible() {
-        val gate = FakeDeviceCapabilityGate(totalRamGb = 6.0)
+    fun testDeviceWith8GiBRamIsEligible() {
+        val gate = FakeDeviceCapabilityGate(totalRamGb = 8.0)
 
-        assertEquals(6.0, gate.totalRamGb)
-        assertTrue(gate.isEligibleForVlm, "Devices with exactly 6.0 GB RAM must be eligible for VLM")
+        assertEquals(8.0, gate.totalRamGb)
+        assertTrue(gate.isEligibleForVlm, "Devices with exactly 8.0 GB RAM must be eligible for VLM")
         assertNull(gate.ineligibilityReason, "Eligible devices must have null ineligibilityReason")
 
-        val defaultGate = DeviceCapabilityGate(totalRamGb = 6.0)
+        val defaultGate = DeviceCapabilityGate(totalRamGb = 8.0)
         assertTrue(defaultGate.isEligibleForVlm)
         assertNull(defaultGate.ineligibilityReason)
     }
@@ -56,7 +56,7 @@ class DeviceCapabilityGateTest {
     fun testPlatformGateProvidesValidValues() {
         val platformGate = getDeviceCapabilityGate()
         assertTrue(platformGate.totalRamGb >= 0.0)
-        if (platformGate.totalRamGb < 6.0) {
+        if (platformGate.totalRamGb < 8.0) {
             assertFalse(platformGate.isEligibleForVlm)
             assertNotNull(platformGate.ineligibilityReason)
         } else {

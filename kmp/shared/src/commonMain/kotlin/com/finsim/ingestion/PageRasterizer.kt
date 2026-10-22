@@ -1,5 +1,26 @@
 package com.finsim.ingestion
 
+/** Upper bound for a PDF kept in memory during on-device visual extraction. */
+const val MAX_INGESTION_PDF_BYTES: Int = 25 * 1024 * 1024
+internal const val MAX_RASTER_DIMENSION: Long = 12_000L
+internal const val MAX_RASTER_PAGE_PIXELS: Long = 12_000_000L
+
+internal fun validatePdfForInMemoryRasterization(pdfBytes: ByteArray) {
+    require(pdfBytes.isNotEmpty()) { "El archivo PDF está vacío." }
+    require(pdfBytes.size <= MAX_INGESTION_PDF_BYTES) {
+        "El PDF supera el límite de ${MAX_INGESTION_PDF_BYTES / (1024 * 1024)} MiB para análisis visual en memoria."
+    }
+}
+
+internal fun validateRasterDimensions(width: Long, height: Long) {
+    require(width in 1..MAX_RASTER_DIMENSION && height in 1..MAX_RASTER_DIMENSION) {
+        "La página del PDF excede el límite de ${MAX_RASTER_DIMENSION} píxeles por dimensión."
+    }
+    require(width * height <= MAX_RASTER_PAGE_PIXELS) {
+        "La página del PDF excede el límite de 12 megapíxeles para rasterización en memoria."
+    }
+}
+
 /**
  * Seam for rendering PDF pages into bitmap/image byte arrays at a target DPI.
  */

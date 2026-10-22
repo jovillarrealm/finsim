@@ -10,6 +10,7 @@ kotlin {
         namespace = "com.finsim.shared"
         compileSdk = 37
         minSdk = 24
+        withHostTestBuilder {}
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_21)
         }
@@ -28,6 +29,10 @@ kotlin {
     }
 
     sourceSets {
+        androidMain.dependencies {
+            implementation(libs.litertlm.android)
+            implementation(libs.okhttp)
+        }
         commonMain.dependencies {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.coroutines.core)
