@@ -9,6 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -150,6 +152,7 @@ fun EventEditor(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clickable { kindMenuExpanded = true }
+                                            .semantics { contentDescription = "Tipo" }
                                     )
                                     DropdownMenu(
                                         expanded = kindMenuExpanded,
@@ -175,7 +178,7 @@ fun EventEditor(
                                         }
                                     },
                                     label = { Text("Mes") },
-                                    modifier = Modifier.weight(0.8f)
+                                    modifier = Modifier.weight(0.8f).semantics { contentDescription = "Mes" }
                                 )
 
                                 if (item.kind != EventDraftKind.Missed) {
@@ -185,7 +188,7 @@ fun EventEditor(
                                             onBatchChange(batch.updateAmount(item.id, newVal))
                                         },
                                         label = { Text("Importe ($currency)") },
-                                        modifier = Modifier.weight(1.2f)
+                                        modifier = Modifier.weight(1.2f).semantics { contentDescription = "Importe ($currency)" }
                                     )
                                 }
                             }
@@ -205,7 +208,7 @@ fun EventEditor(
                                             }
                                         },
                                         label = { Text("Hasta mes") },
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier.weight(1f).semantics { contentDescription = "Hasta mes" }
                                     )
                                     OutlinedTextField(
                                         value = item.every.toString(),
@@ -215,7 +218,7 @@ fun EventEditor(
                                             }
                                         },
                                         label = { Text("Cada N meses") },
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier.weight(1f).semantics { contentDescription = "Cada N meses" }
                                     )
                                 }
                             }

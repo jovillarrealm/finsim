@@ -133,6 +133,10 @@ data class Scenario(
         val insuranceIds = insurance.map { it.id }.toSet()
         require(insuranceIds.size == insurance.size) { "Los identificadores de seguro no deben repetirse." }
 
+        require(argentinaProfile == null || currency == Currency.ARS) {
+            "El perfil argentino solo se admite para operaciones en ARS."
+        }
+
         events.forEach { event ->
             require(event.month in 1..MAX_MONTHS) { "El mes del evento debe estar entre 1 y $MAX_MONTHS." }
             when (event) {

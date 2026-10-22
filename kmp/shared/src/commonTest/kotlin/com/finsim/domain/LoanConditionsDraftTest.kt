@@ -274,4 +274,210 @@ class LoanConditionsDraftTest {
         assertEquals("Original 2", draft2.name)
         assertEquals("2000.00", draft2.principalStr)
     }
+
+    @Test
+    fun `simultaneous nominal rate frequency and agreed payment are preserved on commit`() {
+        val scenario = sampleScenario(
+            principal = "10000.00",
+            termMonths = 12,
+            rate = Rate.Monthly("0.01")
+        )
+        val draft = LoanConditionsDraft.from(scenario)
+            .updateRate(RateKind.Nominal, "18.0", "4")
+            .updatePayment("950.00")
+
+        assertTrue(draft.isDirty)
+        assertTrue(draft.isValid)
+        assertEquals(RateKind.Nominal, draft.rateKind)
+        assertEquals("4", draft.nominalFrequencyStr)
+        assertEquals("950.00", draft.paymentStr)
+
+        val committed = draft.commit()
+        assertNotNull(committed)
+        assertTrue(committed.rate is Rate.Nominal)
+        val nominal = committed.rate as Rate.Nominal
+        assertEquals("0.18", nominal.value)
+        assertEquals(4, nominal.frequency)
+        assertEquals("950.00", committed.payment)
+    }
+
+    @Test
+    fun `insurance draft CRUD operations and dirty tracking`() {
+        val scenario = sampleScenario(principal = "20000.00", termMonths = 24)
+        val draft = LoanConditionsDraft.from(scenario)
+        assertFalse(draft.isDirty)
+        assertEquals(0, draft.insurances.size)
+
+        // 1. Add fixed insurance
+        val draftWithOne = draft.addInsurance(
+            name = "Seguro de desempleo",
+            kind = "fixed",
+            valueStr = "45000.00",
+            endsAtPayoff = true
+        )
+        assertTrue(draftWithOne.isDirty)
+        assertEquals(1, draftWithOne.insurances.size)
+        val firstId = draftWithOne.insurances[0].id
+        assertEquals("Seguro de desempleo", draftWithOne.insurances[0].name)
+        assertEquals("45000.00", draftWithOne.insurances[0].valueStr)
+
+        // 2. Add percentage insurance with specific endMonth
+        val draftWithTwo = draftWithOne.addInsurance(
+            name = "Seguro de vida",
+            kind = "percentage",
+            valueStr = "0.05", // 0.05%
+            endsAtPayoff = false,
+            endMonthStr = "18"
+        )
+        assertEquals(2, draftWithTwo.insurances.size)
+        val secondId = draftWithTwo.insurances[1].id
+        assertEquals("percentage", draftWithTwo.insurances[1].kind)
+        assertEquals("0.05", draftWithTwo.insurances[1].valueStr)
+        assertFalse(draftWithTwo.insurances[1].endsAtPayoff)
+        assertEquals("18", draftWithTwo.insurances[1].endMonthStr)
+
+        // 3. Update existing insurance
+        val draftUpdated = draftWithTwo.updateInsurance(
+            draftWithTwo.insurances[0].copy(valueStr = "50000.00")
+        )
+        assertEquals("50000.00", draftUpdated.insurances[0].valueStr)
+
+        // 4. Commit and verify domain Scenario
+        val committed = draftUpdated.commit()
+        assertNotNull(committed)
+        assertEquals(2, committed.insurance.size)
+
+        val dom0 = committed.insurance[0]
+        assertEquals(firstId, dom0.id)
+        assertEquals("Seguro de desempleo", dom0.name)
+        assertEquals("fixed", dom0.kind)
+        assertEquals("50000.00", dom0.value)
+        assertTrue(dom0.endsAtPayoff)
+        assertNull(dom0.endMonth)
+
+        val dom1 = committed.insurance[1]
+        assertEquals(secondId, dom1.id)
+        assertEquals("Seguro de vida", dom1.name)
+        assertEquals("percentage", dom1.kind)
+        // 0.05% -> 0.0005
+        assertEquals("0.0005", dom1.value)
+        assertFalse(dom1.endsAtPayoff)
+        assertEquals(18, dom1.endMonth)
+
+        // 5. Remove first insurance
+        val draftRemoved = draftUpdated.removeInsurance(firstId)
+        assertEquals(1, draftRemoved.insurances.size)
+        assertEquals(secondId, draftRemoved.insurances[0].id)
+    }
+
+    @Test
+    fun `insurance validation rejections on empty fields, negative value, and invalid endMonth`() {
+        val scenario = sampleScenario()
+        val draft = LoanConditionsDraft.from(scenario)
+
+        // 1. Empty name
+        val invalidName = draft.addInsurance(name = "   ", kind = "fixed", valueStr = "100.00")
+        assertFalse(invalidName.isValid)
+        assertTrue(invalidName.errors.containsKey(LoanField.Insurance))
+        assertNull(invalidName.commit())
+
+        // 2. Negative value
+        val invalidValue = draft.addInsurance(name = "Vida", kind = "fixed", valueStr = "-20.00")
+        assertFalse(invalidValue.isValid)
+        assertTrue(invalidValue.errors.containsKey(LoanField.Insurance))
+
+        // 3. Non-numeric value
+        val nonNumeric = draft.addInsurance(name = "Vida", kind = "fixed", valueStr = "cien")
+        assertFalse(nonNumeric.isValid)
+        assertTrue(nonNumeric.errors.containsKey(LoanField.Insurance))
+
+        // 4. Missing endMonth when endsAtPayoff is false
+        val missingEndMonth = draft.addInsurance(
+            name = "Vida",
+            kind = "fixed",
+            valueStr = "100.00",
+            endsAtPayoff = false,
+            endMonthStr = ""
+        )
+        assertFalse(missingEndMonth.isValid)
+        assertTrue(missingEndMonth.errors.containsKey(LoanField.Insurance))
+
+        // 5. Duplicate insurance IDs
+        val dup1 = InsuranceDraftItem(id = "dup-id", name = "Seguro 1", kind = "fixed", valueStr = "10.00")
+        val dup2 = InsuranceDraftItem(id = "dup-id", name = "Seguro 2", kind = "fixed", valueStr = "20.00")
+        val draftWithDups = draft.addInsurance(dup1).addInsurance(dup2)
+        assertFalse(draftWithDups.isValid)
+        assertTrue(draftWithDups.errors.containsKey(LoanField.Insurance))
+        assertEquals("Los identificadores de seguro no deben repetirse.", draftWithDups.errors[LoanField.Insurance])
+    }
+
+    @Test
+    fun `argentina prepayment profile state transitions, validation and commit`() {
+        val scenario = sampleScenario(currency = Currency.ARS, termMonths = 36)
+        val draft = LoanConditionsDraft.from(scenario)
+        assertFalse(draft.isDirty)
+        assertFalse(draft.argentinaProfile.enabled)
+
+        // 1. Enable profile
+        val enabledDraft = draft.toggleArgentinaProfile(true)
+        assertTrue(enabledDraft.isDirty)
+        assertTrue(enabledDraft.argentinaProfile.enabled)
+
+        // 2. Configure fields
+        val configured = enabledDraft.updateArgentinaProfile(
+            originationDate = "2025-06",
+            originalTermMonthsStr = "48",
+            contractualProfile = "Préstamo UVA Galicia",
+            commissionPercentStr = "3.5",
+            vatPercentStr = "21.0"
+        )
+        assertTrue(configured.isValid)
+
+        // 3. Commit and verify domain Scenario
+        val committed = configured.commit()
+        assertNotNull(committed)
+        assertNotNull(committed.argentinaProfile)
+        val profile = committed.argentinaProfile!!
+        assertEquals("2025-06", profile.originationDate)
+        assertEquals(48, profile.originalTermMonths)
+        assertEquals("Préstamo UVA Galicia", profile.contractualProfile)
+        assertEquals("0.035", profile.commissionRate)
+        assertEquals("0.21", profile.vatRate)
+
+        // 4. Validation errors: invalid originationDate
+        val invalidDate = configured.updateArgentinaProfile(originationDate = "2025/06")
+        assertFalse(invalidDate.isValid)
+        assertTrue(invalidDate.errors.containsKey(LoanField.ArgentinaProfile))
+
+        // 5. Validation errors: negative commission
+        val invalidComm = configured.updateArgentinaProfile(commissionPercentStr = "-1.0")
+        assertFalse(invalidComm.isValid)
+        assertTrue(invalidComm.errors.containsKey(LoanField.ArgentinaProfile))
+
+        // 6. Disable profile
+        val disabled = configured.toggleArgentinaProfile(false)
+        val committedDisabled = disabled.commit()
+        assertNotNull(committedDisabled)
+        assertNull(committedDisabled.argentinaProfile)
+    }
+
+    @Test
+    fun `argentina profile is ARS-only and changing the form currency removes it`() {
+        val arsScenario = sampleScenario(currency = Currency.ARS).copy(argentinaProfile = ArgentinaProfile())
+        val arsDraft = LoanConditionsDraft.from(arsScenario)
+        assertTrue(arsDraft.isValid)
+        assertTrue(arsDraft.argentinaProfile.enabled)
+
+        val nonArsDraft = arsDraft.updateCurrency(Currency.COP)
+        assertFalse(nonArsDraft.argentinaProfile.enabled)
+        assertTrue(nonArsDraft.isValid)
+        assertNull(nonArsDraft.commit()?.argentinaProfile)
+
+        val invalidImportedScenario = arsScenario.copy(currency = Currency.COP)
+        assertFailsWith<IllegalArgumentException> { invalidImportedScenario.validate() }
+        val invalidDraft = LoanConditionsDraft.from(invalidImportedScenario)
+        assertFalse(invalidDraft.isValid)
+        assertTrue(invalidDraft.errors.containsKey(LoanField.ArgentinaProfile))
+        assertTrue(invalidDraft.updateCurrency(Currency.ARS).isValid)
+    }
 }

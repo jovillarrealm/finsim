@@ -45,6 +45,136 @@ enum class RateKind(val wire: String, val displayName: String) {
 }
 
 /**
+ * Normaliza una cadena numérica removiendo sufijos porcentuales y sustituyendo comas por puntos.
+ */
+internal fun normalizeNumber(raw: String): String =
+    raw.trim().removeSuffix("%").trim().replace(',', '.')
+
+/**
+ * Borrador inmutable para un ítem de seguro del préstamo.
+ */
+data class InsuranceDraftItem(
+    val id: String,
+    val name: String,
+    val kind: String = "fixed", // "fixed" or "percentage"
+    val valueStr: String = "0.00",
+    val endsAtPayoff: Boolean = true,
+    val endMonthStr: String = ""
+) {
+    fun toDomainInsurance(): Insurance {
+        val valNorm = normalizeNumber(valueStr)
+        val domainVal = if (kind == "percentage") {
+            if (valNorm.isNotBlank()) {
+                (Decimal.parse(valNorm) / Decimal.parse("100")).toString()
+            } else "0"
+        } else {
+            if (valNorm.isNotBlank()) valNorm else "0.00"
+        }
+        val endM = if (!endsAtPayoff) endMonthStr.trim().toIntOrNull() else null
+        return Insurance(
+            id = id.trim(),
+            name = name.trim(),
+            kind = kind,
+            value = domainVal,
+            endsAtPayoff = endsAtPayoff,
+            endMonth = endM
+        )
+    }
+
+    companion object {
+        fun fromDomain(domain: Insurance): InsuranceDraftItem {
+            val valStr = if (domain.kind == "percentage") {
+                try {
+                    (Decimal.parse(domain.value) * Decimal.parse("100")).toString()
+                } catch (_: Exception) {
+                    domain.value
+                }
+            } else {
+                domain.value
+            }
+            return InsuranceDraftItem(
+                id = domain.id,
+                name = domain.name,
+                kind = domain.kind,
+                valueStr = valStr,
+                endsAtPayoff = domain.endsAtPayoff,
+                endMonthStr = domain.endMonth?.toString() ?: ""
+            )
+        }
+    }
+}
+
+/**
+ * Borrador inmutable para el régimen de prepago y precancelación argentino.
+ */
+data class ArgentinaProfileDraft(
+    val enabled: Boolean = false,
+    val originationDate: String = "",
+    val originalTermMonthsStr: String = "",
+    val contractualProfile: String = "",
+    val commissionPercentStr: String = "3",
+    val vatPercentStr: String = "21"
+) {
+    fun toDomainProfile(): ArgentinaProfile? {
+        if (!enabled) return null
+        val commNorm = normalizeNumber(commissionPercentStr)
+        val commRate = if (commNorm.isNotBlank()) {
+            (Decimal.parse(commNorm) / Decimal.parse("100")).toString()
+        } else "0.03"
+
+        val vatNorm = normalizeNumber(vatPercentStr)
+        val vatRate = if (vatNorm.isNotBlank()) {
+            (Decimal.parse(vatNorm) / Decimal.parse("100")).toString()
+        } else "0.21"
+
+        val origTerm = originalTermMonthsStr.trim().toIntOrNull()
+        val origDate = originationDate.trim().ifBlank { null }
+        val contractProfile = contractualProfile.trim().ifBlank { null }
+
+        return ArgentinaProfile(
+            originationDate = origDate,
+            originalTermMonths = origTerm,
+            contractualProfile = contractProfile,
+            commissionRate = commRate,
+            vatRate = vatRate
+        )
+    }
+
+    companion object {
+        fun fromDomain(profile: ArgentinaProfile?): ArgentinaProfileDraft {
+            if (profile == null) {
+                return ArgentinaProfileDraft(
+                    enabled = false,
+                    originationDate = "",
+                    originalTermMonthsStr = "",
+                    contractualProfile = "",
+                    commissionPercentStr = "3",
+                    vatPercentStr = "21"
+                )
+            }
+            val commPercent = try {
+                (Decimal.parse(profile.commissionRate) * Decimal.parse("100")).toString()
+            } catch (_: Exception) {
+                profile.commissionRate
+            }
+            val vatPercent = try {
+                (Decimal.parse(profile.vatRate) * Decimal.parse("100")).toString()
+            } catch (_: Exception) {
+                profile.vatRate
+            }
+            return ArgentinaProfileDraft(
+                enabled = true,
+                originationDate = profile.originationDate ?: "",
+                originalTermMonthsStr = profile.originalTermMonths?.toString() ?: "",
+                contractualProfile = profile.contractualProfile ?: "",
+                commissionPercentStr = commPercent,
+                vatPercentStr = vatPercent
+            )
+        }
+    }
+}
+
+/**
  * Campos editables del borrador de condiciones de préstamo.
  */
 enum class LoanField {
@@ -58,6 +188,8 @@ enum class LoanField {
     RatePercentage,
     NominalFrequency,
     Payment,
+    Insurance,
+    ArgentinaProfile,
     General
 }
 
@@ -74,7 +206,9 @@ data class LoanDraftState(
     val rateKind: RateKind,
     val ratePercentageStr: String,
     val nominalFrequencyStr: String = "12",
-    val paymentStr: String = ""
+    val paymentStr: String = "",
+    val insurances: List<InsuranceDraftItem> = emptyList(),
+    val argentinaProfile: ArgentinaProfileDraft = ArgentinaProfileDraft()
 )
 
 /**
@@ -108,6 +242,8 @@ class LoanConditionsDraft private constructor(
     val ratePercentageStr: String get() = state.ratePercentageStr
     val nominalFrequencyStr: String get() = state.nominalFrequencyStr
     val paymentStr: String get() = state.paymentStr
+    val insurances: List<InsuranceDraftItem> get() = state.insurances
+    val argentinaProfile: ArgentinaProfileDraft get() = state.argentinaProfile
 
     /**
      * Indicador O(1) de si el borrador ha sufrido modificaciones respecto a la línea base.
@@ -185,7 +321,16 @@ class LoanConditionsDraft private constructor(
      * Actualiza la moneda del préstamo.
      */
     fun updateCurrency(currency: Currency): LoanConditionsDraft =
-        transition(state.copy(currency = currency))
+        transition(
+            state.copy(
+                currency = currency,
+                argentinaProfile = if (currency == Currency.ARS) {
+                    state.argentinaProfile
+                } else {
+                    state.argentinaProfile.copy(enabled = false)
+                }
+            )
+        )
 
     /**
      * Actualiza el origen del saldo base (original o saldo actual).
@@ -204,6 +349,92 @@ class LoanConditionsDraft private constructor(
      */
     fun updatePayment(raw: String): LoanConditionsDraft =
         transition(state.copy(paymentStr = raw))
+
+    /**
+     * Agrega un nuevo seguro al borrador del préstamo.
+     */
+    fun addInsurance(item: InsuranceDraftItem): LoanConditionsDraft =
+        transition(state.copy(insurances = state.insurances + item))
+
+    /**
+     * Agrega un seguro con valores por defecto o parametrizados.
+     */
+    fun addInsurance(
+        name: String = "Nuevo seguro",
+        kind: String = "fixed",
+        valueStr: String = "0.00",
+        endsAtPayoff: Boolean = true,
+        endMonthStr: String = ""
+    ): LoanConditionsDraft {
+        val existingIds = state.insurances.map { it.id }.toSet()
+        var idx = state.insurances.size + 1
+        while ("ins-$idx" in existingIds) {
+            idx++
+        }
+        val item = InsuranceDraftItem(
+            id = "ins-$idx",
+            name = name,
+            kind = kind,
+            valueStr = valueStr,
+            endsAtPayoff = endsAtPayoff,
+            endMonthStr = endMonthStr
+        )
+        return addInsurance(item)
+    }
+
+    /**
+     * Actualiza un ítem de seguro existente.
+     */
+    fun updateInsurance(item: InsuranceDraftItem): LoanConditionsDraft =
+        transition(state.copy(insurances = state.insurances.map { if (it.id == item.id) item else it }))
+
+    /**
+     * Actualiza un ítem de seguro aplicando una función de transformación sobre el existente.
+     */
+    fun updateInsurance(id: String, transform: (InsuranceDraftItem) -> InsuranceDraftItem): LoanConditionsDraft =
+        transition(state.copy(insurances = state.insurances.map { if (it.id == id) transform(it) else it }))
+
+    /**
+     * Elimina un seguro por su identificador.
+     */
+    fun removeInsurance(id: String): LoanConditionsDraft =
+        transition(state.copy(insurances = state.insurances.filterNot { it.id == id }))
+
+    /**
+     * Habilita o deshabilita el perfil de precancelación argentino.
+     */
+    fun toggleArgentinaProfile(enabled: Boolean): LoanConditionsDraft =
+        transition(state.copy(argentinaProfile = state.argentinaProfile.copy(enabled = enabled)))
+
+    /**
+     * Actualiza el perfil de precancelación argentino.
+     */
+    fun updateArgentinaProfile(profile: ArgentinaProfileDraft): LoanConditionsDraft =
+        transition(state.copy(argentinaProfile = profile))
+
+    /**
+     * Actualiza campos individuales del perfil argentino de precancelación.
+     */
+    fun updateArgentinaProfile(
+        enabled: Boolean = state.argentinaProfile.enabled,
+        originationDate: String = state.argentinaProfile.originationDate,
+        originalTermMonthsStr: String = state.argentinaProfile.originalTermMonthsStr,
+        contractualProfile: String = state.argentinaProfile.contractualProfile,
+        commissionPercentStr: String = state.argentinaProfile.commissionPercentStr,
+        vatPercentStr: String = state.argentinaProfile.vatPercentStr
+    ): LoanConditionsDraft =
+        transition(
+            state.copy(
+                argentinaProfile = state.argentinaProfile.copy(
+                    enabled = enabled,
+                    originationDate = originationDate,
+                    originalTermMonthsStr = originalTermMonthsStr,
+                    contractualProfile = contractualProfile,
+                    commissionPercentStr = commissionPercentStr,
+                    vatPercentStr = vatPercentStr
+                )
+            )
+        )
 
     /**
      * Restablece el borrador a la línea base actual en tiempo O(1).
@@ -255,6 +486,9 @@ class LoanConditionsDraft private constructor(
             )
         }
 
+        val domainInsurances = state.insurances.map { it.toDomainInsurance() }
+        val domainArgProfile = state.argentinaProfile.toDomainProfile()
+
         return baseline.copy(
             name = state.name.trim(),
             currency = state.currency,
@@ -263,14 +497,13 @@ class LoanConditionsDraft private constructor(
             startDate = state.startDate.trim(),
             termMonths = state.termMonthsStr.trim().toInt(),
             rate = domainRate,
-            payment = state.paymentStr.trim().ifBlank { null }
+            payment = state.paymentStr.trim().ifBlank { null },
+            insurance = domainInsurances,
+            argentinaProfile = domainArgProfile
         )
     }
 
     companion object {
-        private fun normalizeNumber(raw: String): String =
-            raw.trim().removeSuffix("%").trim().replace(',', '.')
-
         /**
          * Inicializa un borrador a partir de un escenario base de dominio.
          */
@@ -297,7 +530,9 @@ class LoanConditionsDraft private constructor(
                 rateKind = RateKind.fromDomain(scenario.rate),
                 ratePercentageStr = ratePercentStr,
                 nominalFrequencyStr = nominalFreqStr,
-                paymentStr = scenario.payment ?: ""
+                paymentStr = scenario.payment ?: "",
+                insurances = scenario.insurance.map { InsuranceDraftItem.fromDomain(it) },
+                argentinaProfile = ArgentinaProfileDraft.fromDomain(scenario.argentinaProfile)
             )
 
             val initialErrors = validate(initialState)
@@ -385,6 +620,89 @@ class LoanConditionsDraft private constructor(
                     }
                 } catch (_: Exception) {
                     errors[LoanField.Payment] = "La cuota debe ser un número válido."
+                }
+            }
+
+            // 8. Seguros
+            val insuranceIds = mutableSetOf<String>()
+            for (ins in state.insurances) {
+                if (ins.id.isBlank()) {
+                    errors[LoanField.Insurance] = "El identificador del seguro no puede estar vacío."
+                    break
+                }
+                if (!insuranceIds.add(ins.id.trim())) {
+                    errors[LoanField.Insurance] = "Los identificadores de seguro no deben repetirse."
+                    break
+                }
+                if (ins.name.isBlank()) {
+                    errors[LoanField.Insurance] = "El nombre del seguro no puede estar vacío."
+                    break
+                }
+                if (ins.kind != "fixed" && ins.kind != "percentage") {
+                    errors[LoanField.Insurance] = "El tipo de seguro debe ser 'fixed' o 'percentage'."
+                    break
+                }
+                val rawVal = normalizeNumber(ins.valueStr)
+                if (rawVal.isBlank()) {
+                    errors[LoanField.Insurance] = "El valor del seguro no puede estar vacío."
+                    break
+                }
+                try {
+                    val decVal = Decimal.parse(rawVal)
+                    if (decVal.isNegative) {
+                        errors[LoanField.Insurance] = "El valor del seguro no puede ser negativo."
+                        break
+                    }
+                } catch (_: Exception) {
+                    errors[LoanField.Insurance] = "El valor del seguro debe ser un número válido."
+                    break
+                }
+                if (!ins.endsAtPayoff) {
+                    val endM = ins.endMonthStr.trim().toIntOrNull()
+                    if (endM == null || endM !in 1..MAX_MONTHS) {
+                        errors[LoanField.Insurance] = "Indica el último mes del seguro (entre 1 y $MAX_MONTHS)."
+                        break
+                    }
+                }
+            }
+
+            // 9. Régimen argentino / prepago
+            if (state.argentinaProfile.enabled && state.currency != Currency.ARS) {
+                errors[LoanField.ArgentinaProfile] = "El perfil argentino solo se admite para operaciones en ARS."
+            }
+            if (state.argentinaProfile.enabled) {
+                val rawOrigDate = state.argentinaProfile.originationDate.trim()
+                if (rawOrigDate.isNotBlank() && !Regex("""^\d{4}-(0[1-9]|1[0-2])$""").matches(rawOrigDate)) {
+                    errors[LoanField.ArgentinaProfile] = "Usa año-mes válido para la fecha de originación (AAAA-MM)."
+                }
+                val rawOrigTerm = state.argentinaProfile.originalTermMonthsStr.trim()
+                if (rawOrigTerm.isNotBlank()) {
+                    val termInt = rawOrigTerm.toIntOrNull()
+                    if (termInt == null || termInt !in 1..MAX_MONTHS) {
+                        errors[LoanField.ArgentinaProfile] = "El plazo original debe estar entre 1 y $MAX_MONTHS meses."
+                    }
+                }
+                val commNorm = normalizeNumber(state.argentinaProfile.commissionPercentStr)
+                if (commNorm.isNotBlank()) {
+                    try {
+                        val c = Decimal.parse(commNorm)
+                        if (c.isNegative) {
+                            errors[LoanField.ArgentinaProfile] = "La comisión de precancelación no puede ser negativa."
+                        }
+                    } catch (_: Exception) {
+                        errors[LoanField.ArgentinaProfile] = "La comisión de precancelación debe ser un número válido."
+                    }
+                }
+                val vatNorm = normalizeNumber(state.argentinaProfile.vatPercentStr)
+                if (vatNorm.isNotBlank()) {
+                    try {
+                        val v = Decimal.parse(vatNorm)
+                        if (v.isNegative) {
+                            errors[LoanField.ArgentinaProfile] = "La alícuota de IVA no puede ser negativa."
+                        }
+                    } catch (_: Exception) {
+                        errors[LoanField.ArgentinaProfile] = "La alícuota de IVA debe ser un número válido."
+                    }
                 }
             }
 
