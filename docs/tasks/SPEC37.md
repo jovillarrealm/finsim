@@ -157,3 +157,9 @@ Implementador de reemplazo32 finalizó en `b78288341c6171f4ba1b3dafad9c49fa13ec8
 Host153/153, release firmado y firma aprobados. APK SHA256 `e0d2540961419c3d0141755b1623729a85b7ea8bf2ebf792f7d764ab88686e61`; físico/visual150% de este binario todavía pendiente. La corrida previa9055 sigue **FAIL semántico** por cuotas, tasa, plazos y componentes omitidos; no se atribuye a este build ni se transforma en aprobación. [Resumen previo a revisión](https://github.com/jovillarrealm/finsim/issues/32#issuecomment-6330422386).
 
 Único subagente activo: mismo revisor32 Luna/max, revisando desde su último punto851b141. Distinguir defectos del delta y requisitos funcionales aún incumplidos; código integrable no implica spec completada. Después coordinación comprobará el APK exacto conservando datos/modelo y avanzará con entregas independientes. #32 sigue abierta; PDF hipotecario correcto todavía sin prueba.
+
+## Seguimiento de revisión: conservación de candidatos ambiguos
+
+El mismo revisor terminó sobre `b782883` desde base fija `851b141`: Standards0, Spec2P2. El prompt contradice el contrato de ambigüedad al pedir null por significado incierto; además, la compuerta preexistente omite `unclassifiedPrincipal` y puede impedir que el único candidato llegue a revisión. [Hallazgos publicados](https://github.com/jovillarrealm/finsim/issues/32#issuecomment-6330542216).
+
+Único subagente activo: implementador de reemplazo32 Luna/max, corrigiendo ambos puntos con alcance mínimo y sin nuevos ajustes del modelo. Después retoma el mismo revisor. E0 sigue sin corrida física;9055 conserva FAIL semántico; #32 abierta. #40 permanece preservada y puede avanzar independientemente tras esta ronda. No se integró el candidato ni se probó el PDF hipotecario.
