@@ -2,6 +2,7 @@ package com.finsim.ingestion
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.os.Handler
 import android.os.HandlerThread
@@ -52,7 +53,7 @@ class AndroidPdfRasterizer(private val context: Context) : PageRasterizer {
                     descriptor.close()
                     throw failure
                 }
-                renderer.use {
+                val rasterBytes = renderer.use {
                     require(pageIndex <= it.pageCount) {
                         "La página $pageIndex no existe; el PDF tiene ${it.pageCount} páginas."
                     }
@@ -67,6 +68,7 @@ class AndroidPdfRasterizer(private val context: Context) : PageRasterizer {
                             val bitmap = Bitmap.createBitmap(width.toInt(), height.toInt(), Bitmap.Config.ARGB_8888)
                             try {
                                 currentCoroutineContext().ensureActive()
+                                bitmap.eraseColor(Color.WHITE)
                                 page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                                 currentCoroutineContext().ensureActive()
                                 ByteArrayOutputStream().use { output ->
@@ -88,6 +90,7 @@ class AndroidPdfRasterizer(private val context: Context) : PageRasterizer {
                         page.close()
                     }
                 }
+                rasterBytes
             } finally {
                 callbackThread.quitSafely()
             }

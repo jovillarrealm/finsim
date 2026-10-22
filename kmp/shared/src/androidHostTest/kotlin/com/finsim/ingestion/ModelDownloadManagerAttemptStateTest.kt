@@ -109,8 +109,8 @@ class ModelDownloadManagerAttemptStateTest {
                         )
                     }
                     else -> {
-                        secondDownloadStarted.countDown()
                         onProgress(2L)
+                        secondDownloadStarted.countDown()
                         awaitCancellation()
                     }
                 }

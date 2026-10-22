@@ -41,11 +41,27 @@ data class VlmExtractionPayload(
     val insurances: List<VlmInsuranceJson> = emptyList()
 )
 
+/** Safe response metadata for diagnosing the native-to-JSON bridge without exposing document values. */
+data class VlmJsonResponseInspection(
+    val syntaxAccepted: Boolean,
+    val rootKind: String,
+    val knownKeys: List<String>,
+    val unknownKeyCount: Int,
+    val nonEmptyKnownKeys: List<String>
+)
+
 /**
  * Constrained decoding schema and parser for local VLM (Gemma 4 E2B INT4) vision inferences.
  * Guarantees extraction of banking fields without markdown hallucinations or JSON fence noise.
  */
 object VlmJsonGrammar {
+    private val knownResponseKeys = setOf(
+        "bankName", "documentKind", "currencies", "principal", "originalPrincipal", "capitalBalance",
+        "compoundBalance", "balanceMeaning", "ratePercentage", "rateKind", "nominalFrequency", "termMonths",
+        "originalTermMonths", "remainingTermMonths", "termMeaning", "statementMonth", "statementCutDate",
+        "monthlyPayment", "basePayment", "totalPayment", "paymentMeaning", "principalPaid", "interestPaid",
+        "insurancePaid", "finalBalance", "insurances"
+    )
 
     /**
      * Strict JSON schema definition for grammar/logit masking in local inference runtimes.
@@ -89,11 +105,13 @@ object VlmJsonGrammar {
                   "amount": { "type": ["string", "number", "null"] },
                   "amountMeaning": { "type": ["string", "null"], "enum": ["PERIODIC_CHARGE", "INSURED_VALUE", "UNKNOWN", null] }
                 },
-                "required": ["name"]
+                "required": ["name"],
+                "additionalProperties": false
               }
             }
           },
-          "required": ["principal", "ratePercentage"]
+          "required": ["principal", "ratePercentage"],
+          "additionalProperties": false
         }
     """.trimIndent()
 
@@ -123,6 +141,53 @@ object VlmJsonGrammar {
         }
 
         return text
+    }
+
+    /**
+     * Reports only structural metadata: no value from the model response is returned or logged.
+     */
+    fun inspectResponse(rawOutput: String): VlmJsonResponseInspection {
+        val element = try {
+            jsonParser.parseToJsonElement(cleanJson(rawOutput))
+        } catch (_: Exception) {
+            return VlmJsonResponseInspection(
+                syntaxAccepted = false,
+                rootKind = "invalid",
+                knownKeys = emptyList(),
+                unknownKeyCount = 0,
+                nonEmptyKnownKeys = emptyList()
+            )
+        }
+        if (element !is JsonObject) {
+            val kind = when (element) {
+                is JsonArray -> "array"
+                is JsonPrimitive -> "primitive"
+            }
+            return VlmJsonResponseInspection(
+                syntaxAccepted = true,
+                rootKind = kind,
+                knownKeys = emptyList(),
+                unknownKeyCount = 0,
+                nonEmptyKnownKeys = emptyList()
+            )
+        }
+
+        val knownKeys = element.keys.filter { it in knownResponseKeys }.sorted()
+        val nonEmptyKnownKeys = knownKeys.filter { key -> element[key]?.hasDiagnosticValue() == true }
+        return VlmJsonResponseInspection(
+            syntaxAccepted = true,
+            rootKind = "object",
+            knownKeys = knownKeys,
+            unknownKeyCount = element.keys.count { it !in knownResponseKeys },
+            nonEmptyKnownKeys = nonEmptyKnownKeys
+        )
+    }
+
+    private fun JsonElement.hasDiagnosticValue(): Boolean = when (this) {
+        JsonNull -> false
+        is JsonPrimitive -> content.isNotBlank()
+        is JsonArray -> isNotEmpty()
+        is JsonObject -> isNotEmpty()
     }
 
     /**
