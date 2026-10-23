@@ -91,14 +91,15 @@ async function open(scenario, { mobile = false, focus = 'form' } = {}) {
   }
 }
 
-async function reveal(page, target) {
+async function reveal(page, target, { wheelX } = {}) {
   const startedAt = Date.now();
-  trace(`reveal:start ${target}`);
   const viewport = page.viewportSize();
+  const pointerX = wheelX ?? viewport.width / 2;
+  trace(`reveal:start ${target} wheelX=${pointerX}`);
   const topTab = page.getByRole('button', { name: 'Préstamo', exact: true });
   const inViewport = box => box?.width > 0 && box.height > 0 && box.x >= 0 && box.y >= 56 && box.y + box.height <= viewport.height - 4;
 
-  await page.mouse.move(viewport.width / 2, viewport.height / 2);
+  await page.mouse.move(pointerX, viewport.height / 2);
   const alreadyVisible = await waitForStableBox(page, target);
   if (inViewport(alreadyVisible)) {
     trace(`reveal:visible ${target} via=current ${Date.now() - startedAt}ms`);
@@ -255,7 +256,8 @@ async function prepareTableMonth(page, month) {
     return clip && rowBox?.height > 0 && rowBox.y >= clip.y + 1 && rowBox.y + rowBox.height <= clip.y + clip.height - 1;
   };
 
-  await reveal(page, scrollport);
+  // Keep page-level reveal wheels outside the nested vertical table scroller.
+  await reveal(page, scrollport, { wheelX: 4 });
 
   const targetY = Math.round(viewport.height * 0.25);
   for (let step = 0; step < 10; step++) {
