@@ -251,7 +251,8 @@ async function prepareTableMonth(page, month) {
   const viewportBox = { x: 0, y: 56, width: viewport.width, height: viewport.height - 60 };
   const visibleInBody = (bodyBox, rowBox) => {
     const clip = intersection(bodyBox, viewportBox);
-    return clip && rowBox?.height > 0 && rowBox.y >= clip.y + 2 && rowBox.y + rowBox.height <= clip.y + clip.height - 2;
+    // Compose reports a complete edge row one pixel inside the body bounds.
+    return clip && rowBox?.height > 0 && rowBox.y >= clip.y + 1 && rowBox.y + rowBox.height <= clip.y + clip.height - 1;
   };
 
   await reveal(page, scrollport);
