@@ -6,6 +6,8 @@
 
 ## Estado actual
 
+Continuidad 2026-10-22: #40 incorporada como avance parcial revisado en `cce6d20`, con perfil completo y prueba física pendientes; sigue abierta. Reserva vigente #41 para `/root/issue41_resume_luna`, único implementador Luna/max y después revisor por turno. Retoma `codex/spec37-issue41` desde el checkpoint preservado `0588874`, incorporando por merge la punta publicada de integración antes de editar. Detalle/evidencia actuales en [SPEC37](tasks/SPEC37.md) y GitHub.
+
 Actualizado: 2026-10-18.
 
 > [!CAUTION] Error Arquitectónico Grave Registrado (2026-10-18) — [ADR 0002](adr/0002-dual-web-stack-divergence-incident.md)
