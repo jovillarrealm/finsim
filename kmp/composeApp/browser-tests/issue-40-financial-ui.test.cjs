@@ -152,17 +152,42 @@ async function reveal(page, target, { wheelX } = {}) {
   throw new Error(`Control sin geometría visible tras barrido desde el inicio: ${target} ${JSON.stringify(positions)}`);
 }
 
-async function visibleHeaderAnchor(page, table, clip, targetIndex) {
+function canMeasureHeaderEdge(clip, box, direction, desiredProgress) {
+  if (!clip || !box?.width || !box.height || box.y < clip.y + 2 || box.y + box.height > clip.y + clip.height - 2) return false;
+  const edge = direction > 0 ? box.x + box.width : box.x;
+  return direction > 0
+    ? edge >= clip.x + desiredProgress + 2 && edge <= clip.x + clip.width - 2
+    : edge >= clip.x + 2 && edge <= clip.x + clip.width - desiredProgress - 2;
+}
+
+function directionToColumn(targetHeading, targetBox, clip, targetIndex, anchorIndex) {
+  if (targetHeading?.width) {
+    if (targetHeading.x < clip.x + 3) return -1;
+    if (targetHeading.x + targetHeading.width > clip.x + clip.width - 3) return 1;
+    if (targetBox?.width && targetBox.x < clip.x + 3) return -1;
+    if (targetBox?.width && targetBox.x + targetBox.width > clip.x + clip.width - 3) return 1;
+  }
+  return targetIndex < anchorIndex ? -1 : targetIndex > anchorIndex ? 1 : 0;
+}
+
+async function visibleHeaderAnchor(page, table, clip, targetIndex, targetHeading, targetBox, desiredProgress, preferredAnchor) {
   const candidates = [];
+  if (preferredAnchor) {
+    const box = await waitForStableBox(page, preferredAnchor.locator, 2);
+    if (box?.width && box.height && intersection(clip, box)) candidates.push({ ...preferredAnchor, box });
+  }
   for (let index = 0; index < tableHeaders.length; index += 1) {
     const locator = table.getByLabel(headerName(tableHeaders[index]), { exact: true });
-    const box = await locator.count() ? await locator.boundingBox() : null;
-    if (contains(clip, box, 2)) candidates.push({ index, locator });
+    if (preferredAnchor?.index === index) continue;
+    const box = await waitForStableBox(page, locator, 2);
+    if (box?.width && box.height && intersection(clip, box)) candidates.push({ index, locator, box });
   }
   candidates.sort((a, b) => Math.abs(a.index - targetIndex) - Math.abs(b.index - targetIndex));
   for (const candidate of candidates) {
-    const box = await waitForStableBox(page, candidate.locator, 2);
-    if (contains(clip, box, 2)) return { ...candidate, box };
+    const direction = directionToColumn(targetHeading, targetBox, clip, targetIndex, candidate.index);
+    if (direction !== 0 && canMeasureHeaderEdge(clip, candidate.box, direction, desiredProgress)) {
+      return { ...candidate, direction };
+    }
   }
   return null;
 }
@@ -180,8 +205,8 @@ async function revealHorizontally(page, target, column) {
   const targetBoxes = [];
   const maxSteps = Math.ceil(tableHeaders.length * 160 / 60) + 2;
   let preferredAnchor = null;
-  // Calibration: 48 wheel units moved the visible header about 8 px (6:1).
-  let wheelScale = 6;
+  // Start with one wheel unit per desired pixel; adapt only from the measured interior edge.
+  let wheelScale = 1;
   const desiredProgress = 60;
   for (let i = 0; i < maxSteps; i += 1) {
     const scrollportBox = await waitForStableBox(page, scrollport);
@@ -197,24 +222,12 @@ async function revealHorizontally(page, target, column) {
       break;
     }
     const targetHeading = await waitForStableBox(page, targetHeader, 2);
-    let anchor = null;
-    if (preferredAnchor) {
-      const box = await waitForStableBox(page, preferredAnchor.locator, 2);
-      if (contains(clip, box, 2)) anchor = { ...preferredAnchor, box };
-    }
-    if (!anchor) anchor = await visibleHeaderAnchor(page, table, clip, columnIndex);
+    const anchor = await visibleHeaderAnchor(page, table, clip, columnIndex, targetHeading, targetBox, desiredProgress, preferredAnchor);
     if (!anchor) {
       trace(`reveal-horizontal:no-header-anchor column=${tableHeaders[columnIndex]} clip=${JSON.stringify(clip)} targetHeader=${JSON.stringify(targetHeading)}`);
       break;
     }
-    let direction;
-    if (targetHeading?.width) {
-      if (targetHeading.x < clip.x + 3) direction = -1;
-      else if (targetHeading.x + targetHeading.width > clip.x + clip.width - 3) direction = 1;
-      else if (targetBox?.width && targetBox.x < clip.x + 3) direction = -1;
-      else if (targetBox?.width && targetBox.x + targetBox.width > clip.x + clip.width - 3) direction = 1;
-      else direction = columnIndex < anchor.index ? -1 : columnIndex > anchor.index ? 1 : 0;
-    } else direction = columnIndex < anchor.index ? -1 : 1;
+    const direction = anchor.direction;
     if (direction === 0) {
       trace(`reveal-horizontal:target-header-visible-but-cell-not-contained column=${tableHeaders[columnIndex]} header=${JSON.stringify(targetHeading)} target=${JSON.stringify(targetBox)} clip=${JSON.stringify(clip)}`);
       break;
@@ -315,8 +328,6 @@ async function prepareTableMonth(page, month) {
     await capture(page, 'table-row-not-visible');
     throw new Error(`La fila M${month} no quedó contenida en el viewport vertical tras 16 pasos: body=${JSON.stringify(bodyBox)} fila=${JSON.stringify(rowBox)}`);
   }
-  const monthButton = row.getByRole('button', { name: new RegExp(`^Seleccionar M${month}(?: |$)`) });
-  await expect(monthButton).toBeVisible();
   trace(`table-row:prepared month=${month} scrollport=${JSON.stringify(await waitForStableBox(page, scrollport))} body=${JSON.stringify(bodyBox)} row=${JSON.stringify(rowBox)} viewport=${JSON.stringify(viewport)}`);
 
 }
@@ -618,7 +629,9 @@ test('[WEB-40-MONTH-SYNC] Touch month selection stays synchronized across chart,
     await prepareTableMonth(page, 3);
     const table = page.getByLabel(tableName, { exact: true });
     const row3 = table.getByLabel(rowName(3), { exact: true });
-    await activate(page, row3.getByRole('button', { name: 'Seleccionar M3', exact: true }), true);
+    const selectMonth3 = row3.getByRole('button', { name: 'Seleccionar M3', exact: true });
+    await revealHorizontally(page, selectMonth3, 'Mes');
+    await activate(page, selectMonth3, true);
     await expect(tree).toContainText('Detalle del mes 3');
     await expect(tree).toContainText('Mes seleccionado: 3.');
     await expect(tree).toContainText('Mes M3');
