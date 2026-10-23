@@ -2,6 +2,9 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFile } = require('node:fs/promises');
 const { chromium, expect } = require('@playwright/test');
+const fs = require('node:fs');
+const path = require('node:path');
+const { waitForStableBox } = require('./stable-box.cjs');
 
 let browser;
 before(async () => { browser = await chromium.launch({ channel: 'chrome', headless: true }); });
@@ -10,12 +13,24 @@ after(async () => { await browser?.close(); });
 async function click(page, name) {
   const button = page.getByRole('button', { name, exact: true });
   await expect(button).toBeVisible();
-  await button.click({ force: true });
+  const box = await waitForStableBox(page, button);
+  const viewport = page.viewportSize();
+  if (!box || box.x < 0 || box.y < 0 || box.x + box.width > viewport.width || box.y + box.height > viewport.height) {
+    await capture(page, `click-failure-${name}`);
+    throw new Error(`No hay bounds estables dentro del viewport para ${name}: ${JSON.stringify(box)} viewport=${JSON.stringify(viewport)}`);
+  }
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await page.waitForTimeout(300); // Allow the Compose accessibility geometry to follow the rendered frame.
 }
 async function enter(page, name, value) {
   const field = page.getByRole('textbox', { name, exact: true });
-  await field.click({ force: true });
+  const box = await waitForStableBox(page, field);
+  const viewport = page.viewportSize();
+  if (!box || box.x < 0 || box.y < 0 || box.x + box.width > viewport.width || box.y + box.height > viewport.height) {
+    await capture(page, `field-failure-${name}`);
+    throw new Error(`No hay bounds estables dentro del viewport para ${name}: ${JSON.stringify(box)} viewport=${JSON.stringify(viewport)}`);
+  }
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await page.waitForTimeout(100); // Wait for Compose to focus its backing input.
   await page.keyboard.press('Control+A');
   await page.waitForTimeout(150);
@@ -25,9 +40,20 @@ async function enter(page, name, value) {
   await expect(field).toHaveText(value);
 }
 async function importFile(page, file) {
-  const chooser = page.waitForEvent('filechooser');
-  await click(page, 'Importar archivo JSON');
-  await (await chooser).setFiles(file);
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    click(page, 'Importar archivo JSON')
+  ]);
+  await chooser.setFiles(file);
+}
+
+let screenshotSequence = 0;
+async function capture(page, label) {
+  if (!process.env.FINSIM_WEB_DIAGNOSTICS) return;
+  fs.mkdirSync(process.env.FINSIM_WEB_DIAGNOSTICS, { recursive: true });
+  const file = path.join(process.env.FINSIM_WEB_DIAGNOSTICS, `${Date.now()}-${process.pid}-${++screenshotSequence}-${label.replace(/[^a-z0-9-]/gi, '-')}.png`);
+  await page.screenshot({ path: file });
+  fs.appendFileSync(path.join(process.env.FINSIM_WEB_DIAGNOSTICS, 'trace.log'), `${new Date().toISOString()} ${label} box-capture=${path.basename(file)}\n`);
 }
 
 test('quotes and actual JSON transfer preserve applied and saved data', async () => {
@@ -53,9 +79,10 @@ test('quotes and actual JSON transfer preserve applied and saved data', async ()
     await click(page, 'Cerrar editor de oferta B');
     await click(page, 'Aplicar comparación');
     await click(page, 'Guardar borrador local');
-    const downloadPromise = page.waitForEvent('download');
-    await click(page, 'Exportar archivo JSON');
-    const downloaded = await downloadPromise;
+    const [downloaded] = await Promise.all([
+      page.waitForEvent('download'),
+      click(page, 'Exportar archivo JSON')
+    ]);
     const downloadPath = await downloaded.path();
     const exported = JSON.parse(await readFile(downloadPath, 'utf8'));
     assert.equal(downloaded.suggestedFilename(), 'comparacion-finsim.json');
@@ -86,5 +113,10 @@ test('quotes and actual JSON transfer preserve applied and saved data', async ()
     await page.reload();
     await click(page, 'Guardar');
     assert.equal(await page.evaluate(() => localStorage.getItem('finsim.comparison.v1')), comparison);
+  } catch (error) {
+    try { await capture(page, 'test-failure'); } catch (captureError) {
+      if (process.env.FINSIM_WEB_DIAGNOSTICS) fs.appendFileSync(path.join(process.env.FINSIM_WEB_DIAGNOSTICS, 'trace.log'), `capture:error ${captureError.message}\n`);
+    }
+    throw error;
   } finally { await page.close(); }
 });

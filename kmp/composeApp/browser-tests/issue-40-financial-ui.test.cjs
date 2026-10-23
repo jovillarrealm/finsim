@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { chromium, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
+const { waitForStableBox } = require('./stable-box.cjs');
 
 const url = process.env.FINSIM_WEB_URL || 'http://127.0.0.1:4176/';
 function trace(message) {
@@ -24,14 +25,42 @@ const twoMonthArs = {
   events: []
 };
 
-const tableWheelPoints = new WeakMap();
-const preparedTableMonths = new WeakMap();
+const tableName = 'Tabla de amortización Modificado';
+const horizontalTableName = 'Desplazamiento horizontal de la tabla de amortización Modificado';
+const verticalTableName = 'Filas de la tabla de amortización Modificado';
+const headerName = label => `Encabezado de columna ${label} de la tabla de amortización Modificado`;
 const tableHeaders = [
-  'Mes', 'Fecha', 'Saldo inicial', 'Capital habitual', 'Capital adicional',
-  'Interés generado', 'Seguro generado', 'Intereses pagados', 'Seguros pagados',
-  'Otros cargos', 'Pago total', 'Saldo final', 'saldo de capital', 'Interés pendiente',
-  'Seguro pendiente', 'Capital vencido', 'Mora', 'Deuda', 'No aplicado'
+  'Mes', 'Fecha', 'Saldo inicial', 'Capital habitual', 'Capital adicional', 'Interés generado',
+  'Seguro generado', 'Intereses pagados', 'Seguros pagados', 'Otros cargos', 'Pago total',
+  'Saldo final', 'Interés pendiente', 'Seguro pendiente', 'Capital vencido', 'Mora', 'Deuda', 'No aplicado'
 ];
+const rowName = month => `Fila de amortización Modificado, mes ${month}`;
+let screenshotSequence = 0;
+
+async function capture(page, label) {
+  if (!process.env.FINSIM_WEB_DIAGNOSTICS) return;
+  fs.mkdirSync(process.env.FINSIM_WEB_DIAGNOSTICS, { recursive: true });
+  const unique = `${Date.now()}-${process.pid}-${++screenshotSequence}`;
+  const file = path.join(process.env.FINSIM_WEB_DIAGNOSTICS, `${label}-${unique}.png`);
+  await page.screenshot({ path: file, fullPage: true });
+  trace(`screenshot:${path.basename(file)}`);
+}
+
+function intersection(a, b) {
+  if (!a || !b) return null;
+  const left = Math.max(a.x, b.x);
+  const top = Math.max(a.y, b.y);
+  const right = Math.min(a.x + a.width, b.x + b.width);
+  const bottom = Math.min(a.y + a.height, b.y + b.height);
+  return right > left && bottom > top ? { x: left, y: top, width: right - left, height: bottom - top } : null;
+}
+
+function contains(outer, inner, margin = 2) {
+  return outer && inner && inner.width > 0 && inner.height > 0 &&
+    inner.x >= outer.x + margin && inner.y >= outer.y + margin &&
+    inner.x + inner.width <= outer.x + outer.width - margin &&
+    inner.y + inner.height <= outer.y + outer.height - margin;
+}
 
 async function open(scenario, { mobile = false, focus = 'form' } = {}) {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
@@ -68,22 +97,10 @@ async function reveal(page, target) {
   const viewport = page.viewportSize();
   const topTab = page.getByRole('button', { name: 'Préstamo', exact: true });
   const inViewport = box => box?.width > 0 && box.height > 0 && box.x >= 0 && box.y >= 56 && box.y + box.height <= viewport.height - 4;
-  const stableBox = async locator => {
-    if (!await locator.count()) return null;
-    const first = await locator.boundingBox();
-    if (!inViewport(first)) return null;
-    await page.waitForTimeout(100);
-    const second = await locator.boundingBox();
-    if (!inViewport(second)) return null;
-    return Math.abs(first.x - second.x) <= 2 && Math.abs(first.y - second.y) <= 2 &&
-      Math.abs(first.width - second.width) <= 2 && Math.abs(first.height - second.height) <= 2
-      ? second
-      : null;
-  };
 
   await page.mouse.move(viewport.width / 2, viewport.height / 2);
-  const alreadyVisible = await stableBox(target);
-  if (alreadyVisible) {
+  const alreadyVisible = await waitForStableBox(page, target);
+  if (inViewport(alreadyVisible)) {
     trace(`reveal:visible ${target} via=current ${Date.now() - startedAt}ms`);
     return alreadyVisible;
   }
@@ -91,8 +108,8 @@ async function reveal(page, target) {
   const startingBox = await target.count() ? await target.boundingBox() : null;
   if (startingBox?.width > 0 && startingBox.y >= viewport.height - 4) {
     for (let i = 0; i < 40; i++) {
-      const box = await stableBox(target);
-      if (box) {
+      const box = await waitForStableBox(page, target);
+      if (inViewport(box)) {
         trace(`reveal:visible ${target} via=down-from-current step=${i} ${Date.now() - startedAt}ms`);
         return box;
       }
@@ -105,13 +122,9 @@ async function reveal(page, target) {
   // current scroll position; always scanning downward from there can miss it.
   for (let i = 0; i < 20; i++) {
     const tabCount = await topTab.count();
-    const tabBox = tabCount ? await topTab.boundingBox() : null;
+    const tabBox = tabCount ? await waitForStableBox(page, topTab) : null;
     if (tabBox?.width > 0 && tabBox.y >= 56 && tabBox.y + tabBox.height < viewport.height) {
-      await page.waitForTimeout(100);
-      const stableTab = await topTab.count() ? await topTab.boundingBox() : null;
-      if (stableTab?.width > 0 && Math.abs(stableTab.y - tabBox.y) <= 2) {
-        break;
-      }
+      break;
     }
     await page.mouse.wheel(0, -600);
     await page.waitForTimeout(200);
@@ -122,8 +135,8 @@ async function reveal(page, target) {
 
   const positions = [];
   for (let i = 0; i < 56; i++) {
-    const box = await stableBox(target);
-    if (box) {
+    const box = await waitForStableBox(page, target);
+    if (inViewport(box)) {
       trace(`reveal:visible ${target} via=origin-sweep step=${i} ${Date.now() - startedAt}ms`);
       return box;
     }
@@ -134,131 +147,175 @@ async function reveal(page, target) {
     await page.waitForTimeout(200);
   }
   trace(`reveal:fail ${target} positions=${JSON.stringify(positions)} ${Date.now() - startedAt}ms`);
-  if (process.env.FINSIM_WEB_DIAGNOSTICS) await page.screenshot({ path: `${process.env.FINSIM_WEB_DIAGNOSTICS}\\reveal-failure.png` });
+  await capture(page, 'reveal-failure');
   throw new Error(`Control sin geometría visible tras barrido desde el inicio: ${target} ${JSON.stringify(positions)}`);
 }
 
-async function revealHorizontally(page, target, direction = 1) {
+async function visibleHeaderAnchor(page, table, clip, targetIndex) {
+  const candidates = [];
+  for (let index = 0; index < tableHeaders.length; index += 1) {
+    const locator = table.getByLabel(headerName(tableHeaders[index]), { exact: true });
+    const box = await locator.count() ? await locator.boundingBox() : null;
+    if (contains(clip, box, 2)) candidates.push({ index, locator });
+  }
+  candidates.sort((a, b) => Math.abs(a.index - targetIndex) - Math.abs(b.index - targetIndex));
+  for (const candidate of candidates) {
+    const box = await waitForStableBox(page, candidate.locator, 2);
+    if (contains(clip, box, 2)) return { ...candidate, box };
+  }
+  return null;
+}
+
+async function revealHorizontally(page, target, column) {
   const startedAt = Date.now();
   const viewport = page.viewportSize();
-  trace(`reveal-horizontal:start ${target}`);
-  let lastWheelPoint = tableWheelPoints.get(page) ?? null;
-  if (lastWheelPoint) trace(`reveal-horizontal:resume-table-pointer point=${lastWheelPoint.x},${lastWheelPoint.y}`);
-  for (let i = 0; i < 12; i++) {
+  const columnIndex = tableHeaders.findIndex(header => header.toLocaleLowerCase('es') === column.toLocaleLowerCase('es'));
+  if (columnIndex < 0) throw new Error(`La columna no corresponde a una cabecera de la tabla: ${column}`);
+  trace(`reveal-horizontal:start column=${tableHeaders[columnIndex]} target=${target}`);
+  const table = page.getByLabel(tableName, { exact: true });
+  const scrollport = table.getByLabel(horizontalTableName, { exact: true });
+  const targetHeader = table.getByLabel(headerName(tableHeaders[columnIndex]), { exact: true });
+  const viewportBox = { x: 0, y: 56, width: viewport.width, height: viewport.height - 60 };
+  const targetBoxes = [];
+  const maxSteps = Math.ceil(tableHeaders.length * 160 / 60) + 2;
+  let preferredAnchor = null;
+  // Calibration: 48 wheel units moved the visible header about 8 px (6:1).
+  let wheelScale = 6;
+  const desiredProgress = 60;
+  for (let i = 0; i < maxSteps; i += 1) {
+    const scrollportBox = await waitForStableBox(page, scrollport);
+    const clip = intersection(scrollportBox, viewportBox);
     const targetBox = await target.count() ? await target.boundingBox() : null;
-    if (targetBox?.width > 0 && targetBox.x >= 0 && targetBox.x + targetBox.width <= viewport.width) {
-      trace(`reveal-horizontal:visible ${target} step=${i} ${Date.now() - startedAt}ms`);
+    targetBoxes.push(targetBox);
+    if (contains(clip, targetBox, 3)) {
+      trace(`reveal-horizontal:visible column=${tableHeaders[columnIndex]} step=${i} clip=${JSON.stringify(clip)} box=${JSON.stringify(targetBox)} ${Date.now() - startedAt}ms`);
       return targetBox;
     }
-
-    let anchorBox = null;
-    let anchorLabel = '';
-    let anchorVisibleWidth = 0;
-    for (const label of tableHeaders) {
-      const candidates = page.getByText(label, { exact: true });
-      for (let index = 0; index < await candidates.count(); index++) {
-        const box = await candidates.nth(index).boundingBox();
-        const visibleWidth = box?.width > 0
-          ? Math.min(viewport.width, box.x + box.width) - Math.max(0, box.x)
-          : 0;
-        if (visibleWidth > anchorVisibleWidth && box.y >= 56 && box.y + box.height <= viewport.height) {
-          anchorBox = box;
-          anchorLabel = label;
-          anchorVisibleWidth = visibleWidth;
-        }
-      }
-    }
-    if (!anchorBox && !lastWheelPoint) {
-      trace(`reveal-horizontal:no-visible-anchor step=${i} target=${target} ${Date.now() - startedAt}ms`);
+    if (!clip || clip.width <= 12 || clip.height <= 12) {
+      trace(`reveal-horizontal:no-scrollport column=${tableHeaders[columnIndex]} bounds=${JSON.stringify(scrollportBox)} clip=${JSON.stringify(clip)}`);
       break;
     }
-    const point = anchorBox
-      ? {
-          x: (Math.max(0, anchorBox.x) + Math.min(viewport.width, anchorBox.x + anchorBox.width)) / 2,
-          y: anchorBox.y + anchorBox.height / 2
-        }
-      : lastWheelPoint;
-    if (anchorBox) {
-      lastWheelPoint = point;
-      tableWheelPoints.set(page, point);
+    const targetHeading = await waitForStableBox(page, targetHeader, 2);
+    let anchor = null;
+    if (preferredAnchor) {
+      const box = await waitForStableBox(page, preferredAnchor.locator, 2);
+      if (contains(clip, box, 2)) anchor = { ...preferredAnchor, box };
     }
-    trace(`reveal-horizontal:scroll step=${i} ${anchorBox ? `anchor=${anchorLabel} box=${JSON.stringify(anchorBox)}` : 'at-last-table-pointer'} point=${point.x},${point.y}`);
+    if (!anchor) anchor = await visibleHeaderAnchor(page, table, clip, columnIndex);
+    if (!anchor) {
+      trace(`reveal-horizontal:no-header-anchor column=${tableHeaders[columnIndex]} clip=${JSON.stringify(clip)} targetHeader=${JSON.stringify(targetHeading)}`);
+      break;
+    }
+    let direction;
+    if (targetHeading?.width) {
+      if (targetHeading.x < clip.x + 3) direction = -1;
+      else if (targetHeading.x + targetHeading.width > clip.x + clip.width - 3) direction = 1;
+      else if (targetBox?.width && targetBox.x < clip.x + 3) direction = -1;
+      else if (targetBox?.width && targetBox.x + targetBox.width > clip.x + clip.width - 3) direction = 1;
+      else direction = columnIndex < anchor.index ? -1 : columnIndex > anchor.index ? 1 : 0;
+    } else direction = columnIndex < anchor.index ? -1 : 1;
+    if (direction === 0) {
+      trace(`reveal-horizontal:target-header-visible-but-cell-not-contained column=${tableHeaders[columnIndex]} header=${JSON.stringify(targetHeading)} target=${JSON.stringify(targetBox)} clip=${JSON.stringify(clip)}`);
+      break;
+    }
+    const point = { x: clip.x + clip.width / 2, y: clip.y + clip.height / 2 };
+    const wheelDelta = Math.min(1800, Math.max(36, Math.round(desiredProgress * wheelScale)));
+    trace(`reveal-horizontal:scroll step=${i} column=${tableHeaders[columnIndex]} anchor=${anchor.index}:${tableHeaders[anchor.index]} before=${JSON.stringify(anchor.box)} clip=${JSON.stringify(clip)} target=${JSON.stringify(targetBox)} point=${point.x},${point.y} direction=${direction} wheel=${wheelDelta * direction}`);
     await page.mouse.move(point.x, point.y);
-    await page.mouse.wheel(220 * direction, 0);
+    await page.mouse.wheel(wheelDelta * direction, 0);
     await page.waitForTimeout(200);
+    const afterAnchor = await waitForStableBox(page, anchor.locator, 2);
+    const beforeEdge = direction > 0 ? anchor.box.x + anchor.box.width : anchor.box.x;
+    const afterEdge = afterAnchor?.width ? (direction > 0 ? afterAnchor.x + afterAnchor.width : afterAnchor.x) : null;
+    const progress = afterEdge === null ? null : direction * (beforeEdge - afterEdge);
+    if (progress === null || progress <= 1 || progress > 80) {
+      trace(`reveal-horizontal:invalid-progress step=${i} column=${tableHeaders[columnIndex]} anchor=${anchor.index}:${tableHeaders[anchor.index]} measuredEdge=${direction > 0 ? 'right' : 'left'} before=${JSON.stringify(anchor.box)} after=${JSON.stringify(afterAnchor)} progress=${progress} maxRealStep=80 clip=${JSON.stringify(clip)}`);
+      break;
+    }
+    preferredAnchor = { index: anchor.index, locator: anchor.locator };
+    wheelScale = Math.max(1, Math.min(30, wheelDelta / progress));
+    trace(`reveal-horizontal:progress step=${i} column=${tableHeaders[columnIndex]} anchor=${anchor.index}:${tableHeaders[anchor.index]} measuredEdge=${direction > 0 ? 'right' : 'left'} before=${beforeEdge} after=${afterEdge} real=${progress} wheel=${wheelDelta} nextScale=${wheelScale}`);
   }
-  trace(`reveal-horizontal:fail ${target} ${Date.now() - startedAt}ms`);
-  if (process.env.FINSIM_WEB_DIAGNOSTICS) await page.screenshot({ path: `${process.env.FINSIM_WEB_DIAGNOSTICS}\\horizontal-reveal-failure.png` });
-  throw new Error(`Control sin geometría horizontal visible tras desplazar la tabla: ${target}`);
+  const scrollportBox = await waitForStableBox(page, scrollport);
+  trace(`reveal-horizontal:fail column=${tableHeaders[columnIndex]} target=${target} positions=${JSON.stringify(targetBoxes)} scrollport=${JSON.stringify(scrollportBox)} ${Date.now() - startedAt}ms`);
+  await capture(page, 'horizontal-reveal-failure');
+  throw new Error(`Control sin geometría contenida en la tabla y el viewport tras desplazarla: columna=${tableHeaders[columnIndex]} target=${target}; tabla=${JSON.stringify(scrollportBox)} cajas=${JSON.stringify(targetBoxes)}`);
 }
 
 async function prepareTableMonth(page, month) {
-  if (preparedTableMonths.get(page) === month) return;
-
   const viewport = page.viewportSize();
-  const start = page.getByText('Mes', { exact: true }).first();
-  const pageScrollAnchor = page.getByText('Desplaza horizontalmente para ver todas las columnas y verticalmente para explorar todos los meses:', { exact: true });
-  await reveal(page, pageScrollAnchor);
-  await revealHorizontally(page, start, -1);
-  await reveal(page, start);
+  const table = page.getByLabel(tableName, { exact: true });
+  const scrollport = table.getByLabel(horizontalTableName, { exact: true });
+  const body = table.getByLabel(verticalTableName, { exact: true });
+  const row = table.getByLabel(rowName(month), { exact: true });
+  const viewportBox = { x: 0, y: 56, width: viewport.width, height: viewport.height - 60 };
+  const visibleInBody = (bodyBox, rowBox) => {
+    const clip = intersection(bodyBox, viewportBox);
+    return clip && rowBox?.height > 0 && rowBox.y >= clip.y + 2 && rowBox.y + rowBox.height <= clip.y + clip.height - 2;
+  };
+
+  await reveal(page, scrollport);
 
   const targetY = Math.round(viewport.height * 0.25);
   for (let step = 0; step < 10; step++) {
-    const before = await start.boundingBox();
-    if (!before?.width) throw new Error(`El encabezado Mes perdió geometría durante la preparación: ${JSON.stringify(before)}`);
+    const before = await waitForStableBox(page, scrollport);
+    if (!before?.width) throw new Error(`El contenedor de la tabla perdió geometría durante la preparación: ${JSON.stringify(before)}`);
     if (before.y <= targetY + 35) break;
-    const anchor = await pageScrollAnchor.boundingBox();
-    if (!anchor?.width || anchor.y < 56 || anchor.y + anchor.height > viewport.height - 4) {
-      throw new Error(`La instrucción sobre la tabla no quedó visible para desplazar la página: ${JSON.stringify(anchor)}`);
-    }
-    await page.mouse.move(anchor.x + anchor.width / 2, anchor.y + anchor.height / 2);
+    await page.mouse.move(4, Math.round(viewport.height / 2));
     await page.mouse.wheel(0, Math.min(80, Math.max(40, before.y - targetY - 25)));
     await page.waitForTimeout(200);
-    const after = await start.boundingBox();
-    if (!after?.width) throw new Error(`El encabezado Mes perdió geometría durante el desplazamiento: ${JSON.stringify(after)}`);
-    tableWheelPoints.delete(page);
+    const after = await waitForStableBox(page, scrollport);
+    if (!after?.width) throw new Error(`El contenedor de la tabla perdió geometría durante el desplazamiento: ${JSON.stringify(after)}`);
     if (after.y >= before.y - 2) {
       trace(`table-start:page-scroll-boundary step=${step} before=${JSON.stringify(before)} after=${JSON.stringify(after)} targetY=${targetY}`);
       break;
     }
-    trace(`table-start:page-scroll step=${step} before=${JSON.stringify(before)} after=${JSON.stringify(after)} anchor=${JSON.stringify(anchor)}`);
+    trace(`table-start:page-scroll step=${step} before=${JSON.stringify(before)} after=${JSON.stringify(after)} pointer=4,${Math.round(viewport.height / 2)}`);
   }
 
-  const monthRow = page.getByRole('button', { name: new RegExp(`^Seleccionar M${month}(?: |$)`) });
-  for (let step = 0; step < 8; step++) {
-    const rowBox = await monthRow.count() ? await monthRow.boundingBox() : null;
-    if (rowBox?.width > 0 && rowBox.x >= 0 && rowBox.x + rowBox.width <= viewport.width && rowBox.y >= 56 && rowBox.y + rowBox.height <= viewport.height - 4) break;
-
-    const rows = page.getByRole('button', { name: /^Seleccionar M\d+(?: |$)/ });
-    let anchor = null;
-    for (let index = 0; index < await rows.count(); index++) {
-      const candidate = rows.nth(index);
-      const box = await candidate.boundingBox();
-      if (box?.width > 0 && box.x >= 0 && box.x + box.width <= viewport.width && box.y >= 56 && box.y + box.height <= viewport.height - 4) {
-        const label = await candidate.innerText();
-        anchor = { candidate, box, month: Number(label.match(/^Seleccionar M(\d+)/)?.[1]) };
-        break;
-      }
+  for (let step = 0; step < 16; step++) {
+    const bodyBox = await waitForStableBox(page, body);
+    const clip = intersection(bodyBox, viewportBox);
+    const rowBox = await waitForStableBox(page, row);
+    if (visibleInBody(bodyBox, rowBox)) {
+      trace(`table-row:visible month=${month} step=${step} body=${JSON.stringify(bodyBox)} clip=${JSON.stringify(clip)} row=${JSON.stringify(rowBox)}`);
+      break;
     }
-    if (!anchor) throw new Error(`No hay una fila mensual visible para revelar M${month}: ${JSON.stringify(rowBox)}`);
-    const deltaY = rowBox?.height && rowBox.y + rowBox.height > viewport.height - 4
-      ? Math.min(160, rowBox.y + rowBox.height - viewport.height + 40)
-      : rowBox?.height && rowBox.y < 56
-        ? -Math.min(160, 100 - rowBox.y)
-        : month > anchor.month ? 120 : -120;
-    await page.mouse.move(anchor.box.x + anchor.box.width / 2, anchor.box.y + anchor.box.height / 2);
+    if (!clip || clip.width <= 12 || clip.height <= 12 || !rowBox?.height) {
+      await capture(page, 'table-row-geometry-failure');
+      throw new Error(`No hay bounds estables para las filas o M${month}: body=${JSON.stringify(bodyBox)} clip=${JSON.stringify(clip)} fila=${JSON.stringify(rowBox)}`);
+    }
+    const deltaY = rowBox.y + rowBox.height > clip.y + clip.height - 2
+      ? Math.min(160, rowBox.y + rowBox.height - (clip.y + clip.height) + 12)
+      : rowBox.y < clip.y + 2
+        ? -Math.min(160, clip.y - rowBox.y + 12)
+        : 0;
+    if (deltaY === 0) {
+      await capture(page, 'table-row-clip-failure');
+      throw new Error(`M${month} no está contenido en el viewport vertical de la tabla: body=${JSON.stringify(bodyBox)} fila=${JSON.stringify(rowBox)}`);
+    }
+    const point = { x: clip.x + clip.width / 2, y: clip.y + clip.height / 2 };
+    await page.mouse.move(point.x, point.y);
     await page.mouse.wheel(0, deltaY);
     await page.waitForTimeout(200);
-    trace(`table-row:scroll target=M${month} targetBox=${JSON.stringify(rowBox)} anchor=M${anchor.month} anchorBox=${JSON.stringify(anchor.box)} deltaY=${deltaY}`);
+    const after = await waitForStableBox(page, row);
+    if (!after?.height || Math.abs(after.y - rowBox.y) <= 1) {
+      trace(`table-row:no-progress month=${month} step=${step} before=${JSON.stringify(rowBox)} after=${JSON.stringify(after)} body=${JSON.stringify(clip)} delta=${deltaY}`);
+      await capture(page, 'table-row-no-progress');
+      throw new Error(`El desplazamiento vertical no avanzó hacia M${month}: antes=${JSON.stringify(rowBox)} después=${JSON.stringify(after)} body=${JSON.stringify(clip)} delta=${deltaY}`);
+    }
+    trace(`table-row:scroll month=${month} step=${step} before=${JSON.stringify(rowBox)} after=${JSON.stringify(after)} body=${JSON.stringify(clip)} delta=${deltaY}`);
   }
-  const rowBox = await monthRow.count() ? await monthRow.boundingBox() : null;
-  if (!rowBox?.width || rowBox.x < 0 || rowBox.x + rowBox.width > viewport.width || rowBox.y < 56 || rowBox.y + rowBox.height > viewport.height - 4) {
-    throw new Error(`La fila M${month} no quedó visible después de preparar ambos ejes: ${JSON.stringify(rowBox)}`);
+  const bodyBox = await waitForStableBox(page, body);
+  const rowBox = await waitForStableBox(page, row);
+  if (!visibleInBody(bodyBox, rowBox)) {
+    await capture(page, 'table-row-not-visible');
+    throw new Error(`La fila M${month} no quedó contenida en el viewport vertical tras 16 pasos: body=${JSON.stringify(bodyBox)} fila=${JSON.stringify(rowBox)}`);
   }
-  await expect(monthRow).toBeVisible();
-  trace(`table-row:prepared month=${month} header=${JSON.stringify(await start.boundingBox())} box=${JSON.stringify(rowBox)} viewport=${JSON.stringify(viewport)}`);
+  const monthButton = row.getByRole('button', { name: new RegExp(`^Seleccionar M${month}(?: |$)`) });
+  await expect(monthButton).toBeVisible();
+  trace(`table-row:prepared month=${month} scrollport=${JSON.stringify(await waitForStableBox(page, scrollport))} body=${JSON.stringify(bodyBox)} row=${JSON.stringify(rowBox)} viewport=${JSON.stringify(viewport)}`);
 
-  preparedTableMonths.set(page, month);
 }
 
 async function activate(page, target, touch = false) {
@@ -355,6 +412,9 @@ test('[WEB-40-ORIGIN-A11Y] Keep the form tree while selecting payment origin wit
     await expect(rateType).toHaveCount(1);
     await expect(original).toHaveCount(0);
     await expect(current).toHaveCount(0);
+  } catch (error) {
+    try { await capture(page, 'test-failure'); } catch (captureError) { trace(`capture:error ${captureError.message}`); }
+    throw error;
   } finally {
     await browser.close();
   }
@@ -370,10 +430,12 @@ const copied = (page, name) => page.getByRole('button', { name: `Copiar ${name}`
 
 async function assertTableCell(page, column, month, value) {
   await prepareTableMonth(page, month);
-  const cell = page.getByRole('button', {
+  const row = page.getByLabel(tableName, { exact: true }).getByLabel(rowName(month), { exact: true });
+  const cell = row.getByRole('button', {
     name: `Copiar tabla ${column} Modificado mes ${month}`, exact: true
   });
-  await revealHorizontally(page, cell);
+  const header = column.toLocaleLowerCase('es') === 'saldo de capital' ? 'Saldo final' : column;
+  await revealHorizontally(page, cell, header);
   await expect(cell).toBeVisible();
   await expect(cell).toContainText(value);
 }
@@ -433,6 +495,9 @@ test('[WEB-40-CONDITIONS] Configure current balance, nominal rate, agreed paymen
     await expect(copied(page, 'total pagado Modificado mes 1')).toContainText('ARS 512,51');
     await activate(page, page.getByRole('button', { name: 'Ver tabla', exact: true }));
     await assertTableCell(page, 'seguro generado', 2, 'ARS 0,00');
+  } catch (error) {
+    try { await capture(page, 'test-failure'); } catch (captureError) { trace(`capture:error ${captureError.message}`); }
+    throw error;
   } finally {
     await browser.close();
   }
@@ -462,6 +527,9 @@ test('[WEB-40-ARS-GATE] The Argentine prepayment profile is unavailable outside 
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('finsim.scenario')));
     assert.equal(saved.currency, 'COP');
     assert.ok(saved.argentinaProfile == null, 'El perfil argentino debe quedar ausente o nulo fuera de ARS.');
+  } catch (error) {
+    try { await capture(page, 'test-failure'); } catch (captureError) { trace(`capture:error ${captureError.message}`); }
+    throw error;
   } finally {
     await browser.close();
   }
@@ -504,11 +572,6 @@ test('[WEB-40-EVENT-BATCH] Discard and apply a missed payment, recovery and recu
 
     await expect(tree).toContainText('Mes seleccionado: 3.');
     await activate(page, page.getByRole('button', { name: 'Ver tabla', exact: true }), true);
-    // The event editor extends below the initial viewport. Reveal the real
-    // table's first header vertically before scanning its horizontal columns.
-    const tableStartHeader = page.getByText('Mes', { exact: true }).first();
-    await reveal(page, tableStartHeader);
-    await expect(tableStartHeader).toBeVisible();
     await assertTableCell(page, 'interés generado', 1, 'ARS 10,00');
     await assertTableCell(page, 'seguro generado', 1, 'ARS 5,00');
     await assertTableCell(page, 'pago total', 1, 'ARS 0,00');
@@ -516,6 +579,9 @@ test('[WEB-40-EVENT-BATCH] Discard and apply a missed payment, recovery and recu
     await assertTableCell(page, 'pago total', 3, 'ARS 115,00');
     await assertTableCell(page, 'saldo de capital', 2, 'ARS 820,00');
     await assertTableCell(page, 'saldo de capital', 3, 'ARS 718,20');
+  } catch (error) {
+    try { await capture(page, 'test-failure'); } catch (captureError) { trace(`capture:error ${captureError.message}`); }
+    throw error;
   } finally {
     await browser.close();
   }
@@ -546,10 +612,10 @@ test('[WEB-40-MONTH-SYNC] Touch month selection stays synchronized across chart,
     await expect(tree).toContainText('Intereses: ARS 0,00');
     await expect(tree).toContainText('Seguros: ARS 0,00');
     await activate(page, page.getByRole('button', { name: 'Ver tabla', exact: true }), true);
-    const tableStartHeader = page.getByText('Mes', { exact: true }).first();
-    await reveal(page, tableStartHeader);
-    await expect(tableStartHeader).toBeVisible();
-    await activate(page, page.getByRole('button', { name: 'Seleccionar M3', exact: true }), true);
+    await prepareTableMonth(page, 3);
+    const table = page.getByLabel(tableName, { exact: true });
+    const row3 = table.getByLabel(rowName(3), { exact: true });
+    await activate(page, row3.getByRole('button', { name: 'Seleccionar M3', exact: true }), true);
     await expect(tree).toContainText('Detalle del mes 3');
     await expect(tree).toContainText('Mes seleccionado: 3.');
     await expect(tree).toContainText('Mes M3');
@@ -557,7 +623,7 @@ test('[WEB-40-MONTH-SYNC] Touch month selection stays synchronized across chart,
     await expect(tree).toContainText('Capital: ARS 100,00');
     await expect(tree).toContainText('Intereses: ARS 0,00');
     await expect(tree).toContainText('Seguros: ARS 0,00');
-    await expect(page.getByText('No aplicado', { exact: true })).toHaveCount(1);
+    await expect(table.getByLabel(headerName('No aplicado'), { exact: true })).toHaveCount(1);
     await assertTableCell(page, 'Capital habitual', 3, 'ARS 100,00');
     await assertTableCell(page, 'saldo de capital', 3, 'ARS 700,00');
 
@@ -567,6 +633,9 @@ test('[WEB-40-MONTH-SYNC] Touch month selection stays synchronized across chart,
     assert.equal(after.x, before.x);
     assert.equal(after.width, before.width);
     assert.equal(after.height, before.height);
+  } catch (error) {
+    try { await capture(page, 'test-failure'); } catch (captureError) { trace(`capture:error ${captureError.message}`); }
+    throw error;
   } finally {
     await browser.close();
   }
@@ -583,7 +652,7 @@ test('[WEB-40-TNUM-UI] Visible result width follows text length without changing
     await page.waitForTimeout(250);
     const first = await result.boundingBox();
     assert.ok(first?.width > 0);
-    if (process.env.FINSIM_WEB_DIAGNOSTICS) await page.screenshot({ path: `${process.env.FINSIM_WEB_DIAGNOSTICS}\\tnum-111.png` });
+    await capture(page, 'tnum-111');
 
     await enter(page, page.getByLabel('Cuota pactada (opcional)', { exact: true }), '888.88');
     await activate(page, page.getByRole('button', { name: 'Actualizar condiciones del préstamo', exact: true }));
@@ -595,7 +664,7 @@ test('[WEB-40-TNUM-UI] Visible result width follows text length without changing
     await page.waitForTimeout(250);
     const second = await result.boundingBox();
     assert.ok(second?.width > 0);
-    if (process.env.FINSIM_WEB_DIAGNOSTICS) await page.screenshot({ path: `${process.env.FINSIM_WEB_DIAGNOSTICS}\\tnum-888.png` });
+    await capture(page, 'tnum-888');
 
     await enter(page, page.getByLabel('Cuota pactada (opcional)', { exact: true }), '88.88');
     await activate(page, page.getByRole('button', { name: 'Actualizar condiciones del préstamo', exact: true }));
@@ -606,13 +675,16 @@ test('[WEB-40-TNUM-UI] Visible result width follows text length without changing
     await page.waitForTimeout(250);
     const shorter = await result.boundingBox();
     assert.ok(shorter?.width > 0);
-    if (process.env.FINSIM_WEB_DIAGNOSTICS) await page.screenshot({ path: `${process.env.FINSIM_WEB_DIAGNOSTICS}\\tnum-88.png` });
+    await capture(page, 'tnum-88');
     t.diagnostic(`Anchos UI visibles (111,11 / 888,88 / 88,88): ${first.width} / ${second.width} / ${shorter.width}px.`);
     if (Math.abs(first.width - shorter.width) <= 1) {
       t.skip('La caja visible no distingue longitudes de texto; tabularidad queda NOT_RUN.');
       return;
     }
     assert.ok(Math.abs(first.width - second.width) <= 1, `El ancho visible cambió para cifras de igual longitud: ${first.width} → ${second.width}px`);
+  } catch (error) {
+    try { await capture(page, 'test-failure'); } catch (captureError) { trace(`capture:error ${captureError.message}`); }
+    throw error;
   } finally {
     await browser.close();
   }

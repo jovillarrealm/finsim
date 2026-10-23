@@ -1,10 +1,21 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { chromium, expect } = require('@playwright/test');
+const fs = require('node:fs');
+const path = require('node:path');
 
 let browser;
+let screenshotSequence = 0;
 before(async () => { browser = await chromium.launch({ channel: 'chrome', headless: true }); });
 after(async () => { await browser?.close(); });
+
+async function capture(page, label) {
+  if (!process.env.FINSIM_WEB_DIAGNOSTICS) return;
+  fs.mkdirSync(process.env.FINSIM_WEB_DIAGNOSTICS, { recursive: true });
+  const file = path.join(process.env.FINSIM_WEB_DIAGNOSTICS, `${Date.now()}-${process.pid}-${++screenshotSequence}-${label.replace(/[^a-z0-9-]/gi, '-')}.png`);
+  await page.screenshot({ path: file });
+  fs.appendFileSync(path.join(process.env.FINSIM_WEB_DIAGNOSTICS, 'trace.log'), `${new Date().toISOString()} ${label} screenshot=${path.basename(file)}\n`);
+}
 
 async function reveal(page, locator) {
   const positions = [];
@@ -22,7 +33,7 @@ async function reveal(page, locator) {
     await page.mouse.wheel(0, box?.width > 0 && box.y < 56 ? -200 : 400);
     await page.waitForTimeout(300);
   }
-  await page.screenshot({ path: '.scratch/financing-offer-comparison/verification/compact-scroll-failure.png' });
+  await capture(page, 'compact-scroll-failure');
   throw new Error('Control could not be reached by scrolling: ' + locator + ' ' + JSON.stringify(positions.slice(-4)));
 }
 async function click(page, name) {
@@ -70,6 +81,11 @@ test('Tab leaves an input without losing keyboard activation at 360x800', async 
     await page.waitForTimeout(150);
     await page.keyboard.press('Space');
     await expect(page.getByRole('textbox', { name: 'Fuente: Efectivo neto que necesitas', exact: true })).toHaveCount(1);
+  } catch (error) {
+    try { await capture(page, 'test-failure'); } catch (captureError) {
+      if (process.env.FINSIM_WEB_DIAGNOSTICS) fs.appendFileSync(path.join(process.env.FINSIM_WEB_DIAGNOSTICS, 'trace.log'), `capture:error ${captureError.message}\n`);
+    }
+    throw error;
   } finally { await page.close(); }
 });
 
@@ -138,5 +154,10 @@ test('compact quotes, validation, context, pending edits and recovery use visibl
     await expect(tree).toContainText('Margen mensual: -60.00');
     await expect(tree).toContainText('Margen mensual: -40.00');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 360);
+  } catch (error) {
+    try { await capture(page, 'test-failure'); } catch (captureError) {
+      if (process.env.FINSIM_WEB_DIAGNOSTICS) fs.appendFileSync(path.join(process.env.FINSIM_WEB_DIAGNOSTICS, 'trace.log'), `capture:error ${captureError.message}\n`);
+    }
+    throw error;
   } finally { await page.close(); }
 });

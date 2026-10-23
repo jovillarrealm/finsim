@@ -431,6 +431,8 @@ async function runBrowserChecks(report, directory, discovered, manifest) {
     for (let index = 0; index < suiteSpecs.length; index += 1) {
       const spec = suiteSpecs[index];
       const suite = report.suites[index];
+      const diagnosticsDirectory = path.join(directory, 'diagnostics', index === 0 ? 'npm-test' : 'test-e2e');
+      await mkdir(diagnosticsDirectory, { recursive: true });
       suite.command = commandText(spec.command, spec.args);
       suite.log = spec.log;
       report.evidenceFiles.push({ path: spec.log, sha256: null });
@@ -440,27 +442,38 @@ async function runBrowserChecks(report, directory, discovered, manifest) {
       await writeProgressReport(report, directory);
       let lastProgressKey = '';
       let progressWrites = Promise.resolve();
-      const result = await runProcess(spec.command, spec.args, path.join(directory, spec.log), {
-        env: testEnv,
-        onOutput: output => {
-          const observedNow = parseTapResults(output);
-          const activeCase = [...output.matchAll(/^\s*# Subtest: (.+?)\s*$/gm)].at(-1)?.[1] ?? null;
-          const progressKey = `${observedNow.length}\0${activeCase ?? ''}`;
-          if (progressKey === lastProgressKey) return;
-          lastProgressKey = progressKey;
-          suite.results = observedNow;
-          suite.cases = evaluateWebCases(discovered.cases, observedNow);
-          suite.passed = observedNow.filter(item => item.status === 'PASS').length;
-          suite.failed = observedNow.filter(item => item.status === 'FAIL').length;
-          suite.notRun = observedNow.filter(item => item.status === 'NOT_RUN').length;
-          report.progress.activeCase = activeCase;
-          report.progress.completedResults = observedNow.length;
-          refreshCatalogResults(report, discovered);
-          progressWrites = progressWrites.then(() => writeProgressReport(report, directory)).catch(error => {
-            report.progress.persistenceError = error instanceof Error ? error.message : String(error);
-          });
-        },
-      });
+      let result;
+      try {
+        result = await runProcess(spec.command, spec.args, path.join(directory, spec.log), {
+          env: { ...testEnv, FINSIM_WEB_DIAGNOSTICS: diagnosticsDirectory },
+          onOutput: output => {
+            const observedNow = parseTapResults(output);
+            const activeCase = [...output.matchAll(/^\s*# Subtest: (.+?)\s*$/gm)].at(-1)?.[1] ?? null;
+            const progressKey = `${observedNow.length}\0${activeCase ?? ''}`;
+            if (progressKey === lastProgressKey) return;
+            lastProgressKey = progressKey;
+            suite.results = observedNow;
+            suite.cases = evaluateWebCases(discovered.cases, observedNow);
+            suite.passed = observedNow.filter(item => item.status === 'PASS').length;
+            suite.failed = observedNow.filter(item => item.status === 'FAIL').length;
+            suite.notRun = observedNow.filter(item => item.status === 'NOT_RUN').length;
+            report.progress.activeCase = activeCase;
+            report.progress.completedResults = observedNow.length;
+            refreshCatalogResults(report, discovered);
+            progressWrites = progressWrites.then(() => writeProgressReport(report, directory)).catch(error => {
+              report.progress.persistenceError = error instanceof Error ? error.message : String(error);
+            });
+          },
+        });
+      } finally {
+        await progressWrites;
+        for (const entry of await readdir(diagnosticsDirectory, { withFileTypes: true })) {
+          if (!entry.isFile()) continue;
+          const evidencePath = path.relative(directory, path.join(diagnosticsDirectory, entry.name)).replaceAll(path.sep, '/');
+          if (report.evidenceFiles.some(item => item.path === evidencePath)) continue;
+          report.evidenceFiles.push({ path: evidencePath, sha256: null });
+        }
+      }
       await progressWrites;
       const observed = parseTapResults(result.output);
       suite.results = observed;
