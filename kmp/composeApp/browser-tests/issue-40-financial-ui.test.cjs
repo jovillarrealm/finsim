@@ -4,6 +4,7 @@ const { chromium, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
 const { waitForStableBox } = require('./stable-box.cjs');
+const { capture } = require('./web-diagnostics.cjs');
 
 const url = process.env.FINSIM_WEB_URL || 'http://127.0.0.1:4176/';
 function trace(message) {
@@ -35,16 +36,6 @@ const tableHeaders = [
   'Saldo final', 'Interés pendiente', 'Seguro pendiente', 'Capital vencido', 'Mora', 'Deuda', 'No aplicado'
 ];
 const rowName = month => `Fila de amortización Modificado, mes ${month}`;
-let screenshotSequence = 0;
-
-async function capture(page, label) {
-  if (!process.env.FINSIM_WEB_DIAGNOSTICS) return;
-  fs.mkdirSync(process.env.FINSIM_WEB_DIAGNOSTICS, { recursive: true });
-  const unique = `${Date.now()}-${process.pid}-${++screenshotSequence}`;
-  const file = path.join(process.env.FINSIM_WEB_DIAGNOSTICS, `${label}-${unique}.png`);
-  await page.screenshot({ path: file, fullPage: true });
-  trace(`screenshot:${path.basename(file)}`);
-}
 
 function intersection(a, b) {
   if (!a || !b) return null;
@@ -148,7 +139,7 @@ async function reveal(page, target, { wheelX } = {}) {
     await page.waitForTimeout(200);
   }
   trace(`reveal:fail ${target} positions=${JSON.stringify(positions)} ${Date.now() - startedAt}ms`);
-  await capture(page, 'reveal-failure');
+  await capture(page, 'reveal-failure', { fullPage: true });
   throw new Error(`Control sin geometría visible tras barrido desde el inicio: ${target} ${JSON.stringify(positions)}`);
 }
 
@@ -252,7 +243,7 @@ async function revealHorizontally(page, target, column) {
   }
   const scrollportBox = await waitForStableBox(page, scrollport);
   trace(`reveal-horizontal:fail column=${tableHeaders[columnIndex]} target=${target} positions=${JSON.stringify(targetBoxes)} scrollport=${JSON.stringify(scrollportBox)} ${Date.now() - startedAt}ms`);
-  await capture(page, 'horizontal-reveal-failure');
+  await capture(page, 'horizontal-reveal-failure', { fullPage: true });
   throw new Error(`Control sin geometría contenida en la tabla y el viewport tras desplazarla: columna=${tableHeaders[columnIndex]} target=${target}; tabla=${JSON.stringify(scrollportBox)} cajas=${JSON.stringify(targetBoxes)}`);
 }
 
@@ -298,7 +289,7 @@ async function prepareTableMonth(page, month) {
       break;
     }
     if (!clip || clip.width <= 12 || clip.height <= 12 || !rowBox?.height) {
-      await capture(page, 'table-row-geometry-failure');
+      await capture(page, 'table-row-geometry-failure', { fullPage: true });
       throw new Error(`No hay bounds estables para las filas o M${month}: body=${JSON.stringify(bodyBox)} clip=${JSON.stringify(clip)} fila=${JSON.stringify(rowBox)}`);
     }
     const deltaY = rowBox.y + rowBox.height > clip.y + clip.height - 2
@@ -307,7 +298,7 @@ async function prepareTableMonth(page, month) {
         ? -Math.min(160, clip.y - rowBox.y + 12)
         : 0;
     if (deltaY === 0) {
-      await capture(page, 'table-row-clip-failure');
+      await capture(page, 'table-row-clip-failure', { fullPage: true });
       throw new Error(`M${month} no está contenido en el viewport vertical de la tabla: body=${JSON.stringify(bodyBox)} fila=${JSON.stringify(rowBox)}`);
     }
     const point = { x: clip.x + clip.width / 2, y: clip.y + clip.height / 2 };
@@ -317,7 +308,7 @@ async function prepareTableMonth(page, month) {
     const after = await waitForStableBox(page, row);
     if (!after?.height || Math.abs(after.y - rowBox.y) <= 1) {
       trace(`table-row:no-progress month=${month} step=${step} before=${JSON.stringify(rowBox)} after=${JSON.stringify(after)} body=${JSON.stringify(clip)} delta=${deltaY}`);
-      await capture(page, 'table-row-no-progress');
+      await capture(page, 'table-row-no-progress', { fullPage: true });
       throw new Error(`El desplazamiento vertical no avanzó hacia M${month}: antes=${JSON.stringify(rowBox)} después=${JSON.stringify(after)} body=${JSON.stringify(clip)} delta=${deltaY}`);
     }
     trace(`table-row:scroll month=${month} step=${step} before=${JSON.stringify(rowBox)} after=${JSON.stringify(after)} body=${JSON.stringify(clip)} delta=${deltaY}`);
@@ -325,7 +316,7 @@ async function prepareTableMonth(page, month) {
   const bodyBox = await waitForStableBox(page, body);
   const rowBox = await waitForStableBox(page, row);
   if (!visibleInBody(bodyBox, rowBox)) {
-    await capture(page, 'table-row-not-visible');
+    await capture(page, 'table-row-not-visible', { fullPage: true });
     throw new Error(`La fila M${month} no quedó contenida en el viewport vertical tras 16 pasos: body=${JSON.stringify(bodyBox)} fila=${JSON.stringify(rowBox)}`);
   }
   trace(`table-row:prepared month=${month} scrollport=${JSON.stringify(await waitForStableBox(page, scrollport))} body=${JSON.stringify(bodyBox)} row=${JSON.stringify(rowBox)} viewport=${JSON.stringify(viewport)}`);
@@ -427,7 +418,7 @@ test('[WEB-40-ORIGIN-A11Y] Keep the form tree while selecting payment origin wit
     await expect(original).toHaveCount(0);
     await expect(current).toHaveCount(0);
   } catch (error) {
-    try { await capture(page, 'test-failure'); } catch (captureError) { trace(`capture:error ${captureError.message}`); }
+    await capture(page, 'test-failure', { fullPage: true });
     throw error;
   } finally {
     await browser.close();
@@ -510,7 +501,7 @@ test('[WEB-40-CONDITIONS] Configure current balance, nominal rate, agreed paymen
     await activate(page, page.getByRole('button', { name: 'Ver tabla', exact: true }));
     await assertTableCell(page, 'seguro generado', 2, 'ARS 0,00');
   } catch (error) {
-    try { await capture(page, 'test-failure'); } catch (captureError) { trace(`capture:error ${captureError.message}`); }
+    await capture(page, 'test-failure', { fullPage: true });
     throw error;
   } finally {
     await browser.close();
@@ -542,7 +533,7 @@ test('[WEB-40-ARS-GATE] The Argentine prepayment profile is unavailable outside 
     assert.equal(saved.currency, 'COP');
     assert.ok(saved.argentinaProfile == null, 'El perfil argentino debe quedar ausente o nulo fuera de ARS.');
   } catch (error) {
-    try { await capture(page, 'test-failure'); } catch (captureError) { trace(`capture:error ${captureError.message}`); }
+    await capture(page, 'test-failure', { fullPage: true });
     throw error;
   } finally {
     await browser.close();
@@ -594,7 +585,7 @@ test('[WEB-40-EVENT-BATCH] Discard and apply a missed payment, recovery and recu
     await assertTableCell(page, 'saldo de capital', 2, 'ARS 820,00');
     await assertTableCell(page, 'saldo de capital', 3, 'ARS 718,20');
   } catch (error) {
-    try { await capture(page, 'test-failure'); } catch (captureError) { trace(`capture:error ${captureError.message}`); }
+    await capture(page, 'test-failure', { fullPage: true });
     throw error;
   } finally {
     await browser.close();
@@ -650,7 +641,7 @@ test('[WEB-40-MONTH-SYNC] Touch month selection stays synchronized across chart,
     assert.equal(after.width, before.width);
     assert.equal(after.height, before.height);
   } catch (error) {
-    try { await capture(page, 'test-failure'); } catch (captureError) { trace(`capture:error ${captureError.message}`); }
+    await capture(page, 'test-failure', { fullPage: true });
     throw error;
   } finally {
     await browser.close();
@@ -668,7 +659,7 @@ test('[WEB-40-TNUM-UI] Visible result width follows text length without changing
     await page.waitForTimeout(250);
     const first = await result.boundingBox();
     assert.ok(first?.width > 0);
-    await capture(page, 'tnum-111');
+    await capture(page, 'tnum-111', { fullPage: true });
 
     await enter(page, page.getByLabel('Cuota pactada (opcional)', { exact: true }), '888.88');
     await activate(page, page.getByRole('button', { name: 'Actualizar condiciones del préstamo', exact: true }));
@@ -680,7 +671,7 @@ test('[WEB-40-TNUM-UI] Visible result width follows text length without changing
     await page.waitForTimeout(250);
     const second = await result.boundingBox();
     assert.ok(second?.width > 0);
-    await capture(page, 'tnum-888');
+    await capture(page, 'tnum-888', { fullPage: true });
 
     await enter(page, page.getByLabel('Cuota pactada (opcional)', { exact: true }), '88.88');
     await activate(page, page.getByRole('button', { name: 'Actualizar condiciones del préstamo', exact: true }));
@@ -691,7 +682,7 @@ test('[WEB-40-TNUM-UI] Visible result width follows text length without changing
     await page.waitForTimeout(250);
     const shorter = await result.boundingBox();
     assert.ok(shorter?.width > 0);
-    await capture(page, 'tnum-88');
+    await capture(page, 'tnum-88', { fullPage: true });
     t.diagnostic(`Anchos UI visibles (111,11 / 888,88 / 88,88): ${first.width} / ${second.width} / ${shorter.width}px.`);
     if (Math.abs(first.width - shorter.width) <= 1) {
       t.skip('La caja visible no distingue longitudes de texto; tabularidad queda NOT_RUN.');
@@ -699,7 +690,7 @@ test('[WEB-40-TNUM-UI] Visible result width follows text length without changing
     }
     assert.ok(Math.abs(first.width - second.width) <= 1, `El ancho visible cambió para cifras de igual longitud: ${first.width} → ${second.width}px`);
   } catch (error) {
-    try { await capture(page, 'test-failure'); } catch (captureError) { trace(`capture:error ${captureError.message}`); }
+    await capture(page, 'test-failure', { fullPage: true });
     throw error;
   } finally {
     await browser.close();

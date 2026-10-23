@@ -2,9 +2,8 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFile } = require('node:fs/promises');
 const { chromium, expect } = require('@playwright/test');
-const fs = require('node:fs');
-const path = require('node:path');
 const { waitForStableBox } = require('./stable-box.cjs');
+const { capture } = require('./web-diagnostics.cjs');
 
 let browser;
 before(async () => { browser = await chromium.launch({ channel: 'chrome', headless: true }); });
@@ -45,15 +44,6 @@ async function importFile(page, file) {
     click(page, 'Importar archivo JSON')
   ]);
   await chooser.setFiles(file);
-}
-
-let screenshotSequence = 0;
-async function capture(page, label) {
-  if (!process.env.FINSIM_WEB_DIAGNOSTICS) return;
-  fs.mkdirSync(process.env.FINSIM_WEB_DIAGNOSTICS, { recursive: true });
-  const file = path.join(process.env.FINSIM_WEB_DIAGNOSTICS, `${Date.now()}-${process.pid}-${++screenshotSequence}-${label.replace(/[^a-z0-9-]/gi, '-')}.png`);
-  await page.screenshot({ path: file });
-  fs.appendFileSync(path.join(process.env.FINSIM_WEB_DIAGNOSTICS, 'trace.log'), `${new Date().toISOString()} ${label} box-capture=${path.basename(file)}\n`);
 }
 
 test('quotes and actual JSON transfer preserve applied and saved data', async () => {
@@ -114,9 +104,7 @@ test('quotes and actual JSON transfer preserve applied and saved data', async ()
     await click(page, 'Guardar');
     assert.equal(await page.evaluate(() => localStorage.getItem('finsim.comparison.v1')), comparison);
   } catch (error) {
-    try { await capture(page, 'test-failure'); } catch (captureError) {
-      if (process.env.FINSIM_WEB_DIAGNOSTICS) fs.appendFileSync(path.join(process.env.FINSIM_WEB_DIAGNOSTICS, 'trace.log'), `capture:error ${captureError.message}\n`);
-    }
+    await capture(page, 'test-failure');
     throw error;
   } finally { await page.close(); }
 });

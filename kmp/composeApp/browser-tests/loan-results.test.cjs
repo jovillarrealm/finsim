@@ -1,21 +1,11 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { chromium, expect } = require('@playwright/test');
-const fs = require('node:fs');
-const path = require('node:path');
 const { waitForStableBox } = require('./stable-box.cjs');
+const { capture } = require('./web-diagnostics.cjs');
 const url = process.env.FINSIM_WEB_URL || 'http://127.0.0.1:4176/';
 const fixture = { version: 1, name: 'FS18 F01', source: 'original', principal: '1000.00', startDate: '2026-01', termMonths: 2, rate: { kind: 'monthly', value: '0.01' }, insurance: [], events: [], currency: 'COP' };
-let screenshotSequence = 0;
 let clipboardSequence = 0;
-
-async function capture(page, label) {
-  if (!process.env.FINSIM_WEB_DIAGNOSTICS) return;
-  fs.mkdirSync(process.env.FINSIM_WEB_DIAGNOSTICS, { recursive: true });
-  const file = path.join(process.env.FINSIM_WEB_DIAGNOSTICS, `${Date.now()}-${process.pid}-${++screenshotSequence}-${label.replace(/[^a-z0-9-]/gi, '-')}.png`);
-  await page.screenshot({ path: file });
-  fs.appendFileSync(path.join(process.env.FINSIM_WEB_DIAGNOSTICS, 'trace.log'), `${new Date().toISOString()} ${label} screenshot=${path.basename(file)}\n`);
-}
 
 async function markClipboard(page) {
   const marker = `FINSIM-ISSUE40-PENDING-${process.pid}-${Date.now()}-${++clipboardSequence}`;
@@ -136,9 +126,7 @@ test('FS18 real clipboard in summary, detail and table; filters preserve totals 
     await page.reload();
     await expect(button(page, 'Copiar Cuota base Modificado')).toContainText('COP 507,51');
   } catch (error) {
-    try { if (page) await capture(page, 'test-failure'); } catch (captureError) {
-      if (process.env.FINSIM_WEB_DIAGNOSTICS) fs.appendFileSync(path.join(process.env.FINSIM_WEB_DIAGNOSTICS, 'trace.log'), `capture:error ${captureError.message}\n`);
-    }
+    if (page) await capture(page, 'test-failure');
     throw error;
   } finally { await browser.close(); }
 });
@@ -168,9 +156,7 @@ test('FS18 omission separates generated and paid amounts; applying removal clamp
     await expect(tree).toContainText('Detalle del mes 2');
     await expect(tree).toContainText('Mes seleccionado: 2.');
   } catch (error) {
-    try { if (page) await capture(page, 'test-failure'); } catch (captureError) {
-      if (process.env.FINSIM_WEB_DIAGNOSTICS) fs.appendFileSync(path.join(process.env.FINSIM_WEB_DIAGNOSTICS, 'trace.log'), `capture:error ${captureError.message}\n`);
-    }
+    if (page) await capture(page, 'test-failure');
     throw error;
   } finally { await browser.close(); }
 });
@@ -197,9 +183,7 @@ test('FS18 360px touch navigation reaches M1200 and both canvases select the com
     await copyAndAssert(page, button(page, 'Copiar Cuota base Modificado'), '1,00', true);
     await expect(tree).toContainText('Resultado incompleto: diferencias parciales');
   } catch (error) {
-    try { if (page) await capture(page, 'test-failure'); } catch (captureError) {
-      if (process.env.FINSIM_WEB_DIAGNOSTICS) fs.appendFileSync(path.join(process.env.FINSIM_WEB_DIAGNOSTICS, 'trace.log'), `capture:error ${captureError.message}\n`);
-    }
+    if (page) await capture(page, 'test-failure');
     throw error;
   } finally { await browser.close(); }
 });
@@ -237,9 +221,7 @@ test('FS18 pending events survive navigation and only change applied results aft
     await expect(button(page, 'Copiar Capital adicional Modificado mes 1')).toContainText('100,00');
     await copyAndAssert(page, button(page, 'Copiar Caja total pagada Modificado'), '1014,02');
   } catch (error) {
-    try { if (page) await capture(page, 'test-failure'); } catch (captureError) {
-      if (process.env.FINSIM_WEB_DIAGNOSTICS) fs.appendFileSync(path.join(process.env.FINSIM_WEB_DIAGNOSTICS, 'trace.log'), `capture:error ${captureError.message}\n`);
-    }
+    if (page) await capture(page, 'test-failure');
     throw error;
   } finally { await browser.close(); }
 });

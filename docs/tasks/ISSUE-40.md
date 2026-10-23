@@ -56,3 +56,15 @@ El perfil completo histórico `2026-10-22T05-43-43-423Z-29983f3f` sigue siendo F
 - No ejecutar el perfil completo antes de esa revisión. Tras revisión, coordinación podrá correr un nuevo perfil con nueva distribución y preservar todos los estados FAIL/NOT_RUN en el reporte.
 - Siguen pendientes la aceptación del perfil completo, la revisión nueva y la prueba en dispositivo físico. Android host 5/5 de `5faf6a2` es evidencia previa de coordinación y no demuestra prueba en dispositivo ni se atribuye a este cambio de helpers.
 - El comentario de coordinación con el relevo de esta ronda es [#40, comentario 6357441126](https://github.com/jovillarrealm/finsim/issues/40#issuecomment-6357441126). #40 permanece abierto.
+
+## Seguimiento de revisión: diagnóstico compartido y límites de suites
+
+La revisión independiente final de `4393be9` informó cero incumplimientos y dos observaciones P3: captura/traza duplicada en las suites browser y unidades `stable-box` incluidas en el glob UI. Se corrigieron en esta misma rama, sin alterar lógica de aplicación ni oráculos:
+
+- `web-diagnostics.cjs` centraliza la captura real en las cinco suites que ya la usaban. Conserva `FINSIM_WEB_DIAGNOSTICS` como destino externo, nombres únicos, `trace.log` y captura en las rutas de fallo. La captura es best-effort: si falla al capturar, registra el error cuando puede y no reemplaza el fallo de UI original. `issue-40-financial-ui.test.cjs` mantiene `fullPage: true`; las otras suites conservan la captura del viewport.
+- Las tres unidades de `waitForStableBox` se movieron fuera del glob browser a `scripts/browser-geometry.test.cjs`. El glob `test:e2e` vuelve a incluir únicamente los 19 recorridos UI; `npm test` agrega los cinco checks del verificador y las tres unidades de geometría. No se catalogaron las unidades como casos UI.
+- La descripción Markdown del reporte de `verify-web` ahora explica por separado esos cinco checks, las tres pruebas auxiliares y los recorridos UI de `test:e2e`.
+
+Checks de esta refactorización auxiliar: sintaxis Node de todos los CJS bajo `browser-tests`, `scripts/browser-geometry.test.cjs` y `scripts/verify-web.mjs`; separación estática de comandos y conteo esperado 19; pruebas geométricas 3/3 PASS; `scripts/verify-web.test.mjs` 5/5 PASS; `git diff --check` PASS. No se ejecutaron browser, build, Gradle ni perfil completo. Los seis recorridos dirigidos PASS del checkpoint `7240437` son evidencia anterior a este cambio auxiliar y no se reclasifican como una nueva ejecución. El FAIL histórico y la aceptación pendiente descritos arriba permanecen.
+
+Logs finales de estos checks: `C:/Users/Lenovo/AppData/Local/Temp/finsim-spec37/issue40-review-followup-4393be9/final-checks-post-fix/`. El worktree queda en la rama existente y espera el seguimiento secuencial del revisor.

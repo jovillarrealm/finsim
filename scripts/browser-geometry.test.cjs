@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { waitForStableBox } = require('./stable-box.cjs');
+const { waitForStableBox } = require('../kmp/composeApp/browser-tests/stable-box.cjs');
 
 function fixture(boxes, { count = 1 } = {}) {
   let index = 0;

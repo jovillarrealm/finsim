@@ -2,18 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFile } = require('node:fs/promises');
 const { chromium, expect } = require('@playwright/test');
-const fs = require('node:fs');
-const path = require('node:path');
 const { waitForStableBox } = require('./stable-box.cjs');
-
-let screenshotSequence = 0;
-async function capture(page, label) {
-  if (!process.env.FINSIM_WEB_DIAGNOSTICS) return;
-  fs.mkdirSync(process.env.FINSIM_WEB_DIAGNOSTICS, { recursive: true });
-  const file = path.join(process.env.FINSIM_WEB_DIAGNOSTICS, `${Date.now()}-${process.pid}-${++screenshotSequence}-${label.replace(/[^a-z0-9-]/gi, '-')}.png`);
-  await page.screenshot({ path: file });
-  fs.appendFileSync(path.join(process.env.FINSIM_WEB_DIAGNOSTICS, 'trace.log'), `${new Date().toISOString()} ${label} box-capture=${path.basename(file)}\n`);
-}
+const { capture } = require('./web-diagnostics.cjs');
 
 test('legacy loan JSON recalculates, exports and survives a rejected import', async () => {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
@@ -66,9 +56,7 @@ test('legacy loan JSON recalculates, exports and survives a rejected import', as
     await expect(tree).toContainText(legacy.name);
     await expect(tree).toContainText('COP 1.014,02');
   } catch (error) {
-    try { await capture(page, 'test-failure'); } catch (captureError) {
-      if (process.env.FINSIM_WEB_DIAGNOSTICS) fs.appendFileSync(path.join(process.env.FINSIM_WEB_DIAGNOSTICS, 'trace.log'), `capture:error ${captureError.message}\n`);
-    }
+    await capture(page, 'test-failure');
     throw error;
   } finally { await browser.close(); }
 });

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite preview --host 127.0.0.1 --port 5173 --outDir kmp/composeApp/build/dist/wasmJs/productionExecutable",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --test-reporter=tap --test-concurrency=1 scripts/verify-web.test.mjs kmp/composeApp/browser-tests/*.test.cjs",
+    "test": "node --test --test-reporter=tap --test-concurrency=1 scripts/verify-web.test.mjs scripts/browser-geometry.test.cjs kmp/composeApp/browser-tests/*.test.cjs",
     "test:e2e": "node --test --test-reporter=tap --test-concurrency=1 kmp/composeApp/browser-tests/*.test.cjs",
     "verify:web": "node scripts/verify-web.mjs",
     "test:verification": "node --test scripts/verify-financial.test.mjs scripts/verify-device.test.mjs",
