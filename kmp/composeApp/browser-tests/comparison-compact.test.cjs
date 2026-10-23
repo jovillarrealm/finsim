@@ -1,6 +1,7 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { chromium, expect } = require('@playwright/test');
+const { capture } = require('./web-diagnostics.cjs');
 
 let browser;
 before(async () => { browser = await chromium.launch({ channel: 'chrome', headless: true }); });
@@ -22,7 +23,7 @@ async function reveal(page, locator) {
     await page.mouse.wheel(0, box?.width > 0 && box.y < 56 ? -200 : 400);
     await page.waitForTimeout(300);
   }
-  await page.screenshot({ path: '.scratch/financing-offer-comparison/verification/compact-scroll-failure.png' });
+  await capture(page, 'compact-scroll-failure');
   throw new Error('Control could not be reached by scrolling: ' + locator + ' ' + JSON.stringify(positions.slice(-4)));
 }
 async function click(page, name) {
@@ -70,6 +71,9 @@ test('Tab leaves an input without losing keyboard activation at 360x800', async 
     await page.waitForTimeout(150);
     await page.keyboard.press('Space');
     await expect(page.getByRole('textbox', { name: 'Fuente: Efectivo neto que necesitas', exact: true })).toHaveCount(1);
+  } catch (error) {
+    await capture(page, 'test-failure');
+    throw error;
   } finally { await page.close(); }
 });
 
@@ -138,5 +142,8 @@ test('compact quotes, validation, context, pending edits and recovery use visibl
     await expect(tree).toContainText('Margen mensual: -60.00');
     await expect(tree).toContainText('Margen mensual: -40.00');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 360);
+  } catch (error) {
+    await capture(page, 'test-failure');
+    throw error;
   } finally { await page.close(); }
 });

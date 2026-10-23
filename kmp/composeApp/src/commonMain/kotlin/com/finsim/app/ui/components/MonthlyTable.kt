@@ -13,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -328,9 +330,15 @@ fun MonthlyTable(
                     shape = RoundedCornerShape(12.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
                     color = SurfaceCard,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().semantics {
+                        contentDescription = "Tabla de amortización $scenarioName"
+                    }
                 ) {
-                    Column(Modifier.horizontalScroll(horizontalScroll)) {
+                    Column(
+                        Modifier.horizontalScroll(horizontalScroll).semantics {
+                            contentDescription = "Desplazamiento horizontal de la tabla de amortización $scenarioName"
+                        }
+                    ) {
                         Row(
                             Modifier
                                 .background(TableHeaderBg)
@@ -340,7 +348,9 @@ fun MonthlyTable(
                             headers.forEach {
                                 Text(
                                     it,
-                                    Modifier.width(160.dp).padding(horizontal = 8.dp),
+                                    Modifier.width(160.dp).padding(horizontal = 8.dp).semantics {
+                                        contentDescription = "Encabezado de columna $it de la tabla de amortización $scenarioName"
+                                    },
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = BrandForest
@@ -354,6 +364,9 @@ fun MonthlyTable(
                             Modifier
                                 .heightIn(max = 480.dp)
                                 .verticalScroll(verticalScroll)
+                                .semantics {
+                                    contentDescription = "Filas de la tabla de amortización $scenarioName"
+                                }
                         ) {
                             result.rows.forEachIndexed { rowIndex, row ->
                                 val paid = paidComponents(row)
@@ -362,6 +375,9 @@ fun MonthlyTable(
                                 Row(
                                     Modifier
                                         .fillMaxWidth()
+                                        .semantics {
+                                            contentDescription = "Fila de amortización $scenarioName, mes ${row.month}"
+                                        }
                                         .background(if (isSelected) Color(0xFFD1FAE5) else if (rowIndex % 2 == 1) TableZebraRow else Color.White)
                                         .then(if (isSelected) Modifier.border(1.dp, BrandEmerald, RoundedCornerShape(4.dp)) else Modifier)
                                         .padding(vertical = 4.dp),

@@ -1,7 +1,6 @@
 package com.finsim.app.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -9,6 +8,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -139,30 +140,15 @@ fun EventEditor(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Selector de tipo
-                                var kindMenuExpanded by remember { mutableStateOf(false) }
+                                // Selector inline para mantener las opciones disponibles en el árbol accesible Wasm.
                                 Box(modifier = Modifier.weight(1.5f)) {
-                                    OutlinedTextField(
-                                        value = item.kind.displayName,
-                                        onValueChange = {},
-                                        readOnly = true,
-                                        label = { Text("Tipo") },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { kindMenuExpanded = true }
-                                    )
-                                    DropdownMenu(
-                                        expanded = kindMenuExpanded,
-                                        onDismissRequest = { kindMenuExpanded = false }
-                                    ) {
-                                        EventDraftKind.entries.forEach { kindOption ->
-                                            DropdownMenuItem(
-                                                text = { Text(kindOption.displayName) },
-                                                onClick = {
-                                                    onBatchChange(batch.updateKind(item.id, kindOption))
-                                                    kindMenuExpanded = false
-                                                }
-                                            )
+                                    ComparisonChoice(
+                                        label = "Tipo",
+                                        choices = EventDraftKind.entries.map { it.displayName },
+                                        selected = item.kind.displayName
+                                    ) { selected ->
+                                        EventDraftKind.entries.firstOrNull { it.displayName == selected }?.let { kind ->
+                                            onBatchChange(batch.updateKind(item.id, kind))
                                         }
                                     }
                                 }
@@ -175,7 +161,7 @@ fun EventEditor(
                                         }
                                     },
                                     label = { Text("Mes") },
-                                    modifier = Modifier.weight(0.8f)
+                                    modifier = Modifier.weight(0.8f).semantics { contentDescription = "Mes" }
                                 )
 
                                 if (item.kind != EventDraftKind.Missed) {
@@ -185,7 +171,7 @@ fun EventEditor(
                                             onBatchChange(batch.updateAmount(item.id, newVal))
                                         },
                                         label = { Text("Importe ($currency)") },
-                                        modifier = Modifier.weight(1.2f)
+                                        modifier = Modifier.weight(1.2f).semantics { contentDescription = "Importe ($currency)" }
                                     )
                                 }
                             }
@@ -205,7 +191,7 @@ fun EventEditor(
                                             }
                                         },
                                         label = { Text("Hasta mes") },
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier.weight(1f).semantics { contentDescription = "Hasta mes" }
                                     )
                                     OutlinedTextField(
                                         value = item.every.toString(),
@@ -215,7 +201,7 @@ fun EventEditor(
                                             }
                                         },
                                         label = { Text("Cada N meses") },
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier.weight(1f).semantics { contentDescription = "Cada N meses" }
                                     )
                                 }
                             }

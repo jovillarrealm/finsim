@@ -9,6 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -31,7 +33,6 @@ import com.finsim.domain.*
  * apila los campos en 1 sola columna de ancho completo; en pantallas mayores (>= 600dp),
  * organiza los campos en pares de 2 columnas horizontales.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoanForm(
     scenario: Scenario,
@@ -40,9 +41,6 @@ fun LoanForm(
 ) {
     var draft by remember(scenario) { mutableStateOf(LoanConditionsDraft.from(scenario)) }
     var errorMessage by remember { mutableStateOf("") }
-    var currencyExpanded by remember { mutableStateOf(false) }
-    var sourceExpanded by remember { mutableStateOf(false) }
-    var rateExpanded by remember { mutableStateOf(false) }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -131,7 +129,7 @@ fun LoanForm(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
                     shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().accessibleField("Nombre del escenario")
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -139,75 +137,38 @@ fun LoanForm(
                 AdaptiveFieldRow(
                     isCompact = isCompact,
                     first = { fieldModifier ->
-                        ExposedDropdownMenuBox(
-                            expanded = currencyExpanded,
-                            onExpandedChange = { currencyExpanded = it },
-                            modifier = fieldModifier
-                        ) {
-                            OutlinedTextField(
-                                value = draft.state.currency.name,
-                                onValueChange = {},
-                                readOnly = true,
-                                singleLine = true,
-                                label = { Text("Moneda") },
-                                shape = RoundedCornerShape(8.dp),
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = currencyExpanded) },
-                                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
-                            )
-                            ExposedDropdownMenu(
-                                expanded = currencyExpanded,
-                                onDismissRequest = { currencyExpanded = false }
-                            ) {
-                                Currency.entries.forEach { curr ->
-                                    DropdownMenuItem(
-                                        text = { Text(curr.name) },
-                                        onClick = {
-                                            draft = draft.updateCurrency(curr)
-                                            errorMessage = ""
-                                            currencyExpanded = false
-                                        }
-                                    )
+                        Box(modifier = fieldModifier) {
+                            ComparisonChoice(
+                                label = "Moneda",
+                                choices = Currency.entries.map { it.name },
+                                selected = draft.state.currency.name,
+                                onSelect = { selected ->
+                                    Currency.entries.firstOrNull { it.name == selected }?.let { currency ->
+                                        draft = draft.updateCurrency(currency)
+                                        errorMessage = ""
+                                    }
                                 }
-                            }
+                            )
                         }
                     },
                     second = { fieldModifier ->
-                        ExposedDropdownMenuBox(
-                            expanded = sourceExpanded,
-                            onExpandedChange = { sourceExpanded = it },
-                            modifier = fieldModifier
-                        ) {
-                            OutlinedTextField(
-                                value = draft.state.paymentOrigin.displayName,
-                                onValueChange = {},
-                                readOnly = true,
-                                singleLine = true,
-                                label = { Text("Origen") },
-                                shape = RoundedCornerShape(8.dp),
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sourceExpanded) },
-                                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
+                        Box(modifier = fieldModifier) {
+                            ComparisonChoice(
+                                label = "Origen",
+                                choices = listOf(PaymentOrigin.Original.displayName, PaymentOrigin.Current.displayName),
+                                selected = draft.state.paymentOrigin.displayName,
+                                onSelect = { selected ->
+                                    val origin = when (selected) {
+                                        PaymentOrigin.Original.displayName -> PaymentOrigin.Original
+                                        PaymentOrigin.Current.displayName -> PaymentOrigin.Current
+                                        else -> null
+                                    }
+                                    if (origin != null) {
+                                        draft = draft.updatePaymentOrigin(origin)
+                                        errorMessage = ""
+                                    }
+                                }
                             )
-                            ExposedDropdownMenu(
-                                expanded = sourceExpanded,
-                                onDismissRequest = { sourceExpanded = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(PaymentOrigin.Original.displayName) },
-                                    onClick = {
-                                        draft = draft.updatePaymentOrigin(PaymentOrigin.Original)
-                                        errorMessage = ""
-                                        sourceExpanded = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(PaymentOrigin.Current.displayName) },
-                                    onClick = {
-                                        draft = draft.updatePaymentOrigin(PaymentOrigin.Current)
-                                        errorMessage = ""
-                                        sourceExpanded = false
-                                    }
-                                )
-                            }
                         }
                     }
                 )
@@ -238,7 +199,7 @@ fun LoanForm(
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
                             shape = RoundedCornerShape(8.dp),
-                            modifier = fieldModifier
+                            modifier = fieldModifier.accessibleField("Capital (${draft.state.currency})")
                         )
                     },
                     second = { fieldModifier ->
@@ -253,7 +214,7 @@ fun LoanForm(
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
                             shape = RoundedCornerShape(8.dp),
-                            modifier = fieldModifier
+                            modifier = fieldModifier.accessibleField("Primer pago (AAAA-MM)")
                         )
                     }
                 )
@@ -274,7 +235,7 @@ fun LoanForm(
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                             shape = RoundedCornerShape(8.dp),
-                            modifier = fieldModifier
+                            modifier = fieldModifier.accessibleField("Plazo (meses)")
                         )
                     },
                     second = { fieldModifier ->
@@ -289,7 +250,7 @@ fun LoanForm(
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
                             shape = RoundedCornerShape(8.dp),
-                            modifier = fieldModifier
+                            modifier = fieldModifier.accessibleField("Tasa de interés (%)")
                         )
                     }
                 )
@@ -309,50 +270,18 @@ fun LoanForm(
                 AdaptiveFieldRow(
                     isCompact = isCompact,
                     first = { fieldModifier ->
-                        ExposedDropdownMenuBox(
-                            expanded = rateExpanded,
-                            onExpandedChange = { rateExpanded = it },
-                            modifier = fieldModifier
-                        ) {
-                            OutlinedTextField(
-                                value = draft.state.rateKind.displayName,
-                                onValueChange = {},
-                                readOnly = true,
-                                singleLine = true,
-                                label = { Text("Tipo de tasa") },
-                                shape = RoundedCornerShape(8.dp),
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = rateExpanded) },
-                                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
+                        Box(modifier = fieldModifier) {
+                            ComparisonChoice(
+                                label = "Tipo de tasa",
+                                choices = RateKind.entries.map { it.displayName },
+                                selected = draft.state.rateKind.displayName,
+                                onSelect = { selected ->
+                                    RateKind.entries.firstOrNull { it.displayName == selected }?.let { rateKind ->
+                                        draft = draft.updateRateKind(rateKind)
+                                        errorMessage = ""
+                                    }
+                                }
                             )
-                            ExposedDropdownMenu(
-                                expanded = rateExpanded,
-                                onDismissRequest = { rateExpanded = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(RateKind.Monthly.displayName) },
-                                    onClick = {
-                                        draft = draft.updateRateKind(RateKind.Monthly)
-                                        errorMessage = ""
-                                        rateExpanded = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(RateKind.Annual.displayName) },
-                                    onClick = {
-                                        draft = draft.updateRateKind(RateKind.Annual)
-                                        errorMessage = ""
-                                        rateExpanded = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(RateKind.Nominal.displayName) },
-                                    onClick = {
-                                        draft = draft.updateRateKind(RateKind.Nominal)
-                                        errorMessage = ""
-                                        rateExpanded = false
-                                    }
-                                )
-                            }
                         }
                     },
                     second = { fieldModifier ->
@@ -366,9 +295,9 @@ fun LoanForm(
                                 label = { Text("Capitalizaciones/año") },
                                 isError = errorMessage.isNotBlank() && draft.errors.containsKey(LoanField.NominalFrequency),
                                 singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                                 shape = RoundedCornerShape(8.dp),
-                                modifier = fieldModifier
+                                modifier = fieldModifier.accessibleField("Capitalizaciones/año")
                             )
                         } else {
                             OutlinedTextField(
@@ -382,11 +311,244 @@ fun LoanForm(
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
                                 shape = RoundedCornerShape(8.dp),
-                                modifier = fieldModifier
+                                modifier = fieldModifier.accessibleField("Cuota pactada (opcional)")
                             )
                         }
                     }
                 )
+
+                if (draft.state.rateKind == RateKind.Nominal) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = draft.state.paymentStr,
+                        onValueChange = {
+                            draft = draft.updatePayment(it)
+                            errorMessage = ""
+                        },
+                        label = { Text("Cuota pactada (opcional)") },
+                        isError = errorMessage.isNotBlank() && draft.errors.containsKey(LoanField.Payment),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth().accessibleField("Cuota pactada (opcional)")
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Section 4: Seguros del Préstamo
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "SEGUROS DEL PRÉSTAMO",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BrandForest,
+                        letterSpacing = 0.5.sp
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            draft = draft.addInsurance()
+                            errorMessage = ""
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text("+ Agregar seguro", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = BrandForest)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (draft.state.insurances.isEmpty()) {
+                    Surface(
+                        color = Color.White,
+                        shape = RoundedCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "No hay seguros configurados. Haz clic en '+ Agregar seguro' para incluir seguros de vida, incendio o desempleo.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextForestMuted,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        draft.state.insurances.forEachIndexed { index, insuranceItem ->
+                            InsuranceItemCard(
+                                item = insuranceItem,
+                                index = index,
+                                currency = draft.state.currency,
+                                isCompact = isCompact,
+                                onUpdate = { updated ->
+                                    draft = draft.updateInsurance(updated)
+                                    errorMessage = ""
+                                },
+                                onRemove = {
+                                    draft = draft.removeInsurance(insuranceItem.id)
+                                    errorMessage = ""
+                                }
+                            )
+                        }
+                    }
+                }
+
+                if (draft.state.currency == Currency.ARS) {
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                // Section 5: Régimen Argentino / Prepago
+                Text(
+                    text = "PREPAGO Y RÉGIMEN ARGENTINO",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BrandForest,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Card(
+                    shape = RoundedCornerShape(10.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text(
+                                    text = "Régimen de precancelación argentino",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = BrandDark
+                                )
+                                Text(
+                                    text = "Estima comisión e IVA con las tasas y fechas que configures.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextForestMuted
+                                )
+                            }
+                            Switch(
+                                checked = draft.state.argentinaProfile.enabled,
+                                onCheckedChange = {
+                                    draft = draft.toggleArgentinaProfile(it)
+                                    errorMessage = ""
+                                },
+                                modifier = Modifier.semantics {
+                                    contentDescription = "Régimen de precancelación argentino"
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = BrandForest
+                                )
+                            )
+                        }
+
+                        if (draft.state.argentinaProfile.enabled) {
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            AdaptiveFieldRow(
+                                isCompact = isCompact,
+                                first = { fieldModifier ->
+                                    OutlinedTextField(
+                                        value = draft.state.argentinaProfile.originationDate,
+                                        onValueChange = {
+                                            draft = draft.updateArgentinaProfile(originationDate = it)
+                                            errorMessage = ""
+                                        },
+                                        label = { Text("Fecha originación (AAAA-MM)") },
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = fieldModifier.accessibleField("Fecha originación (AAAA-MM)")
+                                    )
+                                },
+                                second = { fieldModifier ->
+                                    OutlinedTextField(
+                                        value = draft.state.argentinaProfile.originalTermMonthsStr,
+                                        onValueChange = {
+                                            draft = draft.updateArgentinaProfile(originalTermMonthsStr = it)
+                                            errorMessage = ""
+                                        },
+                                        label = { Text("Plazo original (meses)") },
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = fieldModifier.accessibleField("Plazo original (meses)")
+                                    )
+                                }
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            AdaptiveFieldRow(
+                                isCompact = isCompact,
+                                first = { fieldModifier ->
+                                    OutlinedTextField(
+                                        value = draft.state.argentinaProfile.commissionPercentStr,
+                                        onValueChange = {
+                                            draft = draft.updateArgentinaProfile(commissionPercentStr = it)
+                                            errorMessage = ""
+                                        },
+                                        label = { Text("Comisión prepago (%)") },
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = fieldModifier.accessibleField("Comisión prepago (%)")
+                                    )
+                                },
+                                second = { fieldModifier ->
+                                    OutlinedTextField(
+                                        value = draft.state.argentinaProfile.vatPercentStr,
+                                        onValueChange = {
+                                            draft = draft.updateArgentinaProfile(vatPercentStr = it)
+                                            errorMessage = ""
+                                        },
+                                        label = { Text("Alícuota IVA (%)") },
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = fieldModifier.accessibleField("Alícuota IVA (%)")
+                                    )
+                                }
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            OutlinedTextField(
+                                value = draft.state.argentinaProfile.contractualProfile,
+                                onValueChange = {
+                                    draft = draft.updateArgentinaProfile(contractualProfile = it)
+                                    errorMessage = ""
+                                },
+                                label = { Text("Perfil contractual (opcional)") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth().accessibleField("Perfil contractual (opcional)")
+                            )
+                        }
+                    }
+                }
+                }
+
+                if (draft.state.currency != Currency.ARS) {
+                    Text(
+                        text = "El régimen argentino solo está disponible con moneda ARS.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextForestMuted,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(18.dp))
 
@@ -412,34 +574,132 @@ fun LoanForm(
         }
     }
 }
-
-/**
- * Contenedor adaptativo que renderiza campos de formulario en 1 columna vertical (fillMaxWidth)
- * en pantallas compactas (< 600dp, móviles) o en 2 columnas horizontales (weight 1f) en pantallas
- * más amplias (>= 600dp, tablets y escritorios).
- */
 @Composable
-private fun AdaptiveFieldRow(
+private fun InsuranceItemCard(
+    item: InsuranceDraftItem,
+    index: Int,
+    currency: Currency,
     isCompact: Boolean,
-    first: @Composable (Modifier) -> Unit,
-    second: @Composable (Modifier) -> Unit,
-    modifier: Modifier = Modifier
+    onUpdate: (InsuranceDraftItem) -> Unit,
+    onRemove: () -> Unit
 ) {
-    if (isCompact) {
-        Column(
-            modifier = modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            first(Modifier.fillMaxWidth())
-            second(Modifier.fillMaxWidth())
-        }
-    } else {
-        Row(
-            modifier = modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            first(Modifier.weight(1f))
-            second(Modifier.weight(1f))
+    Card(
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSage),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    color = BrandPlumLight,
+                    shape = RoundedCornerShape(6.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, BrandPlum.copy(alpha = 0.3f))
+                ) {
+                    Text(
+                        text = "Seguro #${index + 1}",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BrandPlum,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+                TextButton(
+                    onClick = onRemove,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier.height(28.dp)
+                ) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            AdaptiveFieldRow(
+                isCompact = isCompact,
+                first = { fieldModifier ->
+                    OutlinedTextField(
+                        value = item.name,
+                        onValueChange = { onUpdate(item.copy(name = it)) },
+                        label = { Text("Nombre del seguro") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = fieldModifier.accessibleField("Nombre del seguro")
+                    )
+                },
+                second = { fieldModifier ->
+                    Box(modifier = fieldModifier) {
+                        ComparisonChoice(
+                            label = "Modalidad",
+                            choices = listOf("Monto fijo mensual", "% del saldo mensual"),
+                            selected = if (item.kind == "percentage") "% del saldo mensual" else "Monto fijo mensual",
+                            onSelect = { selected ->
+                                val kind = when (selected) {
+                                    "Monto fijo mensual" -> "fixed"
+                                    "% del saldo mensual" -> "percentage"
+                                    else -> null
+                                }
+                                if (kind != null) onUpdate(item.copy(kind = kind))
+                            }
+                        )
+                    }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            AdaptiveFieldRow(
+                isCompact = isCompact,
+                first = { fieldModifier ->
+                    val valueLabel = if (item.kind == "percentage") "Tasa mensual (% saldo)" else "Monto mensual ($currency)"
+                    OutlinedTextField(
+                        value = item.valueStr,
+                        onValueChange = { onUpdate(item.copy(valueStr = it)) },
+                        label = { Text(valueLabel) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = fieldModifier.accessibleField(valueLabel)
+                    )
+                },
+                second = { fieldModifier ->
+                    Box(modifier = fieldModifier) {
+                        ComparisonChoice(
+                            label = "Vigencia",
+                            choices = listOf("Hasta liquidar préstamo", "Hasta mes específico"),
+                            selected = if (item.endsAtPayoff) "Hasta liquidar préstamo" else "Hasta mes específico",
+                            onSelect = { selected ->
+                                when (selected) {
+                                    "Hasta liquidar préstamo" -> onUpdate(item.copy(endsAtPayoff = true))
+                                    "Hasta mes específico" -> onUpdate(item.copy(endsAtPayoff = false))
+                                }
+                            }
+                        )
+                    }
+                }
+            )
+
+            if (!item.endsAtPayoff) {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = item.endMonthStr,
+                    onValueChange = { onUpdate(item.copy(endMonthStr = it)) },
+                    label = { Text("Último mes de cobertura (1..1200)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().accessibleField("Último mes de cobertura (1..1200)")
+                )
+            }
         }
     }
+}
+
+private fun Modifier.accessibleField(label: String): Modifier = semantics {
+    contentDescription = label
 }

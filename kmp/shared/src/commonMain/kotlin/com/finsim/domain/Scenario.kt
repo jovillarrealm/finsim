@@ -1,6 +1,7 @@
 package com.finsim.domain
 
 import com.finsim.core.Decimal
+import com.finsim.domain.types.Money
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -44,6 +45,7 @@ data class Insurance(
         require(id.isNotBlank()) { "El identificador del seguro no puede estar vacío." }
         require(name.isNotBlank()) { "El nombre del seguro no puede estar vacío." }
         require(kind == "fixed" || kind == "percentage") { "El tipo de seguro debe ser 'fixed' o 'percentage'." }
+        if (kind == "fixed") Money.parse(value)
         if (!endsAtPayoff) {
             require(endMonth != null && endMonth in 1..MAX_MONTHS) { "Indica el último mes del seguro." }
         }
@@ -132,6 +134,10 @@ data class Scenario(
         insurance.forEach { it.validate() }
         val insuranceIds = insurance.map { it.id }.toSet()
         require(insuranceIds.size == insurance.size) { "Los identificadores de seguro no deben repetirse." }
+
+        require(argentinaProfile == null || currency == Currency.ARS) {
+            "El perfil argentino solo se admite para operaciones en ARS."
+        }
 
         events.forEach { event ->
             require(event.month in 1..MAX_MONTHS) { "El mes del evento debe estar entre 1 y $MAX_MONTHS." }

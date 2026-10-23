@@ -90,6 +90,26 @@ private val LightColorScheme = lightColorScheme(
     outline = BorderSage
 )
 
+private val defaultTypography = Typography()
+
+val FinsimTypography = Typography(
+    displayLarge = defaultTypography.displayLarge.copy(fontFeatureSettings = "tnum"),
+    displayMedium = defaultTypography.displayMedium.copy(fontFeatureSettings = "tnum"),
+    displaySmall = defaultTypography.displaySmall.copy(fontFeatureSettings = "tnum"),
+    headlineLarge = defaultTypography.headlineLarge.copy(fontFeatureSettings = "tnum"),
+    headlineMedium = defaultTypography.headlineMedium.copy(fontFeatureSettings = "tnum"),
+    headlineSmall = defaultTypography.headlineSmall.copy(fontFeatureSettings = "tnum"),
+    titleLarge = defaultTypography.titleLarge.copy(fontFeatureSettings = "tnum"),
+    titleMedium = defaultTypography.titleMedium.copy(fontFeatureSettings = "tnum"),
+    titleSmall = defaultTypography.titleSmall.copy(fontFeatureSettings = "tnum"),
+    bodyLarge = defaultTypography.bodyLarge.copy(fontFeatureSettings = "tnum"),
+    bodyMedium = defaultTypography.bodyMedium.copy(fontFeatureSettings = "tnum"),
+    bodySmall = defaultTypography.bodySmall.copy(fontFeatureSettings = "tnum"),
+    labelLarge = defaultTypography.labelLarge.copy(fontFeatureSettings = "tnum"),
+    labelMedium = defaultTypography.labelMedium.copy(fontFeatureSettings = "tnum"),
+    labelSmall = defaultTypography.labelSmall.copy(fontFeatureSettings = "tnum")
+)
+
 @Composable
 fun FinsimTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -97,6 +117,7 @@ fun FinsimTheme(
 ) {
     MaterialTheme(
         colorScheme = LightColorScheme,
+        typography = FinsimTypography,
         content = content
     )
 }
