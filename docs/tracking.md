@@ -6,6 +6,8 @@
 
 ## Estado actual
 
+Continuidad 2026-10-27: el propietario prioriza Docling web. Se reserva #33 para `/root/issue33_docling_luna`, único subagente Luna/max, seguido por revisión independiente; #46 continúa después de #33. El perfil web de #40/#41 terminó PASS (34/34 y 26/26), pero #41 conserva cambios sin commit/revisión en su worktree y una posible lectura obsoleta del portapapeles; permanece abierta. Detalle en [SPEC37](tasks/SPEC37.md) y GitHub.
+
 Continuidad 2026-10-22: #40 incorporada como avance parcial revisado en `cce6d20`, con perfil completo y prueba física pendientes; sigue abierta. Reserva vigente #41 para `/root/issue41_resume_luna`, único implementador Luna/max y después revisor por turno. Retoma `codex/spec37-issue41` desde el checkpoint preservado `0588874`, incorporando por merge la punta publicada de integración antes de editar. Detalle/evidencia actuales en [SPEC37](tasks/SPEC37.md) y GitHub.
 
 Actualizado: 2026-10-18.
