@@ -600,7 +600,7 @@ async function run() {
     );
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    if (!report.steps.length) record('DOC-RUNNER', 'BLOCKED', null, reason);
+    if (!report.steps.some(step => step.id === 'DOC-FIXTURE')) record('DOC-RUNNER', 'BLOCKED', null, reason);
     else record('DOC-RUNNER', 'FAIL', null, reason);
   } finally {
     await context?.close().catch(() => {});
