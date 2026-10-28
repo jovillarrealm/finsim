@@ -6,6 +6,8 @@
 
 ## Estado actual
 
+Continuidad 2026-10-27: #33 publicada hasta `cc474c9`; perfil de verificación corregido y evidencia [en GitHub](https://github.com/jovillarrealm/finsim/issues/33#issuecomment-6460336281). WebGPU quedó sin respuesta en carga (240 s); WASM inició generación, sin tokens en 180 s. Sin inferencia semántica acreditada, #33 sigue abierta y #46 pendiente. No integrado en main.
+
 Continuidad 2026-10-27: #33 conserva avance y correcciones revisadas en `codex/spec37-issue33` publicada, punta `9bb3f32`, sin integrar. `npm run check`, build Wasm y prueba de recuperación en Chrome pasaron; inferencia real se detuvo durante carga WebGPU, PNG/JPEG no verificados y perfil completo pendiente. #33 sigue abierta; [evidencia y límites](https://github.com/jovillarrealm/finsim/issues/33#issuecomment-6459776054). #46 espera resultados reales de #33.
 
 Continuidad 2026-10-27: el propietario prioriza Docling web. Se reserva #33 para `/root/issue33_docling_luna`, único subagente Luna/max, seguido por revisión independiente; #46 continúa después de #33. El perfil web de #40/#41 terminó PASS (34/34 y 26/26), pero #41 conserva cambios sin commit/revisión en su worktree y una posible lectura obsoleta del portapapeles; permanece abierta. Detalle en [SPEC37](tasks/SPEC37.md) y GitHub.
