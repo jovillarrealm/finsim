@@ -25,7 +25,8 @@ const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
 const MAX_RASTER_DIMENSION = 12_000;
 const MAX_RASTER_PIXELS = 12_000_000;
 const MAX_RASTER_BYTES = 25 * 1024 * 1024;
-const MAX_GENERATION_TOKENS = 4096;
+const diagnosticsEnabled = new URL(import.meta.url).searchParams.has('onnxDiagnostics');
+const MAX_GENERATION_TOKENS = diagnosticsEnabled ? 32 : 4096;
 const baseUrl = new URL('./', import.meta.url);
 pdfjs.GlobalWorkerOptions.workerSrc = new URL('./pdf.worker.mjs', import.meta.url).href;
 const cachePromise = globalThis.caches?.open(MODEL_CACHE_NAME);
@@ -34,6 +35,7 @@ let processor = null;
 let model = null;
 let activeDevice = null;
 let currentRequestId = null;
+let diagnosticRequestId = null;
 
 if (!cachePromise) {
   // Runtime remains explicit: installation reports an unavailable Cache API instead of
@@ -66,6 +68,16 @@ const postError = (id, error) => self.postMessage({
   kind: 'error',
   message: String(error?.message || error || 'Error sin detalle en el Worker local.').slice(0, 700),
 });
+
+const sessionDiagnosticsReady = diagnosticsEnabled
+  ? Promise.all([import('onnxruntime-web/webgpu'), import('./onnx-session-diagnostics.mjs')]).then(([onnx, diagnostics]) => {
+      diagnostics.instrumentInferenceSessions(
+        onnx.InferenceSession,
+        () => diagnosticRequestId,
+        (id, event) => postProgress(id, event),
+      );
+    })
+  : Promise.resolve();
 
 function assertImageDimensions(width, height) {
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 ||
@@ -275,6 +287,7 @@ async function configureTransformers() {
 
 async function ensureModel(id) {
   if (processor && model) return;
+  await sessionDiagnosticsReady;
   // The orchestrator has just checked the complete manifest. The custom cache below
   // hashes every file again as Transformers.js reads it, so a changed cache entry
   // cannot reach ONNX Runtime and can never fall back to a network download.
@@ -435,6 +448,7 @@ self.onmessage = async event => {
     return;
   }
   if (!id) return;
+  if (diagnosticsEnabled) diagnosticRequestId = id;
   try {
     if (type === 'status') {
       postResult(id, await verifyAllCachedArtifacts(id, true));
@@ -451,5 +465,7 @@ self.onmessage = async event => {
     }
   } catch (error) {
     postError(id, error);
+  } finally {
+    if (diagnosticRequestId === id) diagnosticRequestId = null;
   }
 };

@@ -25,11 +25,25 @@ const reportRoot = path.join(os.homedir(), '.finsim', 'verification', 'docling')
 const profileRoot = path.join(os.tmpdir(), 'finsim-docling-profile');
 const runId = `${new Date().toISOString().replaceAll(':', '-')}-${randomUUID()}`;
 const reportDirectory = path.join(reportRoot, runId);
+const diagnosticMode = process.argv.includes('--diagnostic');
+const diagnosticInstall = process.argv.includes('--install-model');
+const diagnosticReferenceOnly = process.argv.includes('--reference-only');
+const diagnosticPortArg = process.argv.find(argument => /^--port=\d+$/.test(argument));
+const diagnosticPort = diagnosticPortArg ? Number(diagnosticPortArg.slice('--port='.length)) : null;
+const officialReference = {
+  url: 'https://huggingface.co/ibm-granite/granite-docling-258M/resolve/982fe3b40f2fa73c365bdb1bcacf6c81b7184bfe/assets/new_arxiv.png',
+  revision: '982fe3b40f2fa73c365bdb1bcacf6c81b7184bfe',
+  bytes: 523477,
+  sha256: '15e72aca956d9e796788eaa4b0debb9ae988ca7a9637ae3b6df1e6ce671d73d0',
+  expectedText: 'Energy Budget of WASP-121 b from JWST/NIRISS Phase Curve',
+};
 const formats = ['PDF', 'PNG', 'JPEG'];
 const criteria = ['DOC-01', 'DOC-02', 'DOC-03', 'DOC-04'];
 const report = {
-  profile: 'Docling Web real inference',
-  command: 'npm run verify:docling',
+  profile: diagnosticMode ? 'Docling Worker diagnostic; not acceptance' : 'Docling Web real inference',
+  command: diagnosticMode
+    ? `npm run verify:docling -- --diagnostic${diagnosticInstall ? ' --install-model' : ''}${diagnosticReferenceOnly ? ' --reference-only' : ''}${diagnosticPortArg ? ` ${diagnosticPortArg}` : ''}`
+    : 'npm run verify:docling',
   runId,
   startedAt: new Date().toISOString(),
   source: {},
@@ -45,6 +59,7 @@ const report = {
   artifact: {},
   steps: [],
   inference: { status: 'NOT_RUN', progress: [], result: null, error: null },
+  diagnostic: null,
   extraction: { status: 'NOT_RUN', expected: {}, actual: {}, mismatches: [] },
   privacy: {
     status: 'NOT_RUN',
@@ -68,6 +83,33 @@ let context;
 
 function hash(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
+}
+
+async function loadOfficialReference() {
+  const response = await fetch(officialReference.url, { signal: AbortSignal.timeout(30_000) });
+  if (!response.ok) throw new Error(`Referencia oficial inaccesible (HTTP ${response.status}).`);
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.length !== officialReference.bytes || hash(bytes) !== officialReference.sha256) {
+    throw new Error('La imagen de referencia oficial no coincide con el tamaño y SHA-256 fijados.');
+  }
+  return bytes;
+}
+
+function summarizeDiagnosticResult(result) {
+  if (!result) return null;
+  const docTags = typeof result.docTags === 'string' ? result.docTags.trim() : '';
+  return {
+    device: result.device ?? null,
+    outputTokens: result.outputTokens ?? null,
+    maxGenerationTokens: result.maxGenerationTokens ?? null,
+    stoppedAtTokenLimit: result.stoppedAtTokenLimit === true,
+    docTagsLength: docTags.length,
+    startsWithDocTags: docTags.startsWith('<doctag>'),
+    firstDocTag: docTags.match(/^<doctag><([^>]+)>/)?.[1] ?? null,
+    punctuationOnly: docTags.length > 0 && /^[!\s]+$/.test(docTags),
+    containsOfficialText: docTags.includes(officialReference.expectedText),
+    processorAndInferenceMs: result.processorAndInferenceMs ?? null,
+  };
 }
 
 function record(id, status, actual, reason) {
@@ -113,7 +155,7 @@ async function freePort() {
 }
 
 async function startPreview() {
-  const port = await freePort();
+  const port = diagnosticPort ?? await freePort();
   const url = `http://127.0.0.1:${port}/`;
   const viteCli = path.join(root, 'node_modules', 'vite', 'bin', 'vite.js');
   previewProcess = spawn(process.execPath, [
@@ -421,6 +463,8 @@ async function run() {
     }
     record('DOC-FIXTURE', 'PASS', 'Se usó únicamente el PDF sintético del repositorio; hash independiente coincidente.');
 
+    const referenceBytes = diagnosticMode ? await loadOfficialReference() : null;
+
     try {
       const distIndex = await stat(path.join(distRoot, 'index.html'));
       if (!distIndex.isFile()) throw new Error('No existe index.html de producción.');
@@ -443,6 +487,7 @@ async function run() {
     try {
       context = await chromium.launchPersistentContext(profileRoot, {
         channel: 'chrome', headless: true, viewport: { width: 1280, height: 1000 }, serviceWorkers: 'block',
+        ...(diagnosticMode ? { args: ['--disable-gpu'] } : {}),
       });
     } catch (error) {
       record('DOC-CHROME', 'BLOCKED', null, error instanceof Error ? error.message : String(error));
@@ -478,44 +523,82 @@ async function run() {
         await route.continue();
       }
     });
-    await page.addInitScript(() => {
-      window.__doclingProfile = { progress: [], result: null };
+    await page.addInitScript(diagnostic => {
+      window.__doclingProfile = { progress: [], result: null, results: {}, errors: {}, onnx: [], modelStatus: null, worker: null };
       const OriginalWorker = window.Worker;
       window.Worker = new Proxy(OriginalWorker, {
         construct(target, args, newTarget) {
-          const worker = Reflect.construct(target, args, newTarget);
-          if (String(args[0]).includes('docling/worker.mjs')) {
+          const workerArgs = [...args];
+          const isDoclingWorker = String(workerArgs[0]).includes('docling/worker.mjs');
+          if (diagnostic && isDoclingWorker) {
+            const workerUrl = new URL(String(workerArgs[0]), document.baseURI);
+            workerUrl.searchParams.set('onnxDiagnostics', '1');
+            workerArgs[0] = workerUrl.href;
+          }
+          const worker = Reflect.construct(target, workerArgs, newTarget);
+          if (isDoclingWorker) {
+            window.__doclingProfile.worker = worker;
             worker.addEventListener('message', event => {
               let message;
               try { message = typeof event.data === 'string' ? JSON.parse(event.data) : event.data; } catch { return; }
               if (message?.kind === 'progress') {
-                window.__doclingProfile.progress.push({ stage: message.stage ?? null, device: message.device ?? null });
+                const progress = { stage: message.stage ?? null, device: message.device ?? null };
+                const previous = window.__doclingProfile.progress.at(-1);
+                if (!diagnostic || previous?.stage !== progress.stage || previous?.device !== progress.device) {
+                  window.__doclingProfile.progress.push(progress);
+                }
+                if (String(message.stage).startsWith('onnx-')) {
+                  const { id, stage, sessionIndex, providers, component, runIndex, durationMs, errorName } = message;
+                  window.__doclingProfile.onnx.push({ id, stage, sessionIndex, providers, component, runIndex, durationMs, errorName });
+                }
               }
-              if (message?.kind === 'result' && message.docTags) {
-                window.__doclingProfile.result = {
-                  docTags: message.docTags,
-                  device: message.device ?? null,
-                  outputTokens: message.outputTokens ?? null,
-                  maxGenerationTokens: message.maxGenerationTokens ?? null,
-                  stoppedAtTokenLimit: message.stoppedAtTokenLimit === true,
-                  processorMs: message.processorMs ?? null,
-                  modelLoadMs: message.modelLoadMs ?? null,
-                  processorAndInferenceMs: message.processorAndInferenceMs ?? null,
-                };
+              if (message?.kind === 'result') {
+                if (message.installed !== undefined) {
+                  window.__doclingProfile.modelStatus = {
+                    installed: message.installed === true,
+                    verifiedArtifacts: message.verifiedArtifacts ?? null,
+                    totalBytes: message.totalBytes ?? null,
+                  };
+                }
+                if (message.docTags) {
+                  const result = {
+                    id: message.id,
+                    docTags: message.docTags,
+                    device: message.device ?? null,
+                    outputTokens: message.outputTokens ?? null,
+                    maxGenerationTokens: message.maxGenerationTokens ?? null,
+                    stoppedAtTokenLimit: message.stoppedAtTokenLimit === true,
+                    processorMs: message.processorMs ?? null,
+                    modelLoadMs: message.modelLoadMs ?? null,
+                    processorAndInferenceMs: message.processorAndInferenceMs ?? null,
+                  };
+                  window.__doclingProfile.results[message.id] = result;
+                  if (message.id !== 'official-reference-control') window.__doclingProfile.result = result;
+                }
+              }
+              if (message?.kind === 'error') {
+                const error = { id: message.id, message: String(message.message ?? 'Worker error').slice(0, 240) };
+                window.__doclingProfile.errors[message.id] = error.message;
+                window.__doclingProfile.lastError = error;
               }
             });
           }
           return worker;
         },
       });
-    });
+    }, diagnosticMode);
     await page.goto(url);
     await clickComposeControl(page, page.getByRole('button', { name: 'Importar extracto', exact: true }).first());
     let bodyText = await waitForAccessiblePageText(page, text =>
       text.includes('Instalar modelo local') || text.includes('✓ Instalado y verificado') || text.includes('No se pudo verificar Granite-Docling'),
-    180_000);
+    diagnosticMode ? 30_000 : 180_000);
 
     if (!bodyText.includes('✓ Instalado y verificado')) {
+      if (diagnosticMode && !diagnosticInstall) {
+        report.diagnostic = { verdict: 'BLOCKED_MODEL_NOT_INSTALLED', modelStatus: null };
+        record('DOC-MODEL-DIAGNOSTIC', 'BLOCKED', null, 'La sonda requiere artefactos ya instalados y verificados; usa --install-model para ejecutar la acción explícita de descarga.');
+        return;
+      }
       if (!bodyText.includes('Instalar modelo local')) {
         record('DOC-MODEL', 'BLOCKED', null, bodyText.match(/No se pudo verificar Granite-Docling[^\n]*/) ?? 'No se pudo establecer estado del modelo.');
         return;
@@ -539,6 +622,55 @@ async function run() {
       record('DOC-MODEL', 'PASS', `${MODEL_ARTIFACTS.length} archivos y ${MODEL_TOTAL_BYTES} bytes ya verificados por el Worker.`);
     }
 
+    if (diagnosticMode && diagnosticReferenceOnly) {
+      const referenceId = 'official-reference-control';
+      await page.evaluate(({ id, bytesBase64 }) => {
+        window.__doclingProfile.worker.postMessage({ id, type: 'analyze-image', format: 'PNG', bytesBase64 });
+      }, { id: referenceId, bytesBase64: referenceBytes.toString('base64') });
+      try {
+        await page.waitForFunction(id =>
+          Boolean(window.__doclingProfile.results[id] || window.__doclingProfile.errors[id]),
+        referenceId, { timeout: 60_000 });
+      } catch (error) {
+        report.inference.error = error instanceof Error ? error.message : String(error);
+      }
+      const referenceEvidence = await page.evaluate(id => ({
+        result: window.__doclingProfile.results[id] ?? null,
+        error: window.__doclingProfile.errors[id] ?? null,
+        modelStatus: window.__doclingProfile.modelStatus,
+        stages: window.__doclingProfile.progress,
+        onnxEvents: window.__doclingProfile.onnx,
+      }), referenceId);
+      report.diagnostic = {
+        mode: '32-token WASM official-reference control; not acceptance evidence',
+        input: 'pinned public model-card image; direct PNG to the production Worker',
+        modelStatus: referenceEvidence.modelStatus,
+        stages: referenceEvidence.stages,
+        onnxEvents: referenceEvidence.onnxEvents,
+        synthetic: { status: 'NOT_RUN' },
+        officialReference: {
+          source: 'onnx-community model card example; original IBM Granite image pinned to its repository revision',
+          revision: officialReference.revision,
+          bytes: referenceBytes.byteLength,
+          sha256: hash(referenceBytes),
+          expectedText: officialReference.expectedText,
+          result: summarizeDiagnosticResult(referenceEvidence.result),
+          error: referenceEvidence.error ?? report.inference.error ?? null,
+          status: referenceEvidence.result?.docTags?.includes(officialReference.expectedText)
+            ? 'MATCHED_PUBLISHED_EXAMPLE'
+            : referenceEvidence.result?.stoppedAtTokenLimit ? 'PREFIX_DID_NOT_REACH_PUBLISHED_TEXT'
+              : referenceEvidence.result ? 'MISMATCH' : 'INCONCLUSIVE_AT_CUTOFF',
+        },
+      };
+      report.diagnostic.verdict = report.diagnostic.officialReference.status === 'MATCHED_PUBLISHED_EXAMPLE'
+        ? 'OFFICIAL_CONTROL_MATCHED'
+        : report.diagnostic.officialReference.status === 'INCONCLUSIVE_AT_CUTOFF'
+          ? 'INCONCLUSIVE_OFFICIAL_NO_RESULT_AT_CUTOFF'
+          : report.diagnostic.officialReference.status === 'PREFIX_DID_NOT_REACH_PUBLISHED_TEXT'
+            ? 'INCONCLUSIVE_OFFICIAL_PREFIX' : 'OFFICIAL_CONTROL_DID_NOT_MATCH';
+      return;
+    }
+
     const chooserPromise = page.waitForEvent('filechooser', { timeout: 30_000 });
     await clickComposeControl(page, page.getByRole('button', { name: 'Seleccionar PDF, PNG o JPEG', exact: true }));
     const chooser = await chooserPromise;
@@ -547,12 +679,69 @@ async function run() {
     try {
       bodyText = await waitForAccessiblePageText(page, text =>
         text.includes('Revisión de extracción') || text.includes('Error al analizar el documento visual'),
-      240_000);
+      diagnosticMode ? 60_000 : 240_000);
     } catch (error) {
       report.inference.error = error instanceof Error ? error.message : String(error);
     }
 
-    const workerEvidence = await page.evaluate(() => window.__doclingProfile);
+    const workerEvidence = await page.evaluate(() => {
+      const { worker, ...evidence } = window.__doclingProfile;
+      return evidence;
+    });
+    const hasProfileWorker = diagnosticMode ? await page.evaluate(() => Boolean(window.__doclingProfile.worker)) : false;
+    if (diagnosticMode) {
+      const syntheticResult = workerEvidence?.result ?? null;
+      report.diagnostic = {
+        mode: '32-token WASM probe; not acceptance evidence',
+        input: 'synthetic PDF, first page rasterized by the production Worker',
+        modelStatus: workerEvidence?.modelStatus ?? null,
+        stages: workerEvidence?.progress ?? [],
+        onnxEvents: workerEvidence?.onnx ?? [],
+        synthetic: {
+          result: summarizeDiagnosticResult(syntheticResult),
+          error: workerEvidence?.lastError?.message ?? report.inference.error ?? null,
+        },
+        officialReference: {
+          source: 'onnx-community model card example; original IBM Granite image pinned to its repository revision',
+          revision: officialReference.revision,
+          bytes: referenceBytes.byteLength,
+          sha256: hash(referenceBytes),
+          expectedText: officialReference.expectedText,
+          status: 'NOT_RUN',
+        },
+      };
+
+      if (syntheticResult && hasProfileWorker) {
+        const referenceId = 'official-reference-control';
+        await page.evaluate(({ id, bytesBase64 }) => {
+          window.__doclingProfile.worker.postMessage({ id, type: 'analyze-image', format: 'PNG', bytesBase64 });
+        }, { id: referenceId, bytesBase64: referenceBytes.toString('base64') });
+        try {
+          await page.waitForFunction(id =>
+            Boolean(window.__doclingProfile.results[id] || window.__doclingProfile.errors[id]),
+          referenceId, { timeout: 60_000 });
+          const referenceResult = await page.evaluate(id => window.__doclingProfile.results[id] ?? null, referenceId);
+          report.diagnostic.officialReference.result = summarizeDiagnosticResult(referenceResult);
+          report.diagnostic.officialReference.status = report.diagnostic.officialReference.result?.containsOfficialText
+            ? 'MATCHED_PUBLISHED_EXAMPLE' : referenceResult?.stoppedAtTokenLimit ? 'PREFIX_DID_NOT_REACH_PUBLISHED_TEXT' : 'MISMATCH';
+          report.diagnostic.officialReference.error = await page.evaluate(id => window.__doclingProfile.errors[id] ?? null, referenceId);
+          report.diagnostic.onnxEvents = await page.evaluate(() => window.__doclingProfile.onnx);
+        } catch (error) {
+          report.diagnostic.officialReference.status = 'INCONCLUSIVE_AT_CUTOFF';
+          report.diagnostic.officialReference.error = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      const synthetic = report.diagnostic.synthetic.result;
+      report.diagnostic.verdict = !synthetic
+        ? 'INCONCLUSIVE_NO_RESULT_AT_CUTOFF'
+        : synthetic.punctuationOnly
+          ? report.diagnostic.officialReference.status === 'MATCHED_PUBLISHED_EXAMPLE'
+            ? 'REPRODUCED_SYNTHETIC_ONLY_OFFICIAL_CONTROL_MATCHED'
+            : 'REPRODUCED_PUNCTUATION_OUTPUT'
+          : 'PUNCTUATION_SYMPTOM_NOT_REPRODUCED_IN_32_TOKEN_PROBE';
+      return;
+    }
     report.inference.progress = workerEvidence?.progress ?? [];
     report.inference.result = workerEvidence?.result ?? null;
     bodyText = await readAccessiblePageText(page);
@@ -658,15 +847,25 @@ async function run() {
   } finally {
     await context?.close().catch(() => {});
     if (previewProcess && previewProcess.exitCode === null) previewProcess.kill();
-    const result = summarizeVerification(report.steps);
+    const result = diagnosticMode
+      ? {
+        complete: false,
+        exitCode: report.diagnostic?.verdict === 'PUNCTUATION_SYMPTOM_NOT_REPRODUCED_IN_32_TOKEN_PROBE' ||
+          report.diagnostic?.verdict === 'OFFICIAL_CONTROL_MATCHED' ? 0
+          : report.diagnostic?.verdict?.startsWith('REPRODUCED_') || report.diagnostic?.verdict === 'OFFICIAL_CONTROL_DID_NOT_MATCH' ? 1 : 2,
+        status: report.diagnostic?.verdict ?? 'INCOMPLETE',
+      }
+      : summarizeVerification(report.steps);
     report.finishedAt = new Date().toISOString();
     report.result = result;
     const jsonPath = path.join(reportDirectory, 'report.json');
     const markdownPath = path.join(reportDirectory, 'report.md');
     const formatSummary = formats.map(format => `${format} ${report.coverage.formats[format]}`).join('; ');
     await writeFile(jsonPath, `${JSON.stringify(report, null, 2)}\n`);
-    await writeFile(markdownPath, `# Docling Web real inference\n\n**Estado:** ${result.status}\n\n**Ejecución:** ${runId}\n\n**Fuente:** ${report.source.branch ?? 'desconocida'}@${report.source.commit ?? 'desconocido'}\n\n**Distribución:** ${report.artifact.sha256 ?? 'no identificada'}\n\n**Resultado de inferencia:** ${report.inference.status}${report.inference.error ? ` · ${report.inference.error}` : ''}\n\n**Cobertura por formato:** ${formatSummary}. Ambigüedad: ${report.coverage.ambiguity}.\n\n**Privacidad:** estado global SEC-01 ${report.steps.find(step => step.id === 'SEC-01')?.status ?? 'NOT_RUN'}; comprobaciones acotadas ${report.privacy.observedChecksStatus}.\n\n**Aplicación al escenario:** ${report.scenarioApplication.status} · ${report.scenarioApplication.reason}\n\n**Evidencia:** ${jsonPath}\n`);
-    console.log(`Docling Web ${result.status}. Informe: ${markdownPath}`);
+    await writeFile(markdownPath, diagnosticMode
+      ? `# Docling Worker diagnostic\n\n**Estado:** ${result.status}\n\n**Alcance:** sonda diagnóstica limitada; no es aceptación #33.\n\n**Interpretación:** el corte de 60 s solo limita la observación; no distingue cálculo lento de bloqueo.\n\n**Ejecución:** ${runId}\n\n**Fuente:** ${report.source.branch ?? 'desconocida'}@${report.source.commit ?? 'desconocido'}\n\n**Distribución:** ${report.artifact.sha256 ?? 'no identificada'}\n\n**Pesos verificados:** ${report.diagnostic?.modelStatus?.verifiedArtifacts ?? 'sin evidencia'}/${MODEL_ARTIFACTS.length}\n\n**Último evento ONNX:** ${JSON.stringify(report.diagnostic?.onnxEvents?.at(-1) ?? null)}\n\n**Referencia oficial:** ${report.diagnostic?.officialReference?.status ?? 'NOT_RUN'}\n\n**Evidencia:** ${jsonPath}\n`
+      : `# Docling Web real inference\n\n**Estado:** ${result.status}\n\n**Ejecución:** ${runId}\n\n**Fuente:** ${report.source.branch ?? 'desconocida'}@${report.source.commit ?? 'desconocido'}\n\n**Distribución:** ${report.artifact.sha256 ?? 'no identificada'}\n\n**Resultado de inferencia:** ${report.inference.status}${report.inference.error ? ` · ${report.inference.error}` : ''}\n\n**Cobertura por formato:** ${formatSummary}. Ambigüedad: ${report.coverage.ambiguity}.\n\n**Privacidad:** estado global SEC-01 ${report.steps.find(step => step.id === 'SEC-01')?.status ?? 'NOT_RUN'}; comprobaciones acotadas ${report.privacy.observedChecksStatus}.\n\n**Aplicación al escenario:** ${report.scenarioApplication.status} · ${report.scenarioApplication.reason}\n\n**Evidencia:** ${jsonPath}\n`);
+    console.log(`${diagnosticMode ? 'Docling diagnóstico' : 'Docling Web'} ${result.status}. Informe: ${markdownPath}`);
     process.exitCode = result.exitCode;
   }
 }
