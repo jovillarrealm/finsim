@@ -1,3 +1,5 @@
+const MAX_REPORTED_RUN_STARTS = 256;
+
 export function instrumentInferenceSessions(InferenceSession, getRequestId, report) {
   const originalCreate = InferenceSession?.create;
   if (typeof originalCreate !== 'function') throw new TypeError('ONNX InferenceSession.create no está disponible.');
@@ -24,10 +26,21 @@ export function instrumentInferenceSessions(InferenceSession, getRequestId, repo
 
       const originalRun = session.run.bind(session);
       let runIndex = 0;
+      let runStartRequestId = null;
+      let reportedRunStarts = 0;
       session.run = async function (...runArgs) {
         const currentRun = ++runIndex;
         const reportRun = currentRun <= 2 || currentRun % 32 === 0;
-        if (reportRun) emit({ stage: 'onnx-run-start', sessionIndex: index, component, runIndex: currentRun });
+        const requestId = getRequestId();
+        if (requestId !== runStartRequestId) {
+          runStartRequestId = requestId;
+          reportedRunStarts = 0;
+        }
+        // shortcut: cap starts at 256 per session/request; raise only if a diagnostic reaches that count.
+        if (reportedRunStarts < MAX_REPORTED_RUN_STARTS) {
+          reportedRunStarts += 1;
+          if (requestId) report(requestId, { stage: 'onnx-run-start', sessionIndex: index, component, runIndex: currentRun });
+        }
         const runStartedAt = performance.now();
         try {
           const output = await originalRun(...runArgs);

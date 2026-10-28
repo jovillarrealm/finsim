@@ -112,6 +112,59 @@ function summarizeDiagnosticResult(result) {
   };
 }
 
+export function classifyDiagnosticOutcome(result, workerError, observationError) {
+  if (result) return 'RESULT';
+  if (workerError) return 'WORKER_ERROR';
+  if (observationError?.name === 'TimeoutError') return 'OBSERVATION_CUTOFF';
+  return observationError ? 'OBSERVATION_ERROR' : 'NO_RESULT';
+}
+
+export function observedDiagnosticBackend(result, stages = []) {
+  if (result?.device === 'wasm' || result?.device === 'webgpu') return result.device;
+  return [...stages].reverse().find(stage => stage.stage === 'ready' &&
+    (stage.device === 'wasm' || stage.device === 'webgpu'))?.device ?? null;
+}
+
+export function formatDiagnosticMarkdown(report, jsonPath) {
+  const diagnostic = report.diagnostic;
+  const formatOutcome = (label, outcome) => {
+    if (!outcome) return `**${label}:** NOT_RUN`;
+    const details = [
+      outcome.workerError ? `error del Worker: ${outcome.workerError}` : null,
+      outcome.observationError ? `observación: ${outcome.observationError}` : null,
+    ].filter(Boolean).join('; ');
+    return `**${label}:** ${outcome.status ?? 'NOT_RUN'}${details ? ` · ${details}` : ''}`;
+  };
+  return `# Docling Worker diagnostic
+
+**Estado:** ${report.result.status}
+
+**Alcance:** sonda diagnóstica limitada; no es aceptación #33.
+
+**Backend observado en PDF:** ${diagnostic?.synthetic?.observedBackend ?? 'NO_OBSERVADO'}
+
+**Backend observado en control:** ${diagnostic?.officialReference?.observedBackend ?? 'NO_OBSERVADO'}
+
+${formatOutcome('PDF sintético', diagnostic?.synthetic)}
+
+${formatOutcome('Control oficial', diagnostic?.officialReference)}
+
+**Interpretación:** el corte de 60 s solo limita la observación; distingue un timeout de un error informado por el Worker.
+
+**Ejecución:** ${report.runId}
+
+**Fuente:** ${report.source.branch ?? 'desconocida'}@${report.source.commit ?? 'desconocido'}
+
+**Distribución:** ${report.artifact.sha256 ?? 'no identificada'}
+
+**Pesos verificados:** ${diagnostic?.modelStatus?.verifiedArtifacts ?? 'sin evidencia'}/${MODEL_ARTIFACTS.length}
+
+**Último evento ONNX:** ${JSON.stringify(diagnostic?.onnxEvents?.at(-1) ?? null)}
+
+**Evidencia:** ${jsonPath}
+`;
+}
+
 function record(id, status, actual, reason) {
   const step = { id, status, ...(actual !== undefined && actual !== null ? { actual } : {}), ...(reason ? { reason } : {}) };
   const index = report.steps.findIndex(existing => existing.id === id);
@@ -236,14 +289,16 @@ export async function readAccessiblePageText(page) {
   return [...new Set((await page.locator('body *').allInnerTexts()).filter(Boolean))].join('\n');
 }
 
-async function waitForAccessiblePageText(page, predicate, timeoutMs) {
+export async function waitForAccessiblePageText(page, predicate, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const text = await readAccessiblePageText(page);
     if (predicate(text)) return text;
     await page.waitForTimeout(Math.min(250, deadline - Date.now()));
   }
-  throw new Error(`No se encontró el texto accesible esperado en ${timeoutMs} ms.`);
+  const error = new Error(`No se encontró el texto accesible esperado en ${timeoutMs} ms.`);
+  error.name = 'TimeoutError';
+  throw error;
 }
 
 const artifactPaths = new Set(MODEL_ARTIFACTS.map(artifact => artifact.path));
@@ -487,7 +542,6 @@ async function run() {
     try {
       context = await chromium.launchPersistentContext(profileRoot, {
         channel: 'chrome', headless: true, viewport: { width: 1280, height: 1000 }, serviceWorkers: 'block',
-        ...(diagnosticMode ? { args: ['--disable-gpu'] } : {}),
       });
     } catch (error) {
       record('DOC-CHROME', 'BLOCKED', null, error instanceof Error ? error.message : String(error));
@@ -625,14 +679,16 @@ async function run() {
     if (diagnosticMode && diagnosticReferenceOnly) {
       const referenceId = 'official-reference-control';
       await page.evaluate(({ id, bytesBase64 }) => {
+        window.__doclingProfile.lastError = null;
         window.__doclingProfile.worker.postMessage({ id, type: 'analyze-image', format: 'PNG', bytesBase64 });
       }, { id: referenceId, bytesBase64: referenceBytes.toString('base64') });
+      let referenceObservationError = null;
       try {
         await page.waitForFunction(id =>
           Boolean(window.__doclingProfile.results[id] || window.__doclingProfile.errors[id]),
         referenceId, { timeout: 60_000 });
       } catch (error) {
-        report.inference.error = error instanceof Error ? error.message : String(error);
+        referenceObservationError = error;
       }
       const referenceEvidence = await page.evaluate(id => ({
         result: window.__doclingProfile.results[id] ?? null,
@@ -641,13 +697,21 @@ async function run() {
         stages: window.__doclingProfile.progress,
         onnxEvents: window.__doclingProfile.onnx,
       }), referenceId);
+      const referenceOutcome = classifyDiagnosticOutcome(
+        referenceEvidence.result, referenceEvidence.error, referenceObservationError,
+      );
+      const referenceStatus = referenceEvidence.result?.docTags?.includes(officialReference.expectedText)
+        ? 'MATCHED_PUBLISHED_EXAMPLE'
+        : referenceEvidence.result?.stoppedAtTokenLimit ? 'PREFIX_DID_NOT_REACH_PUBLISHED_TEXT'
+          : referenceEvidence.result ? 'MISMATCH' : referenceOutcome === 'OBSERVATION_CUTOFF'
+            ? 'INCONCLUSIVE_AT_CUTOFF' : referenceOutcome;
       report.diagnostic = {
-        mode: '32-token WASM official-reference control; not acceptance evidence',
+        mode: '32-token official-reference control; backend observed from Worker; not acceptance evidence',
         input: 'pinned public model-card image; direct PNG to the production Worker',
         modelStatus: referenceEvidence.modelStatus,
         stages: referenceEvidence.stages,
         onnxEvents: referenceEvidence.onnxEvents,
-        synthetic: { status: 'NOT_RUN' },
+        synthetic: { status: 'NOT_RUN', observedBackend: null },
         officialReference: {
           source: 'onnx-community model card example; original IBM Granite image pinned to its repository revision',
           revision: officialReference.revision,
@@ -655,19 +719,24 @@ async function run() {
           sha256: hash(referenceBytes),
           expectedText: officialReference.expectedText,
           result: summarizeDiagnosticResult(referenceEvidence.result),
-          error: referenceEvidence.error ?? report.inference.error ?? null,
-          status: referenceEvidence.result?.docTags?.includes(officialReference.expectedText)
-            ? 'MATCHED_PUBLISHED_EXAMPLE'
-            : referenceEvidence.result?.stoppedAtTokenLimit ? 'PREFIX_DID_NOT_REACH_PUBLISHED_TEXT'
-              : referenceEvidence.result ? 'MISMATCH' : 'INCONCLUSIVE_AT_CUTOFF',
+          status: referenceStatus,
+          workerError: referenceEvidence.error,
+          observationError: referenceObservationError?.message ?? null,
+          observedBackend: observedDiagnosticBackend(referenceEvidence.result, referenceEvidence.stages),
         },
       };
       report.diagnostic.verdict = report.diagnostic.officialReference.status === 'MATCHED_PUBLISHED_EXAMPLE'
         ? 'OFFICIAL_CONTROL_MATCHED'
-        : report.diagnostic.officialReference.status === 'INCONCLUSIVE_AT_CUTOFF'
+        : report.diagnostic.officialReference.status === 'WORKER_ERROR'
+          ? 'OFFICIAL_CONTROL_WORKER_ERROR'
+          : report.diagnostic.officialReference.status === 'INCONCLUSIVE_AT_CUTOFF'
           ? 'INCONCLUSIVE_OFFICIAL_NO_RESULT_AT_CUTOFF'
           : report.diagnostic.officialReference.status === 'PREFIX_DID_NOT_REACH_PUBLISHED_TEXT'
-            ? 'INCONCLUSIVE_OFFICIAL_PREFIX' : 'OFFICIAL_CONTROL_DID_NOT_MATCH';
+            ? 'INCONCLUSIVE_OFFICIAL_PREFIX'
+            : report.diagnostic.officialReference.status === 'OBSERVATION_ERROR'
+              ? 'OFFICIAL_CONTROL_OBSERVATION_ERROR'
+              : report.diagnostic.officialReference.status === 'NO_RESULT'
+                ? 'OFFICIAL_CONTROL_NO_RESULT' : 'OFFICIAL_CONTROL_DID_NOT_MATCH';
       return;
     }
 
@@ -675,12 +744,15 @@ async function run() {
     await clickComposeControl(page, page.getByRole('button', { name: 'Seleccionar PDF, PNG o JPEG', exact: true }));
     const chooser = await chooserPromise;
     await chooser.setFiles({ name: report.fixture.name, mimeType: 'application/pdf', buffer: pdfBytes });
+    if (diagnosticMode) await page.evaluate(() => { window.__doclingProfile.lastError = null; });
     await clickComposeControl(page, page.getByRole('button', { name: 'Analizar página 1 con Granite-Docling', exact: true }));
+    let syntheticObservationError = null;
     try {
       bodyText = await waitForAccessiblePageText(page, text =>
         text.includes('Revisión de extracción') || text.includes('Error al analizar el documento visual'),
       diagnosticMode ? 60_000 : 240_000);
     } catch (error) {
+      syntheticObservationError = error;
       report.inference.error = error instanceof Error ? error.message : String(error);
     }
 
@@ -691,15 +763,20 @@ async function run() {
     const hasProfileWorker = diagnosticMode ? await page.evaluate(() => Boolean(window.__doclingProfile.worker)) : false;
     if (diagnosticMode) {
       const syntheticResult = workerEvidence?.result ?? null;
+      const syntheticWorkerError = workerEvidence?.lastError?.message ?? null;
+      const syntheticStatus = classifyDiagnosticOutcome(syntheticResult, syntheticWorkerError, syntheticObservationError);
       report.diagnostic = {
-        mode: '32-token WASM probe; not acceptance evidence',
+        mode: '32-token probe; backend observed from Worker; not acceptance evidence',
         input: 'synthetic PDF, first page rasterized by the production Worker',
         modelStatus: workerEvidence?.modelStatus ?? null,
         stages: workerEvidence?.progress ?? [],
         onnxEvents: workerEvidence?.onnx ?? [],
         synthetic: {
+          status: syntheticStatus,
           result: summarizeDiagnosticResult(syntheticResult),
-          error: workerEvidence?.lastError?.message ?? report.inference.error ?? null,
+          workerError: syntheticWorkerError,
+          observationError: syntheticObservationError?.message ?? null,
+          observedBackend: observedDiagnosticBackend(syntheticResult, workerEvidence?.progress),
         },
         officialReference: {
           source: 'onnx-community model card example; original IBM Granite image pinned to its repository revision',
@@ -708,33 +785,60 @@ async function run() {
           sha256: hash(referenceBytes),
           expectedText: officialReference.expectedText,
           status: 'NOT_RUN',
+          observedBackend: null,
         },
       };
 
       if (syntheticResult && hasProfileWorker) {
         const referenceId = 'official-reference-control';
         await page.evaluate(({ id, bytesBase64 }) => {
+          window.__doclingProfile.lastError = null;
           window.__doclingProfile.worker.postMessage({ id, type: 'analyze-image', format: 'PNG', bytesBase64 });
         }, { id: referenceId, bytesBase64: referenceBytes.toString('base64') });
+        let referenceObservationError = null;
         try {
           await page.waitForFunction(id =>
             Boolean(window.__doclingProfile.results[id] || window.__doclingProfile.errors[id]),
           referenceId, { timeout: 60_000 });
           const referenceResult = await page.evaluate(id => window.__doclingProfile.results[id] ?? null, referenceId);
+          const referenceError = await page.evaluate(id => window.__doclingProfile.errors[id] ?? null, referenceId);
           report.diagnostic.officialReference.result = summarizeDiagnosticResult(referenceResult);
-          report.diagnostic.officialReference.status = report.diagnostic.officialReference.result?.containsOfficialText
-            ? 'MATCHED_PUBLISHED_EXAMPLE' : referenceResult?.stoppedAtTokenLimit ? 'PREFIX_DID_NOT_REACH_PUBLISHED_TEXT' : 'MISMATCH';
-          report.diagnostic.officialReference.error = await page.evaluate(id => window.__doclingProfile.errors[id] ?? null, referenceId);
+          report.diagnostic.officialReference.status = referenceResult?.docTags?.includes(officialReference.expectedText)
+            ? 'MATCHED_PUBLISHED_EXAMPLE' : referenceResult?.stoppedAtTokenLimit ? 'PREFIX_DID_NOT_REACH_PUBLISHED_TEXT'
+              : referenceResult ? 'MISMATCH' : classifyDiagnosticOutcome(null, referenceError, null);
+          report.diagnostic.officialReference.workerError = referenceError;
+          report.diagnostic.officialReference.observationError = null;
+          report.diagnostic.officialReference.observedBackend = observedDiagnosticBackend(
+            referenceResult, await page.evaluate(() => window.__doclingProfile.progress),
+          );
           report.diagnostic.onnxEvents = await page.evaluate(() => window.__doclingProfile.onnx);
         } catch (error) {
-          report.diagnostic.officialReference.status = 'INCONCLUSIVE_AT_CUTOFF';
-          report.diagnostic.officialReference.error = error instanceof Error ? error.message : String(error);
+          referenceObservationError = error;
+          const referenceEvidence = await page.evaluate(id => ({
+            result: window.__doclingProfile.results[id] ?? null,
+            error: window.__doclingProfile.errors[id] ?? null,
+            stages: window.__doclingProfile.progress,
+            onnxEvents: window.__doclingProfile.onnx,
+          }), referenceId);
+          report.diagnostic.officialReference.status = referenceEvidence.result?.docTags?.includes(officialReference.expectedText)
+            ? 'MATCHED_PUBLISHED_EXAMPLE' : referenceEvidence.result?.stoppedAtTokenLimit
+              ? 'PREFIX_DID_NOT_REACH_PUBLISHED_TEXT' : referenceEvidence.result ? 'MISMATCH'
+                : classifyDiagnosticOutcome(null, referenceEvidence.error, referenceObservationError);
+          report.diagnostic.officialReference.result = summarizeDiagnosticResult(referenceEvidence.result);
+          report.diagnostic.officialReference.workerError = referenceEvidence.error;
+          report.diagnostic.officialReference.observationError = referenceObservationError.message;
+          report.diagnostic.officialReference.observedBackend = observedDiagnosticBackend(
+            referenceEvidence.result, referenceEvidence.stages,
+          );
+          report.diagnostic.onnxEvents = referenceEvidence.onnxEvents;
         }
       }
 
       const synthetic = report.diagnostic.synthetic.result;
       report.diagnostic.verdict = !synthetic
-        ? 'INCONCLUSIVE_NO_RESULT_AT_CUTOFF'
+        ? syntheticStatus === 'WORKER_ERROR' ? 'SYNTHETIC_WORKER_ERROR'
+          : syntheticStatus === 'OBSERVATION_CUTOFF' ? 'INCONCLUSIVE_NO_RESULT_AT_CUTOFF'
+            : syntheticStatus === 'OBSERVATION_ERROR' ? 'SYNTHETIC_OBSERVATION_ERROR' : 'SYNTHETIC_NO_RESULT'
         : synthetic.punctuationOnly
           ? report.diagnostic.officialReference.status === 'MATCHED_PUBLISHED_EXAMPLE'
             ? 'REPRODUCED_SYNTHETIC_ONLY_OFFICIAL_CONTROL_MATCHED'
@@ -863,7 +967,7 @@ async function run() {
     const formatSummary = formats.map(format => `${format} ${report.coverage.formats[format]}`).join('; ');
     await writeFile(jsonPath, `${JSON.stringify(report, null, 2)}\n`);
     await writeFile(markdownPath, diagnosticMode
-      ? `# Docling Worker diagnostic\n\n**Estado:** ${result.status}\n\n**Alcance:** sonda diagnóstica limitada; no es aceptación #33.\n\n**Interpretación:** el corte de 60 s solo limita la observación; no distingue cálculo lento de bloqueo.\n\n**Ejecución:** ${runId}\n\n**Fuente:** ${report.source.branch ?? 'desconocida'}@${report.source.commit ?? 'desconocido'}\n\n**Distribución:** ${report.artifact.sha256 ?? 'no identificada'}\n\n**Pesos verificados:** ${report.diagnostic?.modelStatus?.verifiedArtifacts ?? 'sin evidencia'}/${MODEL_ARTIFACTS.length}\n\n**Último evento ONNX:** ${JSON.stringify(report.diagnostic?.onnxEvents?.at(-1) ?? null)}\n\n**Referencia oficial:** ${report.diagnostic?.officialReference?.status ?? 'NOT_RUN'}\n\n**Evidencia:** ${jsonPath}\n`
+      ? formatDiagnosticMarkdown(report, jsonPath)
       : `# Docling Web real inference\n\n**Estado:** ${result.status}\n\n**Ejecución:** ${runId}\n\n**Fuente:** ${report.source.branch ?? 'desconocida'}@${report.source.commit ?? 'desconocido'}\n\n**Distribución:** ${report.artifact.sha256 ?? 'no identificada'}\n\n**Resultado de inferencia:** ${report.inference.status}${report.inference.error ? ` · ${report.inference.error}` : ''}\n\n**Cobertura por formato:** ${formatSummary}. Ambigüedad: ${report.coverage.ambiguity}.\n\n**Privacidad:** estado global SEC-01 ${report.steps.find(step => step.id === 'SEC-01')?.status ?? 'NOT_RUN'}; comprobaciones acotadas ${report.privacy.observedChecksStatus}.\n\n**Aplicación al escenario:** ${report.scenarioApplication.status} · ${report.scenarioApplication.reason}\n\n**Evidencia:** ${jsonPath}\n`);
     console.log(`${diagnosticMode ? 'Docling diagnóstico' : 'Docling Web'} ${result.status}. Informe: ${markdownPath}`);
     process.exitCode = result.exitCode;

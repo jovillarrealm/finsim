@@ -1,6 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { assessDoc01Evidence, assessDoc04Evidence, inspectBrowserStorage, isAllowedNetworkRequest, readAccessiblePageText, report } from './verify-docling.mjs';
+import {
+  assessDoc01Evidence,
+  assessDoc04Evidence,
+  classifyDiagnosticOutcome,
+  formatDiagnosticMarkdown,
+  inspectBrowserStorage,
+  isAllowedNetworkRequest,
+  observedDiagnosticBackend,
+  readAccessiblePageText,
+  report,
+  waitForAccessiblePageText,
+} from './verify-docling.mjs';
 import { summarizeVerification } from './verification-status.mjs';
 import { MODEL_ARTIFACTS, modelArtifactUrl } from '../kmp/composeApp/docling-worker/src/model-artifacts.mjs';
 
@@ -168,4 +179,57 @@ test('DOC-04 reports review separately and leaves application NOT_RUN without sc
   assert.equal(report.scenarioApplication.status, 'NOT_RUN');
   assert.equal(Object.hasOwn(report, 'appliedToScenario'), false);
   assert.equal(summary.status, 'INCOMPLETE');
+});
+
+test('diagnostic reports distinguish Worker errors from observation cutoffs in JSON and Markdown', () => {
+  const diagnostic = {
+    synthetic: {
+      status: classifyDiagnosticOutcome(null, 'vision.run failed', { name: 'TimeoutError' }),
+      workerError: 'vision.run failed',
+      observationError: 'No se encontró el texto esperado en 60000 ms.',
+      observedBackend: null,
+    },
+    officialReference: {
+      status: classifyDiagnosticOutcome(null, null, { name: 'TimeoutError' }),
+      workerError: null,
+      observationError: 'Timeout 60000ms exceeded',
+      observedBackend: null,
+    },
+    modelStatus: { verifiedArtifacts: 17 },
+    onnxEvents: [],
+  };
+  const sample = {
+    result: { status: 'SYNTHETIC_WORKER_ERROR' }, runId: 'diagnostic-test',
+    source: { branch: 'test', commit: 'abc' }, artifact: { sha256: '123' }, jsonPath: 'report.json',
+    diagnostic,
+  };
+  const json = JSON.parse(JSON.stringify(sample));
+  const markdown = formatDiagnosticMarkdown(sample, 'report.json');
+
+  assert.equal(json.diagnostic.synthetic.status, 'WORKER_ERROR');
+  assert.equal(json.diagnostic.synthetic.workerError, 'vision.run failed');
+  assert.equal(json.diagnostic.synthetic.observationError, 'No se encontró el texto esperado en 60000 ms.');
+  assert.equal(json.diagnostic.officialReference.status, 'OBSERVATION_CUTOFF');
+  assert.match(markdown, /PDF sintético:\*\* WORKER_ERROR · error del Worker: vision\.run failed; observación:/);
+  assert.match(markdown, /Control oficial:\*\* OBSERVATION_CUTOFF · observación: Timeout 60000ms exceeded/);
+  assert.match(markdown, /Backend observado en PDF:\*\* NO_OBSERVADO/);
+});
+
+test('diagnostic backend is reported only after Worker confirms a ready provider', () => {
+  assert.equal(observedDiagnosticBackend(null, [{ stage: 'loading-model', device: 'wasm' }]), null);
+  assert.equal(observedDiagnosticBackend(null, [{ stage: 'model-fallback', device: 'wasm' }]), null);
+  assert.equal(observedDiagnosticBackend(null, [{ stage: 'ready', device: 'webgpu' }]), 'webgpu');
+  assert.equal(observedDiagnosticBackend({ device: 'wasm' }, [{ stage: 'ready', device: 'webgpu' }]), 'wasm');
+});
+
+test('accessible-page wait marks its own deadline as an observation cutoff', async () => {
+  let timeoutError;
+  try {
+    await waitForAccessiblePageText({ locator: () => ({ allInnerTexts: async () => [] }) }, () => false, 0);
+  } catch (error) {
+    timeoutError = error;
+  }
+
+  assert.equal(timeoutError?.name, 'TimeoutError');
+  assert.equal(classifyDiagnosticOutcome(null, null, timeoutError), 'OBSERVATION_CUTOFF');
 });
