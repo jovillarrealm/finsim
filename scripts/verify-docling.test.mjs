@@ -8,6 +8,7 @@ import {
   installDoclingProfileWorkerProbe,
   inspectBrowserStorage,
   isAllowedNetworkRequest,
+  nativeWorkerErrorsSince,
   observedDiagnosticBackend,
   readAccessiblePageText,
   report,
@@ -248,6 +249,7 @@ test('native Worker errors are captured safely and take precedence over a cutoff
     emit(type, details) {
       for (const listener of this.listeners.get(type) ?? []) listener({ type, ...details });
     }
+    postMessage() {}
   }
   Object.defineProperties(globalThis, {
     window: { configurable: true, value: { Worker: FakeWorker } },
@@ -293,6 +295,68 @@ test('native Worker errors are captured safely and take precedence over a cutoff
     assert.equal(json.diagnostic.synthetic.status, 'WORKER_NATIVE_ERROR');
     assert.match(markdown, /Eventos nativos del Worker:\*\* error TypeError, messageerror, error/);
     assert.match(markdown, /PDF sintético:\*\* WORKER_NATIVE_ERROR · evento nativo del Worker: error TypeError, messageerror, error; observación: 60 s elapsed/);
+  } finally {
+    if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
+    else delete globalThis.window;
+    if (previousDocument) Object.defineProperty(globalThis, 'document', previousDocument);
+    else delete globalThis.document;
+  }
+});
+
+test('PDF and reference-only reports scope events to the actual Worker request', () => {
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const previousDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  class FakeWorker {
+    constructor(url) { this.url = url; this.listeners = new Map(); }
+    addEventListener(type, listener) {
+      const listeners = this.listeners.get(type) ?? [];
+      listeners.push(listener);
+      this.listeners.set(type, listeners);
+    }
+    emit(type, details) {
+      for (const listener of this.listeners.get(type) ?? []) listener({ type, ...details });
+    }
+    postMessage() {}
+  }
+  Object.defineProperties(globalThis, {
+    window: { configurable: true, value: { Worker: FakeWorker } },
+    document: { configurable: true, value: { baseURI: 'https://app.example/' } },
+  });
+
+  try {
+    installDoclingProfileWorkerProbe(true);
+    const worker = new window.Worker('https://app.example/docling/worker.mjs');
+    const profile = window.__doclingProfile;
+    const privatePayload = 'SENSITIVE-DOCUMENT-TEXT';
+
+    worker.emit('error', { error: { name: 'TypeError' } });
+    worker.postMessage({ id: 'pdf-request', type: 'analyze-image', bytesBase64: privatePayload });
+    const pdfStart = profile.nativeWorkerErrorStarts['pdf-request'];
+    assert.equal(
+      classifyDiagnosticOutcome(null, null, { name: 'TimeoutError' },
+        nativeWorkerErrorsSince(profile.nativeWorkerErrors, pdfStart)),
+      'OBSERVATION_CUTOFF',
+    );
+    worker.emit('messageerror', { data: privatePayload });
+    const pdfEvents = nativeWorkerErrorsSince(profile.nativeWorkerErrors, pdfStart);
+    assert.deepEqual(pdfEvents, [{ type: 'messageerror' }]);
+    assert.equal(classifyDiagnosticOutcome(null, null, { name: 'TimeoutError' }, pdfEvents), 'WORKER_NATIVE_ERROR');
+
+    worker.emit('messageerror', { data: privatePayload });
+    worker.postMessage({ id: 'official-reference-control', type: 'analyze-image', bytesBase64: privatePayload });
+    const referenceStart = profile.nativeWorkerErrorStarts['official-reference-control'];
+    assert.equal(
+      classifyDiagnosticOutcome(null, null, { name: 'TimeoutError' },
+        nativeWorkerErrorsSince(profile.nativeWorkerErrors, referenceStart)),
+      'OBSERVATION_CUTOFF',
+    );
+    worker.emit('error', { error: { name: 'SyntaxError' }, message: privatePayload });
+    const referenceEvents = nativeWorkerErrorsSince(profile.nativeWorkerErrors, referenceStart);
+    assert.deepEqual(referenceEvents, [{ type: 'error', errorName: 'SyntaxError' }]);
+    assert.equal(classifyDiagnosticOutcome(null, null, { name: 'TimeoutError' }, referenceEvents), 'WORKER_NATIVE_ERROR');
+
+    assert.equal(profile.nativeWorkerErrors.length, 4, 'the global diagnostic list retains events before and during both requests');
+    assert.equal(JSON.stringify(profile).includes(privatePayload), false);
   } finally {
     if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
     else delete globalThis.window;

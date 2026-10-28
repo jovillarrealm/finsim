@@ -120,6 +120,10 @@ export function classifyDiagnosticOutcome(result, workerError, observationError,
   return observationError ? 'OBSERVATION_ERROR' : 'NO_RESULT';
 }
 
+export function nativeWorkerErrorsSince(events, startIndex) {
+  return events.slice(startIndex);
+}
+
 export function observedDiagnosticBackend(result, stages = []) {
   if (result?.device === 'wasm' || result?.device === 'webgpu') return result.device;
   return [...stages].reverse().find(stage => stage.stage === 'ready' &&
@@ -178,6 +182,7 @@ ${formatOutcome('Control oficial', diagnostic?.officialReference)}
 export function installDoclingProfileWorkerProbe(diagnostic) {
   window.__doclingProfile = {
     progress: [], result: null, results: {}, errors: {}, onnx: [], nativeWorkerErrors: [],
+    nativeWorkerErrorStarts: Object.create(null), latestAnalysisRequestId: null,
     modelStatus: null, worker: null,
   };
   const safeErrorNames = new Set([
@@ -206,6 +211,16 @@ export function installDoclingProfileWorkerProbe(diagnostic) {
       if (isDoclingWorker) {
         window.__doclingProfile.worker = worker;
         if (diagnostic) {
+          const postMessage = worker.postMessage.bind(worker);
+          worker.postMessage = (message, ...transfer) => {
+            let request;
+            try { request = typeof message === 'string' ? JSON.parse(message) : message; } catch {}
+            if (request?.type === 'analyze-image' && typeof request.id === 'string') {
+              window.__doclingProfile.nativeWorkerErrorStarts[request.id] = window.__doclingProfile.nativeWorkerErrors.length;
+              window.__doclingProfile.latestAnalysisRequestId = request.id;
+            }
+            return postMessage(message, ...transfer);
+          };
           worker.addEventListener('error', recordNativeError);
           worker.addEventListener('messageerror', recordNativeError);
         }
@@ -728,9 +743,13 @@ async function run() {
         stages: window.__doclingProfile.progress,
         onnxEvents: window.__doclingProfile.onnx,
         nativeWorkerErrors: window.__doclingProfile.nativeWorkerErrors,
+        nativeWorkerErrorStart: window.__doclingProfile.nativeWorkerErrorStarts[id] ?? window.__doclingProfile.nativeWorkerErrors.length,
       }), referenceId);
+      const referenceNativeWorkerErrors = nativeWorkerErrorsSince(
+        referenceEvidence.nativeWorkerErrors, referenceEvidence.nativeWorkerErrorStart,
+      );
       const referenceOutcome = classifyDiagnosticOutcome(
-        referenceEvidence.result, referenceEvidence.error, referenceObservationError, referenceEvidence.nativeWorkerErrors,
+        referenceEvidence.result, referenceEvidence.error, referenceObservationError, referenceNativeWorkerErrors,
       );
       const referenceStatus = referenceEvidence.result?.docTags?.includes(officialReference.expectedText)
         ? 'MATCHED_PUBLISHED_EXAMPLE'
@@ -754,7 +773,7 @@ async function run() {
           result: summarizeDiagnosticResult(referenceEvidence.result),
           status: referenceStatus,
           workerError: referenceEvidence.error,
-          nativeWorkerErrors: referenceEvidence.nativeWorkerErrors,
+          nativeWorkerErrors: referenceNativeWorkerErrors,
           observationError: referenceObservationError?.message ?? null,
           observedBackend: observedDiagnosticBackend(referenceEvidence.result, referenceEvidence.stages),
         },
@@ -780,7 +799,10 @@ async function run() {
     await clickComposeControl(page, page.getByRole('button', { name: 'Seleccionar PDF, PNG o JPEG', exact: true }));
     const chooser = await chooserPromise;
     await chooser.setFiles({ name: report.fixture.name, mimeType: 'application/pdf', buffer: pdfBytes });
-    if (diagnosticMode) await page.evaluate(() => { window.__doclingProfile.lastError = null; });
+    if (diagnosticMode) await page.evaluate(() => {
+      window.__doclingProfile.lastError = null;
+      window.__doclingProfile.latestAnalysisRequestId = null;
+    });
     await clickComposeControl(page, page.getByRole('button', { name: 'Analizar página 1 con Granite-Docling', exact: true }));
     let syntheticObservationError = null;
     try {
@@ -800,7 +822,13 @@ async function run() {
     if (diagnosticMode) {
       const syntheticResult = workerEvidence?.result ?? null;
       const syntheticWorkerError = workerEvidence?.lastError?.message ?? null;
-      const syntheticNativeWorkerErrors = workerEvidence?.nativeWorkerErrors ?? [];
+      const syntheticRequestId = workerEvidence?.latestAnalysisRequestId;
+      const syntheticNativeWorkerErrorStart = syntheticRequestId
+        ? workerEvidence?.nativeWorkerErrorStarts?.[syntheticRequestId] ?? workerEvidence?.nativeWorkerErrors?.length ?? 0
+        : workerEvidence?.nativeWorkerErrors?.length ?? 0;
+      const syntheticNativeWorkerErrors = nativeWorkerErrorsSince(
+        workerEvidence?.nativeWorkerErrors ?? [], syntheticNativeWorkerErrorStart,
+      );
       const syntheticStatus = classifyDiagnosticOutcome(
         syntheticResult, syntheticWorkerError, syntheticObservationError, syntheticNativeWorkerErrors,
       );
@@ -833,7 +861,6 @@ async function run() {
 
       if (syntheticResult && hasProfileWorker) {
         const referenceId = 'official-reference-control';
-        const nativeWorkerErrorStart = await page.evaluate(() => window.__doclingProfile.nativeWorkerErrors.length);
         await page.evaluate(({ id, bytesBase64 }) => {
           window.__doclingProfile.lastError = null;
           window.__doclingProfile.worker.postMessage({ id, type: 'analyze-image', format: 'PNG', bytesBase64 });
@@ -846,9 +873,11 @@ async function run() {
           const referenceResult = await page.evaluate(id => window.__doclingProfile.results[id] ?? null, referenceId);
           const referenceError = await page.evaluate(id => window.__doclingProfile.errors[id] ?? null, referenceId);
           report.diagnostic.officialReference.result = summarizeDiagnosticResult(referenceResult);
-          const nativeWorkerErrors = await page.evaluate(start =>
-            window.__doclingProfile.nativeWorkerErrors.slice(start), nativeWorkerErrorStart,
-          );
+          const allNativeWorkerErrors = await page.evaluate(() => window.__doclingProfile.nativeWorkerErrors);
+          const nativeWorkerErrorStart = await page.evaluate(id =>
+            window.__doclingProfile.nativeWorkerErrorStarts[id] ?? window.__doclingProfile.nativeWorkerErrors.length,
+          referenceId);
+          const nativeWorkerErrors = nativeWorkerErrorsSince(allNativeWorkerErrors, nativeWorkerErrorStart);
           report.diagnostic.officialReference.status = referenceResult?.docTags?.includes(officialReference.expectedText)
             ? 'MATCHED_PUBLISHED_EXAMPLE' : referenceResult?.stoppedAtTokenLimit ? 'PREFIX_DID_NOT_REACH_PUBLISHED_TEXT'
               : referenceResult ? 'MISMATCH' : classifyDiagnosticOutcome(null, referenceError, null, nativeWorkerErrors);
@@ -858,26 +887,29 @@ async function run() {
           report.diagnostic.officialReference.observedBackend = observedDiagnosticBackend(
             referenceResult, await page.evaluate(() => window.__doclingProfile.progress),
           );
-          report.diagnostic.nativeWorkerErrors = await page.evaluate(() => window.__doclingProfile.nativeWorkerErrors);
+          report.diagnostic.nativeWorkerErrors = allNativeWorkerErrors;
           report.diagnostic.onnxEvents = await page.evaluate(() => window.__doclingProfile.onnx);
         } catch (error) {
           referenceObservationError = error;
-          const referenceEvidence = await page.evaluate(({ id, start }) => ({
+          const referenceEvidence = await page.evaluate(id => ({
             result: window.__doclingProfile.results[id] ?? null,
             error: window.__doclingProfile.errors[id] ?? null,
             stages: window.__doclingProfile.progress,
             onnxEvents: window.__doclingProfile.onnx,
-            nativeWorkerErrors: window.__doclingProfile.nativeWorkerErrors.slice(start),
             allNativeWorkerErrors: window.__doclingProfile.nativeWorkerErrors,
-          }), { id: referenceId, start: nativeWorkerErrorStart });
+            nativeWorkerErrorStart: window.__doclingProfile.nativeWorkerErrorStarts[id] ?? window.__doclingProfile.nativeWorkerErrors.length,
+          }), referenceId);
+          const referenceNativeWorkerErrors = nativeWorkerErrorsSince(
+            referenceEvidence.allNativeWorkerErrors, referenceEvidence.nativeWorkerErrorStart,
+          );
           report.diagnostic.officialReference.status = referenceEvidence.result?.docTags?.includes(officialReference.expectedText)
             ? 'MATCHED_PUBLISHED_EXAMPLE' : referenceEvidence.result?.stoppedAtTokenLimit
               ? 'PREFIX_DID_NOT_REACH_PUBLISHED_TEXT' : referenceEvidence.result ? 'MISMATCH'
                 : classifyDiagnosticOutcome(null, referenceEvidence.error, referenceObservationError,
-                  referenceEvidence.nativeWorkerErrors);
+                  referenceNativeWorkerErrors);
           report.diagnostic.officialReference.result = summarizeDiagnosticResult(referenceEvidence.result);
           report.diagnostic.officialReference.workerError = referenceEvidence.error;
-          report.diagnostic.officialReference.nativeWorkerErrors = referenceEvidence.nativeWorkerErrors;
+          report.diagnostic.officialReference.nativeWorkerErrors = referenceNativeWorkerErrors;
           report.diagnostic.nativeWorkerErrors = referenceEvidence.allNativeWorkerErrors;
           report.diagnostic.officialReference.observationError = referenceObservationError.message;
           report.diagnostic.officialReference.observedBackend = observedDiagnosticBackend(
