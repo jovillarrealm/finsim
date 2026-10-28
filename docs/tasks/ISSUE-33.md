@@ -87,3 +87,10 @@ Continuidad: para repetir con la caché conservada, usar `npm run verify:docling
 - Se retiró el intento de inferir WASM a partir de `--disable-gpu`. `observedBackend` solo toma `wasm`/`webgpu` del resultado o de un evento `ready` del Worker; sin esa evidencia, los informes dicen `NO_OBSERVADO`.
 - Pruebas dirigidas: `node --test scripts/verify-docling.test.mjs` 11/11; `npm --prefix kmp/composeApp/docling-worker test` 13/13; `node --check scripts/verify-docling.mjs` y `git diff --check` correctos. No se repitió inferencia real ni se generó una distribución en esta corrección; no añade evidencia de aceptación.
 - Commit de código local: `1ccf041`.
+
+## Eventos nativos del Worker (2026-10-28)
+
+- El perfil diagnóstico escucha los eventos `error` y `messageerror` del Worker. JSON/Markdown conservan el tipo y, para `error`, solo un nombre de excepción de una lista segura; no registran `message`, `filename`, `stack` ni `data`. Los eventos aparecen también si el perfil termina antes de empezar el análisis.
+- `WORKER_NATIVE_ERROR` precede al estado de corte cuando falta un resultado y se conserva por separado el mensaje de observación. El control oficial usa solo eventos posteriores al inicio de su solicitud, para no atribuirle señales anteriores.
+- Pruebas dirigidas: `node --test scripts/verify-docling.test.mjs` 12/12; `npm --prefix kmp/composeApp/docling-worker test` 13/13; `node --check scripts/verify-docling.mjs` y `git diff --check` correctos. La regresión simula ambos eventos y comprueba que texto, ruta y nombre de excepción arbitrario no se filtren.
+- Commit de código local: `054659d`. No se repitió inferencia ni se generó una distribución.
