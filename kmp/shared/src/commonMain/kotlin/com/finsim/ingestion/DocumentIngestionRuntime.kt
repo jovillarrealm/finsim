@@ -10,13 +10,19 @@ class DocumentIngestionRuntime internal constructor(
     val capabilityGate: DeviceCapabilityGate,
     val pageRasterizer: PageRasterizer,
     val vlmRunner: VlmVisionRunner,
-    private val closeResources: () -> Unit = {}
+    private val closeResources: () -> Unit = {},
+    val supportsDocling: Boolean = false,
+    val doclingModelController: DoclingModelController? = null,
+    private val enforceVlmHardwareGate: Boolean = true,
+    private val supportsDirectImageInputs: Boolean = false
 ) {
     fun createOrchestrator(): HybridDocumentOrchestrator = HybridDocumentOrchestrator(
         rasterizer = pageRasterizer,
         vlmRunner = vlmRunner,
         capabilityGate = capabilityGate,
-        modelStorage = modelStorage
+        modelStorage = modelStorage,
+        enforceHardwareGate = enforceVlmHardwareGate,
+        supportsDirectImageInputs = supportsDirectImageInputs
     )
 
     fun createModelDownloadManager(scope: CoroutineScope): ModelDownloadManager = ModelDownloadManager(

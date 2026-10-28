@@ -52,7 +52,8 @@ enum class InsuranceAmountMeaning {
 @Serializable
 enum class ExtractionEngine(val label: String) {
     TIER_1_DIGITAL_TEXT("Texto digital"),
-    TIER_2_LOCAL_VLM("Visión local VLM")
+    TIER_2_LOCAL_VLM("Visión local VLM"),
+    TIER_2_LOCAL_DOCLING("Visión local Granite-Docling")
 }
 
 /** Parses a user-reviewed monetary value without rounding away excess fractional digits. */
@@ -121,7 +122,9 @@ data class ExtractedDocumentData(
     val basePayment: String? = null,
     val totalPayment: String? = null,
     val paymentMeaning: PaymentMeaning = PaymentMeaning.UNKNOWN,
-    val termMeaning: TermMeaning = TermMeaning.UNKNOWN
+    val termMeaning: TermMeaning = TermMeaning.UNKNOWN,
+    /** Unresolved conflicts or interpretation limits that must be shown during human review. */
+    val reviewWarnings: List<String> = emptyList()
 ) {
     val engine: ExtractionEngine get() = sourceEngine
 

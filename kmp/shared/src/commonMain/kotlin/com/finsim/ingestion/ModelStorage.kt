@@ -5,6 +5,8 @@ package com.finsim.ingestion
  */
 interface ModelStorage {
     fun isModelDownloaded(): Boolean
+    /** May revalidate persisted artifacts asynchronously before a model is used. */
+    suspend fun verifyModelDownloaded(): Boolean = isModelDownloaded()
     fun getModelSizeBytes(): Long
     fun getModelFilePath(): String? = null
     /** Returns storage state owned by one download attempt so late cleanup cannot touch a retry. */

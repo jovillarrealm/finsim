@@ -36,7 +36,9 @@ class HybridDocumentOrchestrator(
     val rasterizer: PageRasterizer = InMemoryPageRasterizer(),
     val vlmRunner: VlmVisionRunner = FakeVlmVisionRunner(),
     val capabilityGate: DeviceCapabilityGate,
-    val modelStorage: ModelStorage
+    val modelStorage: ModelStorage,
+    private val enforceHardwareGate: Boolean = true,
+    private val supportsDirectImageInputs: Boolean = false
 ) {
 
     /**
@@ -80,17 +82,17 @@ class HybridDocumentOrchestrator(
 
             // 2. Cascade to Tier 2 (Local VLM)
             // A. Check Hardware Eligibility (< 8 GiB RAM blocked)
-            if (!capabilityGate.isEligibleForVlm) {
+            if (enforceHardwareGate && !capabilityGate.isEligibleForVlm) {
                 return OrchestrationResult.HardwareRestricted(
                     reason = capabilityGate.ineligibilityReason
-                        ?: "Memoria RAM insuficiente para ejecutar el modelo de visión local Gemma 4 E2B (se requieren >= 8.0 GB de RAM)."
+                        ?: "Memoria RAM insuficiente para ejecutar el modelo de visión local ${vlmRunner.modelName}."
                 )
             }
 
             // B. Check Model Download Status
-            if (!modelStorage.isModelDownloaded()) {
+            if (!modelStorage.verifyModelDownloaded()) {
                 return OrchestrationResult.RequiresModelDownload(
-                    message = "El modelo de visión local Gemma 4 E2B (2.58 GB) no se encuentra descargado en este dispositivo."
+                    message = "El modelo de visión local ${vlmRunner.modelName} no está instalado y verificado en este dispositivo."
                 )
             }
 
@@ -113,19 +115,60 @@ class HybridDocumentOrchestrator(
             )
 
             val finalData = rawVlmData.copy(
-                sourceEngine = ExtractionEngine.TIER_2_LOCAL_VLM,
+                sourceEngine = vlmRunner.extractionEngine,
                 analyzedPage = bestPageIndex
             )
 
             OrchestrationResult.Success(
                 data = finalData,
-                tierUsed = ExtractionEngine.TIER_2_LOCAL_VLM
+                tierUsed = vlmRunner.extractionEngine
             )
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (e: Exception) {
             OrchestrationResult.Error(
                 message = e.message ?: "Error inesperado al procesar el documento con el orquestador híbrido."
+            )
+        }
+    }
+
+    /** Sends a validated PNG/JPEG straight to the vision runner without treating it as a PDF. */
+    suspend fun processImageDocument(
+        imageBytes: ByteArray,
+        format: VisualDocumentFormat,
+        framework: RegulatoryFramework,
+        targetMode: ImportTargetMode = ImportTargetMode.SCENARIO
+    ): OrchestrationResult {
+        if (!supportsDirectImageInputs) {
+            return OrchestrationResult.Error("La selección directa de imágenes no está disponible en esta plataforma.")
+        }
+        return try {
+            require(format == VisualDocumentFormat.PNG || format == VisualDocumentFormat.JPEG) {
+                "Selecciona una imagen PNG o JPEG válida."
+            }
+            validateImageForInMemoryInference(imageBytes, format)
+            if (enforceHardwareGate && !capabilityGate.isEligibleForVlm) {
+                return OrchestrationResult.HardwareRestricted(
+                    capabilityGate.ineligibilityReason
+                        ?: "Memoria RAM insuficiente para ejecutar el modelo de visión local ${vlmRunner.modelName}."
+                )
+            }
+            if (!modelStorage.verifyModelDownloaded()) {
+                return OrchestrationResult.RequiresModelDownload(
+                    "El modelo de visión local ${vlmRunner.modelName} no está instalado y verificado en este dispositivo."
+                )
+            }
+
+            val data = vlmRunner.analyzeImage(imageBytes, format, framework, targetMode).copy(
+                sourceEngine = vlmRunner.extractionEngine,
+                analyzedPage = 1
+            )
+            OrchestrationResult.Success(data, vlmRunner.extractionEngine)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            OrchestrationResult.Error(
+                failure.message ?: "No se pudo analizar la imagen con el modelo de visión local."
             )
         }
     }

@@ -5,6 +5,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.finsim.ingestion.VisualDocumentFormat
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import com.finsim.ingestion.MAX_INGESTION_PDF_BYTES
@@ -18,9 +19,9 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 
 @Composable
-actual fun PdfDocumentPickerButton(
+actual fun VisualDocumentPickerButton(
     enabled: Boolean,
-    onPdfSelected: (name: String, bytes: ByteArray) -> Unit,
+    onVisualDocumentSelected: (name: String, format: VisualDocumentFormat, bytes: ByteArray) -> Unit,
     onError: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -39,7 +40,7 @@ actual fun PdfDocumentPickerButton(
                         ?.substringAfterLast('/')
                         ?.takeIf(String::isNotBlank)
                         ?: "Documento PDF"
-                    onPdfSelected(name, bytes)
+                    onVisualDocumentSelected(name, VisualDocumentFormat.PDF, bytes)
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (failure: Exception) {

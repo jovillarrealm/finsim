@@ -5,12 +5,26 @@ package com.finsim.ingestion
  */
 interface VlmVisionRunner {
     val modelName: String get() = "Gemma 4 E2B INT4"
+    val extractionEngine: ExtractionEngine get() = ExtractionEngine.TIER_2_LOCAL_VLM
     suspend fun isModelReady(): Boolean
     suspend fun analyzePage(
         imageBytes: ByteArray,
         framework: RegulatoryFramework,
         targetMode: ImportTargetMode = ImportTargetMode.SCENARIO
     ): ExtractedDocumentData
+
+    /** Processes a selected raster image directly; Android runners retain their PDF-only entry path. */
+    suspend fun analyzeImage(
+        imageBytes: ByteArray,
+        format: VisualDocumentFormat,
+        framework: RegulatoryFramework,
+        targetMode: ImportTargetMode = ImportTargetMode.SCENARIO
+    ): ExtractedDocumentData {
+        require(format == VisualDocumentFormat.PNG || format == VisualDocumentFormat.JPEG) {
+            "Selecciona una imagen PNG o JPEG válida."
+        }
+        return analyzePage(imageBytes, framework, targetMode)
+    }
 }
 
 /**

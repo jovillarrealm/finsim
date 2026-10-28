@@ -1,0 +1,35 @@
+{
+  "id": "SYN-COP-01",
+  "synthetic": true,
+  "humanPrivateReference": false,
+  "pdfSha256": "2324b53f2250c8627a5f30c4a115712d5e92a5b5c549114b20ef6c843f84c5a0",
+  "pages": 1,
+  "currency": "COP",
+  "documentKind": "LOAN_STATEMENT",
+  "expectedBeforeCorrection": {
+    "originalPrincipal": "1000.00",
+    "capitalBalance": "502.49",
+    "originalTermMonths": 2,
+    "remainingTermMonths": 1,
+    "ratePercentage": "1.00",
+    "rateKind": "monthly",
+    "basePayment": "507.51",
+    "totalPayment": "527.51",
+    "principalPaid": "497.51",
+    "interestPaid": "10.00",
+    "insurancePaid": "20.00",
+    "finalBalance": "502.49"
+  },
+  "expectedInsurance": {
+    "name": "Seguro de vida",
+    "amount": "20.00",
+    "amountMeaning": "PERIODIC_CHARGE"
+  },
+  "meaning": {
+    "balance": "capital pendiente, no deuda compuesta",
+    "term": "restante 1, original 2",
+    "payment": "base 507.51, total 527.51"
+  },
+  "status": "NOT_RUN",
+  "note": "Creacion y render no acreditan inferencia; registrar salida original antes de corregir."
+}

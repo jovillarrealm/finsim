@@ -194,7 +194,8 @@ fun ExtractionReviewSheet(
                         color = TextForestMuted
                     )
 
-                    val isVlm = extractedData.engine == ExtractionEngine.TIER_2_LOCAL_VLM
+                    val isVlm = extractedData.engine == ExtractionEngine.TIER_2_LOCAL_VLM ||
+                        extractedData.engine == ExtractionEngine.TIER_2_LOCAL_DOCLING
                     Surface(
                         color = if (isVlm) BrandLime else BrandSageLight,
                         shape = RoundedCornerShape(8.dp),
@@ -205,7 +206,7 @@ fun ExtractionReviewSheet(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = if (isVlm) "⚡ Visión local Gemma 4" else "⚡ Texto digital",
+                                text = if (isVlm) "⚡ ${extractedData.engine.label}" else "⚡ Texto digital",
                                 color = if (isVlm) BrandForest else BrandSage,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
@@ -242,6 +243,35 @@ fun ExtractionReviewSheet(
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
+
+                if (extractedData.reviewWarnings.isNotEmpty()) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "Revisión necesaria",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            extractedData.reviewWarnings.forEach { warning ->
+                                Text(
+                                    text = "• $warning",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+
                 Surface(
                     color = BackgroundWarm,
                     shape = RoundedCornerShape(8.dp),

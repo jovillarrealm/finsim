@@ -6,7 +6,8 @@ import kotlin.test.*
 
 /** Explicit orchestration stub; its literal output never represents model inference. */
 private class ControlledOrchestrationTestVlmRunner(
-    private val output: ExtractedDocumentData
+    private val output: ExtractedDocumentData,
+    override val extractionEngine: ExtractionEngine = ExtractionEngine.TIER_2_LOCAL_VLM
 ) : VlmVisionRunner {
     var callCount = 0
         private set
@@ -168,6 +169,69 @@ class HybridDocumentOrchestratorTest {
     }
 
     @Test
+    fun directImageUsesTheDoclingEngineWithoutPassingThroughPdfRasterizer() = runTest {
+        val imageBytes = pngHeader(width = 32, height = 24)
+        val rasterizer = InMemoryPageRasterizer()
+        val runner = ControlledOrchestrationTestVlmRunner(
+            ExtractedDocumentData(documentKind = ImportDocumentKind.UNKNOWN),
+            extractionEngine = ExtractionEngine.TIER_2_LOCAL_DOCLING
+        )
+        val orchestrator = HybridDocumentOrchestrator(
+            rasterizer = rasterizer,
+            vlmRunner = runner,
+            capabilityGate = FakeDeviceCapabilityGate(totalRamGb = 4.0),
+            modelStorage = InMemoryModelStorage(downloaded = true),
+            enforceHardwareGate = false,
+            supportsDirectImageInputs = true
+        )
+
+        val result = orchestrator.processImageDocument(
+            imageBytes = imageBytes,
+            format = VisualDocumentFormat.PNG,
+            framework = RegulatoryFramework.GENERIC
+        )
+
+        assertTrue(result is OrchestrationResult.Success)
+        assertEquals(ExtractionEngine.TIER_2_LOCAL_DOCLING, result.tierUsed)
+        assertEquals(ExtractionEngine.TIER_2_LOCAL_DOCLING, result.data.sourceEngine)
+        assertEquals(ImportDocumentKind.UNKNOWN, result.data.documentKind)
+        assertEquals(0, rasterizer.callCount)
+        assertContentEquals(imageBytes, runner.lastAnalyzedImageBytes)
+        assertEquals(1, runner.callCount)
+    }
+
+    @Test
+    fun directImageRejectsAnInvalidFormatBeforeCallingTheRunner() = runTest {
+        val runner = ControlledOrchestrationTestVlmRunner(ExtractedDocumentData())
+        val orchestrator = HybridDocumentOrchestrator(
+            vlmRunner = runner,
+            capabilityGate = FakeDeviceCapabilityGate(totalRamGb = 4.0),
+            modelStorage = InMemoryModelStorage(downloaded = true),
+            enforceHardwareGate = false,
+            supportsDirectImageInputs = true
+        )
+
+        val result = orchestrator.processImageDocument(
+            imageBytes = "%PDF-1.4".encodeToByteArray(),
+            format = VisualDocumentFormat.PNG,
+            framework = RegulatoryFramework.GENERIC
+        )
+
+        assertTrue(result is OrchestrationResult.Error)
+        assertEquals(0, runner.callCount)
+    }
+
+    private fun pngHeader(width: Int, height: Int): ByteArray = ByteArray(24).apply {
+        byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a).copyInto(this)
+        this[11] = 13
+        "IHDR".encodeToByteArray().copyInto(this, 12)
+        for (index in 0..3) {
+            this[16 + index] = (width ushr ((3 - index) * 8)).toByte()
+            this[20 + index] = (height ushr ((3 - index) * 8)).toByte()
+        }
+    }
+
+    @Test
     fun oversizedPdfIsRejectedBeforeRasterization() = runTest {
         val rasterizer = InMemoryPageRasterizer()
         val vlmRunner = FakeVlmVisionRunner()
@@ -188,6 +252,29 @@ class HybridDocumentOrchestratorTest {
         val failure = result as? OrchestrationResult.Error
             ?: fail("Expected oversized PDF error before rasterization, got $result")
         assertContains(failure.message, "25 MiB")
+        assertEquals(0, rasterizer.callCount)
+        assertEquals(0, vlmRunner.callCount)
+    }
+
+    @Test
+    fun invalidPdfHeaderIsRejectedBeforeRasterizationOrVision() = runTest {
+        val rasterizer = InMemoryPageRasterizer()
+        val vlmRunner = ControlledOrchestrationTestVlmRunner(ExtractedDocumentData())
+        val orchestrator = HybridDocumentOrchestrator(
+            rasterizer = rasterizer,
+            vlmRunner = vlmRunner,
+            capabilityGate = FakeDeviceCapabilityGate(totalRamGb = 8.0),
+            modelStorage = InMemoryModelStorage(downloaded = true, sizeBytes = GemmaModelArtifact.sizeBytes)
+        )
+
+        val result = orchestrator.processDocument(
+            pdfBytes = "%PDF invalid header".encodeToByteArray(),
+            rawText = "",
+            framework = RegulatoryFramework.COLOMBIA_SFC,
+            forceTier2 = true
+        )
+
+        assertIs<OrchestrationResult.Error>(result)
         assertEquals(0, rasterizer.callCount)
         assertEquals(0, vlmRunner.callCount)
     }
@@ -341,7 +428,7 @@ class HybridDocumentOrchestratorTest {
         )
 
         val result = orchestrator.processDocument(
-            pdfBytes = ByteArray(50),
+            pdfBytes = "%PDF-1.4\n".encodeToByteArray(),
             rawText = sampleColombiaDigitalText,
             framework = RegulatoryFramework.COLOMBIA_SFC,
             targetMode = ImportTargetMode.SCENARIO,
@@ -375,7 +462,7 @@ class HybridDocumentOrchestratorTest {
         var cancellationPropagated = false
         try {
             orchestrator.processDocument(
-                pdfBytes = "%PDF synthetic fixture".encodeToByteArray(),
+                pdfBytes = "%PDF-1.4\nsynthetic fixture".encodeToByteArray(),
                 rawText = "",
                 framework = RegulatoryFramework.COLOMBIA_SFC,
                 forceTier2 = true
@@ -429,7 +516,7 @@ class HybridDocumentOrchestratorTest {
         )
 
         val result = orchestrator.processDocument(
-            pdfBytes = "%PDF synthetic fixture".encodeToByteArray(),
+            pdfBytes = "%PDF-1.4\nsynthetic fixture".encodeToByteArray(),
             rawText = "",
             framework = RegulatoryFramework.COLOMBIA_SFC,
             targetMode = ImportTargetMode.SCENARIO,

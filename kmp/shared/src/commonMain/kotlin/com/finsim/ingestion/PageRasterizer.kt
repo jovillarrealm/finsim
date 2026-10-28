@@ -10,6 +10,9 @@ internal fun validatePdfForInMemoryRasterization(pdfBytes: ByteArray) {
     require(pdfBytes.size <= MAX_INGESTION_PDF_BYTES) {
         "El PDF supera el límite de ${MAX_INGESTION_PDF_BYTES / (1024 * 1024)} MiB para análisis visual en memoria."
     }
+    require(pdfBytes.size >= 5 && pdfBytes[0] == '%'.code.toByte() && pdfBytes[1] == 'P'.code.toByte() &&
+        pdfBytes[2] == 'D'.code.toByte() && pdfBytes[3] == 'F'.code.toByte() && pdfBytes[4] == '-'.code.toByte()
+    ) { "El archivo seleccionado no contiene una cabecera PDF válida." }
 }
 
 internal fun validateRasterDimensions(width: Long, height: Long) {

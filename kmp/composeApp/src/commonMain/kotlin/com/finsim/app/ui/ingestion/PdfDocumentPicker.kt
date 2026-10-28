@@ -1,10 +1,11 @@
 package com.finsim.app.ui.ingestion
 
 import androidx.compose.runtime.Composable
+import com.finsim.ingestion.VisualDocumentFormat
 
 @Composable
-expect fun PdfDocumentPickerButton(
+expect fun VisualDocumentPickerButton(
     enabled: Boolean,
-    onPdfSelected: (name: String, bytes: ByteArray) -> Unit,
+    onVisualDocumentSelected: (name: String, format: VisualDocumentFormat, bytes: ByteArray) -> Unit,
     onError: (String) -> Unit
 )

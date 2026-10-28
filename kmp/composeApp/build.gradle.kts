@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.Exec
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -7,6 +8,31 @@ plugins {
     alias(libs.plugins.android.kmp.library)
     alias(libs.plugins.kotlin.serialization)
 }
+
+val doclingWorkerDirectory = layout.projectDirectory.dir("docling-worker")
+val doclingWorkerResources = layout.buildDirectory.dir("generated/doclingResources")
+val npmExecutable = if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) "npm.cmd" else "npm"
+
+val installDoclingWorkerDependencies by tasks.registering(Exec::class) {
+    workingDir(doclingWorkerDirectory)
+    commandLine(npmExecutable, "ci", "--no-audit", "--no-fund")
+    inputs.files(doclingWorkerDirectory.file("package.json"), doclingWorkerDirectory.file("package-lock.json"))
+    outputs.dir(doclingWorkerDirectory.dir("node_modules"))
+}
+
+val buildDoclingWorker by tasks.registering(Exec::class) {
+    dependsOn(installDoclingWorkerDependencies)
+    workingDir(doclingWorkerDirectory)
+    commandLine(npmExecutable, "run", "build")
+    inputs.files(
+        fileTree(doclingWorkerDirectory.dir("src")),
+        doclingWorkerDirectory.file("build.mjs"),
+        doclingWorkerDirectory.file("package.json"),
+        doclingWorkerDirectory.file("package-lock.json")
+    )
+    outputs.dir(doclingWorkerResources)
+}
+
 kotlin {
     android {
         namespace = "com.finsim.compose"
@@ -46,6 +72,17 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
+        }
+    }
+}
+
+tasks.named("wasmJsBrowserDistribution") {
+    dependsOn(buildDoclingWorker)
+    inputs.dir(doclingWorkerResources)
+    doLast {
+        copy {
+            from(doclingWorkerResources)
+            into(layout.buildDirectory.dir("dist/wasmJs/productionExecutable"))
         }
     }
 }

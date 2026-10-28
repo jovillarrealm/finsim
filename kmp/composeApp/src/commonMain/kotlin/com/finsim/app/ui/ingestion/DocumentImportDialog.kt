@@ -124,15 +124,24 @@ fun DocumentImportDialog(
     }
     val orchestrator = remember(runtime) { runtime.createOrchestrator() }
     val downloadState by downloadManager.state.collectAsState()
-    var selectedPdfName by remember { mutableStateOf<String?>(null) }
-    var selectedPdfBytes by remember { mutableStateOf<ByteArray?>(null) }
+    val doclingModelController = runtime.doclingModelController
+    val doclingModelState = doclingModelController?.state?.collectAsState()?.value
+        ?: DoclingModelState.NotInstalled
+    var selectedVisualName by remember { mutableStateOf<String?>(null) }
+    var selectedVisualFormat by remember { mutableStateOf<VisualDocumentFormat?>(null) }
+    var selectedVisualBytes by remember { mutableStateOf<ByteArray?>(null) }
 
     var reviewData by remember { mutableStateOf<ExtractedDocumentData?>(null) }
     val scrollState = rememberScrollState()
 
+    LaunchedEffect(doclingModelController) {
+        doclingModelController?.refresh()
+    }
+
     DisposableEffect(runtime, downloadManager) {
         onDispose {
             downloadManager.cancelDownload()
+            doclingModelController?.cancelDownload()
             val analysis = pdfAnalysisJob
             CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
                 analysis?.cancelAndJoin()
@@ -191,7 +200,11 @@ fun DocumentImportDialog(
                             color = BrandDark
                         )
                         Text(
-                            text = "El texto pegado se analiza localmente. El análisis visual de PDF está disponible solo en Android.",
+                            text = when {
+                                runtime.supportsDocling -> "Granite-Docling analiza localmente PDFs, PNG y JPEG tras instalar el modelo."
+                                runtime.supportsGemma -> "El texto pegado se analiza localmente. La visión con Gemma está disponible en Android."
+                                else -> "El texto pegado se analiza localmente. El análisis visual no está disponible en esta plataforma."
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = TextForestMuted
                         )
@@ -375,7 +388,7 @@ fun DocumentImportDialog(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
-                    text = "PDF PARA ANÁLISIS VISUAL",
+                    text = if (runtime.supportsDocling) "PDF, PNG O JPEG PARA ANÁLISIS VISUAL" else "PDF PARA ANÁLISIS VISUAL",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     color = BrandForest,
@@ -383,7 +396,11 @@ fun DocumentImportDialog(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Se analiza solo la página 1 a 150 DPI (máximo 12 megapíxeles). El PDF se conserva en memoria mientras este diálogo está abierto (máximo ${MAX_INGESTION_PDF_BYTES / (1024 * 1024)} MiB); el texto pegado es una entrada separada.",
+                    text = if (runtime.supportsDocling) {
+                        "Se analiza la página 1 del PDF a 150 DPI o la imagen PNG/JPEG seleccionada. Cada archivo se conserva solo en memoria durante el análisis (máximo ${MAX_VISUAL_DOCUMENT_BYTES / (1024 * 1024)} MiB y 12 megapíxeles); no se envía ni guarda el documento."
+                    } else {
+                        "Se analiza solo la página 1 del PDF a 150 DPI (máximo 12 megapíxeles). El PDF se conserva en memoria mientras este diálogo está abierto (máximo ${MAX_INGESTION_PDF_BYTES / (1024 * 1024)} MiB); el texto pegado es una entrada separada."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = TextForestMuted
                 )
@@ -392,18 +409,20 @@ fun DocumentImportDialog(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    PdfDocumentPickerButton(
-                        enabled = !isAnalyzing && runtime.supportsGemma && runtime.capabilityGate.isEligibleForVlm,
-                        onPdfSelected = { name, bytes ->
-                            selectedPdfName = name
-                            selectedPdfBytes = bytes
+                    VisualDocumentPickerButton(
+                        enabled = !isAnalyzing && (runtime.supportsDocling ||
+                            (runtime.supportsGemma && runtime.capabilityGate.isEligibleForVlm)),
+                        onVisualDocumentSelected = { name, format, bytes ->
+                            selectedVisualName = name
+                            selectedVisualFormat = format
+                            selectedVisualBytes = bytes
                             errorMessage = ""
                         },
                         onError = { errorMessage = it }
                     )
-                    if (selectedPdfName != null) {
+                    if (selectedVisualName != null) {
                         Text(
-                            text = selectedPdfName!!,
+                            text = selectedVisualName!!,
                             modifier = Modifier.fillMaxWidth(),
                             style = MaterialTheme.typography.bodySmall,
                             color = BrandDark,
@@ -412,8 +431,9 @@ fun DocumentImportDialog(
                         )
                         TextButton(
                             onClick = {
-                                selectedPdfName = null
-                                selectedPdfBytes = null
+                                selectedVisualName = null
+                                selectedVisualFormat = null
+                                selectedVisualBytes = null
                             },
                             modifier = Modifier.align(Alignment.End),
                             enabled = !isAnalyzing
@@ -423,9 +443,13 @@ fun DocumentImportDialog(
                     }
                 }
 
-                if (!runtime.supportsGemma) {
+                if (runtime.supportsDocling) {
+                    doclingModelController?.let { controller ->
+                        DoclingModelProgressCard(controller = controller, state = doclingModelState)
+                    }
+                } else if (!runtime.supportsGemma) {
                     Text(
-                        text = "El análisis visual de PDF con Gemma solo está disponible en Android. Puedes pegar el texto para continuar.",
+                        text = "El análisis visual no está disponible en esta plataforma. Puedes pegar el texto para continuar.",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextForestMuted
                     )
@@ -443,66 +467,107 @@ fun DocumentImportDialog(
                         manager = downloadManager,
                         onModelDeleted = { noticeMessage = "Se eliminó el modelo local. El texto pegado sigue disponible." }
                     )
-                    if (selectedPdfBytes != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = {
-                                pdfAnalysisJob = coroutineScope.launch {
-                                    isAnalyzing = true
-                                    errorMessage = ""
-                                    try {
+                }
+                if (selectedVisualBytes != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            pdfAnalysisJob = coroutineScope.launch {
+                                isAnalyzing = true
+                                errorMessage = ""
+                                try {
+                                    val documentBytes = selectedVisualBytes
+                                        ?: error("Selecciona el documento visual que quieres analizar.")
+                                    val format = selectedVisualFormat
+                                        ?: error("No se pudo identificar el formato del archivo seleccionado.")
+                                    val framework = selectedFramework
+                                    val result = if (runtime.supportsDocling) {
+                                        if (doclingModelState !is DoclingModelState.Installed) {
+                                            error("Instala y verifica Granite-Docling antes de analizar el documento.")
+                                        }
+                                        withContext(Dispatchers.Default) {
+                                            if (format == VisualDocumentFormat.PDF) {
+                                                orchestrator.processDocument(
+                                                    pdfBytes = documentBytes,
+                                                    rawText = "",
+                                                    framework = framework,
+                                                    targetMode = targetMode,
+                                                    forceTier2 = true
+                                                )
+                                            } else {
+                                                orchestrator.processImageDocument(
+                                                    imageBytes = documentBytes,
+                                                    format = format,
+                                                    framework = framework,
+                                                    targetMode = targetMode
+                                                )
+                                            }
+                                        }
+                                    } else {
                                         val currentGate = runtime.capabilityGate
                                         if (!currentGate.isEligibleForVlm) {
-                                            errorMessage = currentGate.ineligibilityReason
-                                                ?: "Gemma requiere al menos 8 GiB de RAM total y ausencia de presión de memoria."
-                                            return@launch
+                                            error(currentGate.ineligibilityReason
+                                                ?: "Gemma requiere al menos 8 GiB de RAM total y ausencia de presión de memoria.")
                                         }
                                         if (!downloadManager.isModelDownloaded()) {
-                                            errorMessage = "Descarga y verifica Gemma antes de analizar el PDF."
-                                            return@launch
+                                            error("Descarga y verifica Gemma antes de analizar el PDF.")
                                         }
-                                        val pdfBytes = selectedPdfBytes
-                                            ?: error("Selecciona el PDF que quieres analizar.")
-                                        val framework = selectedFramework
-                                        when (val result = withContext(Dispatchers.Default) {
+                                        if (format != VisualDocumentFormat.PDF) {
+                                            error("En Android, la entrada visual disponible es PDF.")
+                                        }
+                                        withContext(Dispatchers.Default) {
                                             orchestrator.processDocument(
-                                                pdfBytes = pdfBytes,
+                                                pdfBytes = documentBytes,
                                                 rawText = "",
                                                 framework = framework,
                                                 targetMode = targetMode,
                                                 forceTier2 = true
                                             )
-                                        }) {
-                                            is OrchestrationResult.Success -> reviewData = result.data
-                                            is OrchestrationResult.HardwareRestricted -> errorMessage = result.reason
-                                            is OrchestrationResult.RequiresModelDownload -> errorMessage = result.message
-                                            is OrchestrationResult.Error -> errorMessage = result.message
                                         }
-                                    } catch (cancelled: CancellationException) {
-                                        throw cancelled
-                                    } catch (failure: Exception) {
-                                        errorMessage = "Error al analizar el PDF: ${failure.message ?: "error inesperado"}"
-                                    } finally {
-                                        isAnalyzing = false
-                                        pdfAnalysisJob = null
                                     }
+                                    when (result) {
+                                        is OrchestrationResult.Success -> {
+                                            reviewData = result.data
+                                            selectedVisualName = null
+                                            selectedVisualFormat = null
+                                            selectedVisualBytes = null
+                                        }
+                                        is OrchestrationResult.HardwareRestricted -> errorMessage = result.reason
+                                        is OrchestrationResult.RequiresModelDownload -> errorMessage = result.message
+                                        is OrchestrationResult.Error -> errorMessage = result.message
+                                    }
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (failure: Exception) {
+                                    errorMessage = "Error al analizar el documento visual: ${failure.message ?: "error inesperado"}"
+                                } finally {
+                                    isAnalyzing = false
+                                    pdfAnalysisJob = null
                                 }
+                            }
+                        },
+                        enabled = !isAnalyzing && selectedVisualBytes != null && when {
+                            runtime.supportsDocling -> doclingModelState is DoclingModelState.Installed
+                            runtime.supportsGemma -> runtime.capabilityGate.isEligibleForVlm &&
+                                downloadState is DownloadState.Completed
+                            else -> false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BrandForest, contentColor = Color.White),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Text(
+                            when {
+                                runtime.supportsDocling && selectedVisualFormat == VisualDocumentFormat.PDF ->
+                                    "Analizar página 1 con Granite-Docling"
+                                runtime.supportsDocling -> "Analizar imagen con Granite-Docling"
+                                else -> "Analizar página 1 con Gemma"
                             },
-                            enabled = !isAnalyzing && selectedPdfBytes != null &&
-                                runtime.supportsGemma && runtime.capabilityGate.isEligibleForVlm &&
-                                downloadState is DownloadState.Completed,
-                            colors = ButtonDefaults.buttonColors(containerColor = BrandForest, contentColor = Color.White),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
-                        ) {
-                            Text(
-                                "Analizar página 1 con Gemma",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                textAlign = TextAlign.Center
-                            )
-                        }
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
 
