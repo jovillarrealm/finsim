@@ -5,6 +5,7 @@ import {
   assessDoc04Evidence,
   classifyDiagnosticOutcome,
   formatDiagnosticMarkdown,
+  installDoclingProfileWorkerProbe,
   inspectBrowserStorage,
   isAllowedNetworkRequest,
   observedDiagnosticBackend,
@@ -232,4 +233,70 @@ test('accessible-page wait marks its own deadline as an observation cutoff', asy
 
   assert.equal(timeoutError?.name, 'TimeoutError');
   assert.equal(classifyDiagnosticOutcome(null, null, timeoutError), 'OBSERVATION_CUTOFF');
+});
+
+test('native Worker errors are captured safely and take precedence over a cutoff', () => {
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const previousDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  class FakeWorker {
+    constructor(url) { this.url = url; this.listeners = new Map(); }
+    addEventListener(type, listener) {
+      const listeners = this.listeners.get(type) ?? [];
+      listeners.push(listener);
+      this.listeners.set(type, listeners);
+    }
+    emit(type, details) {
+      for (const listener of this.listeners.get(type) ?? []) listener({ type, ...details });
+    }
+  }
+  Object.defineProperties(globalThis, {
+    window: { configurable: true, value: { Worker: FakeWorker } },
+    document: { configurable: true, value: { baseURI: 'https://app.example/' } },
+  });
+
+  try {
+    installDoclingProfileWorkerProbe(true);
+    const worker = new window.Worker('https://app.example/docling/worker.mjs');
+    worker.emit('error', {
+      error: { name: 'TypeError', message: 'SENSITIVE-DOCUMENT-TEXT' },
+      message: 'SENSITIVE-DOCUMENT-TEXT', filename: 'file:///private/document.pdf',
+    });
+    worker.emit('messageerror', { data: 'SENSITIVE-DOCUMENT-TEXT', message: 'SENSITIVE-DOCUMENT-TEXT' });
+    worker.emit('error', {
+      error: { name: 'PrivateDocumentError', message: 'SENSITIVE-DOCUMENT-TEXT' },
+      message: 'SENSITIVE-DOCUMENT-TEXT', filename: 'file:///private/document.pdf',
+    });
+    const events = window.__doclingProfile.nativeWorkerErrors;
+    const status = classifyDiagnosticOutcome(null, null, { name: 'TimeoutError' }, events);
+    const sample = {
+      result: { status: 'SYNTHETIC_NATIVE_WORKER_ERROR' }, runId: 'native-event-test',
+      source: {}, artifact: {},
+      diagnostic: {
+        nativeWorkerErrors: events,
+        synthetic: {
+          status, nativeWorkerErrors: events, observationError: '60 s elapsed', observedBackend: null,
+        },
+        officialReference: { status: 'NOT_RUN', nativeWorkerErrors: [], observedBackend: null },
+        onnxEvents: [],
+      },
+    };
+    const json = JSON.parse(JSON.stringify(sample));
+    const markdown = formatDiagnosticMarkdown(sample, 'report.json');
+
+    assert.deepEqual(events, [
+      { type: 'error', errorName: 'TypeError' },
+      { type: 'messageerror' },
+      { type: 'error' },
+    ]);
+    assert.equal(JSON.stringify(json.diagnostic.synthetic.nativeWorkerErrors).includes('SENSITIVE-DOCUMENT-TEXT'), false);
+    assert.equal(JSON.stringify(json.diagnostic.synthetic.nativeWorkerErrors).includes('private/document.pdf'), false);
+    assert.equal(json.diagnostic.synthetic.status, 'WORKER_NATIVE_ERROR');
+    assert.match(markdown, /Eventos nativos del Worker:\*\* error TypeError, messageerror, error/);
+    assert.match(markdown, /PDF sintético:\*\* WORKER_NATIVE_ERROR · evento nativo del Worker: error TypeError, messageerror, error; observación: 60 s elapsed/);
+  } finally {
+    if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
+    else delete globalThis.window;
+    if (previousDocument) Object.defineProperty(globalThis, 'document', previousDocument);
+    else delete globalThis.document;
+  }
 });
