@@ -6,6 +6,8 @@
 
 ## Estado actual
 
+Continuidad 2026-10-28: el propietario estableció subagentes `gpt-6.1-terra`/`high`, uno a la vez, y hasta 10 minutos para la sonda actual. #33 rama `codex/spec37-issue33` publicada en `703fc81`: visión WASM terminó en 136,56 s; prueba normal alcanzó 320 tokens y se cortó a 600 s sin resultado. Riesgo de timeout de 180 s inferido del código; no observado en cliente. [Evidencia revisada](https://github.com/jovillarrealm/finsim/issues/33#issuecomment-6471308132). #33 y #46 siguen abiertas.
+
 Continuidad 2026-10-28: diagnóstico #33 publicado en rama `codex/spec37-issue33` hasta `252b2bd`. PDF sintético e imagen oficial llegaron a `vision.run` con WASM, sin fin/error observado en 60 s; resultado inconcluso, no aceptación ni causa demostrada. Sonda revisada y pruebas dirigidas 13/13 perfil y Worker; [evidencia GitHub](https://github.com/jovillarrealm/finsim/issues/33#issuecomment-6470667860). #33 abierta; #46 sigue pendiente.
 
 Continuidad 2026-10-27: #33 publicada hasta `cc474c9`; perfil de verificación corregido y evidencia [en GitHub](https://github.com/jovillarrealm/finsim/issues/33#issuecomment-6460336281). WebGPU quedó sin respuesta en carga (240 s); WASM inició generación, sin tokens en 180 s. Sin inferencia semántica acreditada, #33 sigue abierta y #46 pendiente. No integrado en main.
