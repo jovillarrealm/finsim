@@ -57,7 +57,10 @@ const report = {
     storage: {},
     persistedDocumentMarkers: [],
   },
-  appliedToScenario: false,
+  scenarioApplication: {
+    status: 'NOT_RUN',
+    reason: 'El perfil no observa el estado del escenario antes y después de la extracción.',
+  },
 };
 
 let previewProcess;
@@ -166,6 +169,24 @@ async function clickComposeControl(page, locator) {
 
 function valueOnLine(text, label) {
   return text.split(/\r?\n/).map(line => line.trim()).find(line => line.startsWith(label))?.slice(label.length).trim() ?? null;
+}
+
+export function assessDoc01Evidence(result, reviewVisible) {
+  const inferenceStatus = result?.docTags?.trim() && !result.stoppedAtTokenLimit ? 'PASS' : 'FAIL';
+  const reviewStatus = result ? (reviewVisible ? 'PASS' : 'FAIL') : 'NOT_RUN';
+  const criterionStatus = inferenceStatus === 'FAIL' || reviewStatus === 'FAIL'
+    ? 'FAIL'
+    : inferenceStatus === 'PASS' && reviewStatus === 'PASS' ? 'PASS' : 'NOT_RUN';
+  return { inferenceStatus, reviewStatus, criterionStatus };
+}
+
+export function assessDoc04Evidence({ reviewVisible, inferenceComplete, scenarioApplication } = {}) {
+  const reviewStatus = reviewVisible ? 'PASS' : inferenceComplete ? 'FAIL' : 'NOT_RUN';
+  const applicationStatus = scenarioApplication === 'UNCHANGED' ? 'PASS'
+    : scenarioApplication === 'APPLIED' ? 'FAIL' : 'NOT_RUN';
+  const criterionStatus = reviewStatus === 'FAIL' || applicationStatus === 'FAIL' ? 'FAIL'
+    : reviewStatus === 'PASS' && applicationStatus === 'PASS' ? 'PASS' : 'NOT_RUN';
+  return { reviewStatus, applicationStatus, criterionStatus };
 }
 
 // Compose exposes page text in an open shadow root, which body.innerText omits.
@@ -535,19 +556,41 @@ async function run() {
     report.inference.progress = workerEvidence?.progress ?? [];
     report.inference.result = workerEvidence?.result ?? null;
     bodyText = await readAccessiblePageText(page);
+    const reviewVisible = bodyText.includes('Revisión de extracción');
+    const doc01Evidence = assessDoc01Evidence(report.inference.result, reviewVisible);
+    report.inference.status = doc01Evidence.inferenceStatus;
     if (!report.inference.result) {
-      report.inference.status = 'FAIL';
       report.inference.error ??= bodyText.match(/Error al analizar el documento visual[^\n]*/) ?? 'No llegó una respuesta real del Worker.';
-      record('DOC-01-PDF', 'FAIL', null, report.inference.error);
     } else if (report.inference.result.stoppedAtTokenLimit) {
-      report.inference.status = 'FAIL';
-      record('DOC-01-PDF', 'FAIL', null, 'El modelo real llegó al límite de tokens; la salida se conserva como incompleta.');
-    } else {
-      report.inference.status = 'PASS';
-      record('DOC-01-PDF', 'PASS', `DocTags reales recibidos desde Granite-Docling (${report.inference.result.device ?? 'dispositivo no informado'}).`);
+      report.inference.error = 'El modelo real llegó al límite de tokens; la salida se conserva como incompleta.';
     }
+    const doc01Reason = doc01Evidence.inferenceStatus !== 'PASS' ? report.inference.error ?? 'No se recibió una salida DocTags completa.'
+      : doc01Evidence.reviewStatus !== 'PASS' ? 'DocTags recibidos, pero no se observó la pantalla de revisión.' : null;
+    record('DOC-01-INFERENCE-PDF', doc01Evidence.inferenceStatus,
+      doc01Evidence.inferenceStatus === 'PASS' ? `DocTags reales recibidos desde Granite-Docling (${report.inference.result.device ?? 'dispositivo no informado'}).` : null,
+      doc01Evidence.inferenceStatus === 'PASS' ? null : doc01Reason);
+    record('DOC-01-REVIEW-PDF', doc01Evidence.reviewStatus,
+      doc01Evidence.reviewStatus === 'PASS' ? 'La pantalla de revisión de extracción fue observada.' : null,
+      doc01Evidence.reviewStatus === 'FAIL' ? 'No se observó la pantalla de revisión tras recibir DocTags.' : undefined);
+    record('DOC-01-PDF', doc01Evidence.criterionStatus,
+      doc01Evidence.criterionStatus === 'PASS' ? 'Inferencia completa y pantalla de revisión observadas.' : null,
+      doc01Reason);
 
-    if (bodyText.includes('Revisión de extracción') && report.inference.result) {
+    const doc04Evidence = assessDoc04Evidence({ reviewVisible, inferenceComplete: doc01Evidence.inferenceStatus === 'PASS' });
+    report.scenarioApplication = {
+      status: doc04Evidence.applicationStatus,
+      reason: 'El perfil no compara un estado independiente del escenario antes y después de la extracción.',
+    };
+    record('DOC-04-REVIEW-PDF', doc04Evidence.reviewStatus,
+      reviewVisible ? 'La pantalla de revisión de extracción fue observada.' : null,
+      reviewVisible ? null : 'No se observó la pantalla de revisión.');
+    record('DOC-04-APPLICATION-PDF', doc04Evidence.applicationStatus, null, report.scenarioApplication.reason);
+    record('DOC-04-PDF', doc04Evidence.criterionStatus, null,
+      doc04Evidence.criterionStatus === 'NOT_RUN'
+        ? 'Se observó la revisión, pero falta evidencia independiente del estado del escenario.'
+        : doc04Evidence.criterionStatus === 'FAIL' ? 'No se confirmó la secuencia de revisión previa a la aplicación.' : undefined);
+
+    if (reviewVisible && report.inference.result) {
       const expectedFields = [
         ['originalPrincipal', 'Capital original:', expected.expectedBeforeCorrection.originalPrincipal],
         ['capitalBalance', 'Saldo de capital:', expected.expectedBeforeCorrection.capitalBalance],
@@ -563,20 +606,17 @@ async function run() {
       report.extraction.mismatches = expectedFields
         .filter(([key, , value]) => extractedFields[key] !== value)
         .map(([key, , value]) => ({ field: key, expected: value, actual: extractedFields[key] }));
-      const reviewBeforeApply = bodyText.includes('Revisión de extracción') && !report.appliedToScenario;
       const insuranceMeaning = bodyText.includes('Seguro de vida') && bodyText.includes('periodicidad mensual');
       const fieldsStatus = report.extraction.mismatches.length === 0 ? 'PASS' : 'FAIL';
+      const insuranceStatus = insuranceMeaning ? 'PASS' : 'FAIL';
       record(
         'DOC-02-PDF', fieldsStatus,
         `${expectedFields.length - report.extraction.mismatches.length}/${expectedFields.length} campos del PDF sintético coinciden.`,
         report.extraction.mismatches.length ? JSON.stringify(report.extraction.mismatches) : null
       );
-      record('DOC-03-PDF', insuranceMeaning ? 'PASS' : 'FAIL', insuranceMeaning ? 'Significado y periodicidad mensual del seguro visibles.' : null,
+      record('DOC-03-PDF', insuranceStatus, insuranceMeaning ? 'Significado y periodicidad mensual del seguro visibles.' : null,
         insuranceMeaning ? null : 'Faltó confirmar significado y periodicidad mensual del seguro.');
-      record('DOC-04-PDF', reviewBeforeApply ? 'PASS' : 'FAIL', reviewBeforeApply ? 'La extracción quedó en revisión sin aplicar al escenario.' : null,
-        reviewBeforeApply ? null : 'No se confirmó revisión previa a la aplicación.');
-      report.extraction.status = [fieldsStatus, insuranceMeaning ? 'PASS' : 'FAIL', reviewBeforeApply ? 'PASS' : 'FAIL']
-        .some(status => status === 'FAIL') ? 'FAIL' : 'PASS';
+      report.extraction.status = [fieldsStatus, insuranceStatus].includes('FAIL') ? 'FAIL' : 'PASS';
     }
 
     const pdfBase64Marker = pdfBytes.toString('base64').slice(0, 128);
@@ -625,7 +665,7 @@ async function run() {
     const markdownPath = path.join(reportDirectory, 'report.md');
     const formatSummary = formats.map(format => `${format} ${report.coverage.formats[format]}`).join('; ');
     await writeFile(jsonPath, `${JSON.stringify(report, null, 2)}\n`);
-    await writeFile(markdownPath, `# Docling Web real inference\n\n**Estado:** ${result.status}\n\n**Ejecución:** ${runId}\n\n**Fuente:** ${report.source.branch ?? 'desconocida'}@${report.source.commit ?? 'desconocido'}\n\n**Distribución:** ${report.artifact.sha256 ?? 'no identificada'}\n\n**Resultado de inferencia:** ${report.inference.status}${report.inference.error ? ` · ${report.inference.error}` : ''}\n\n**Cobertura por formato:** ${formatSummary}. Ambigüedad: ${report.coverage.ambiguity}.\n\n**Privacidad:** estado global SEC-01 ${report.steps.find(step => step.id === 'SEC-01')?.status ?? 'NOT_RUN'}; comprobaciones acotadas ${report.privacy.observedChecksStatus}.\n\n**Aplicado al escenario:** no\n\n**Evidencia:** ${jsonPath}\n`);
+    await writeFile(markdownPath, `# Docling Web real inference\n\n**Estado:** ${result.status}\n\n**Ejecución:** ${runId}\n\n**Fuente:** ${report.source.branch ?? 'desconocida'}@${report.source.commit ?? 'desconocido'}\n\n**Distribución:** ${report.artifact.sha256 ?? 'no identificada'}\n\n**Resultado de inferencia:** ${report.inference.status}${report.inference.error ? ` · ${report.inference.error}` : ''}\n\n**Cobertura por formato:** ${formatSummary}. Ambigüedad: ${report.coverage.ambiguity}.\n\n**Privacidad:** estado global SEC-01 ${report.steps.find(step => step.id === 'SEC-01')?.status ?? 'NOT_RUN'}; comprobaciones acotadas ${report.privacy.observedChecksStatus}.\n\n**Aplicación al escenario:** ${report.scenarioApplication.status} · ${report.scenarioApplication.reason}\n\n**Evidencia:** ${jsonPath}\n`);
     console.log(`Docling Web ${result.status}. Informe: ${markdownPath}`);
     process.exitCode = result.exitCode;
   }

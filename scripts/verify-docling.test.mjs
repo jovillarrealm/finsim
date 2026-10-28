@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { inspectBrowserStorage, isAllowedNetworkRequest, readAccessiblePageText, report } from './verify-docling.mjs';
+import { assessDoc01Evidence, assessDoc04Evidence, inspectBrowserStorage, isAllowedNetworkRequest, readAccessiblePageText, report } from './verify-docling.mjs';
 import { summarizeVerification } from './verification-status.mjs';
 import { MODEL_ARTIFACTS, modelArtifactUrl } from '../kmp/composeApp/docling-worker/src/model-artifacts.mjs';
 
@@ -141,4 +141,31 @@ test('PDF-only PASS evidence remains incomplete for PNG, JPEG, ambiguity, and gl
   assert.equal(report.steps.find(step => step.id === 'SEC-01').status, 'NOT_RUN');
   assert.equal(summary.status, 'INCOMPLETE');
   assert.equal(pdfOnlyPasses.some(step => ['DOC-01', 'DOC-02/03/04'].includes(step.id)), false);
+});
+
+test('DOC-01 does not pass on DocTags unless the extraction review is also observed', () => {
+  const result = { docTags: '<document>synthetic</document>', stoppedAtTokenLimit: false };
+  const withoutReview = assessDoc01Evidence(result, false);
+  const withReview = assessDoc01Evidence(result, true);
+
+  assert.equal(withoutReview.inferenceStatus, 'PASS');
+  assert.equal(withoutReview.reviewStatus, 'FAIL');
+  assert.equal(withoutReview.criterionStatus, 'FAIL');
+  assert.equal(withReview.criterionStatus, 'PASS');
+});
+
+test('DOC-04 reports review separately and leaves application NOT_RUN without scenario observation', () => {
+  const evidence = assessDoc04Evidence({ reviewVisible: true });
+  const summary = summarizeVerification([
+    { id: 'DOC-04-REVIEW-PDF', status: evidence.reviewStatus },
+    { id: 'DOC-04-APPLICATION-PDF', status: evidence.applicationStatus },
+    { id: 'DOC-04-PDF', status: evidence.criterionStatus },
+  ]);
+
+  assert.equal(evidence.reviewStatus, 'PASS');
+  assert.equal(evidence.applicationStatus, 'NOT_RUN');
+  assert.equal(evidence.criterionStatus, 'NOT_RUN');
+  assert.equal(report.scenarioApplication.status, 'NOT_RUN');
+  assert.equal(Object.hasOwn(report, 'appliedToScenario'), false);
+  assert.equal(summary.status, 'INCOMPLETE');
 });

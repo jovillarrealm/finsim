@@ -60,3 +60,9 @@
 3. Confirmar que la revisión editable presenta advertencias antes de permitir aplicar los datos. No aplicar el fixture al escenario durante esta prueba.
 
 La compilación o instalación íntegra del modelo por sí sola no acredita inferencia ni aceptación semántica. La tarjeta queda abierta hasta completar esos pasos.
+
+## Corrección de falsos PASS del perfil (2026-10-27)
+
+- `DOC-01-PDF` ahora exige DocTags completos y observación de la pantalla de revisión; inferencia y revisión también se informan por separado. DocTags sin pantalla visible ya no acreditan el criterio.
+- `DOC-04-REVIEW-PDF` informa si se observó la revisión. `DOC-04-APPLICATION-PDF` y `DOC-04-PDF` quedan `NOT_RUN` porque el perfil no compara el estado del escenario antes y después; el informe ya no afirma `appliedToScenario: false` ni escribe «Aplicado al escenario: no».
+- `node --test scripts/verify-docling.test.mjs` pasó 8/8 pruebas ligeras. No se ejecutó inferencia real; la cobertura de modelo sigue pendiente.
