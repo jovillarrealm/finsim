@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { inspectBrowserStorage, isAllowedNetworkRequest, report } from './verify-docling.mjs';
+import { inspectBrowserStorage, isAllowedNetworkRequest, readAccessiblePageText, report } from './verify-docling.mjs';
 import { summarizeVerification } from './verification-status.mjs';
 import { MODEL_ARTIFACTS, modelArtifactUrl } from '../kmp/composeApp/docling-worker/src/model-artifacts.mjs';
 
@@ -27,6 +27,22 @@ test('only pinned model artifacts and their known redirect chain are allowed ext
     url: 'https://us.aws.cdn.hf.co/xet-bridge-us/abc123/abcdef?document=SYNTHETIC-CONTENT',
     method: 'GET',
   }, 'http://127.0.0.1:4173'), false);
+});
+
+test('profile text is readable when body.innerText omits Compose shadow-DOM content', async () => {
+  const selectors = [];
+  const page = {
+    locator(selector) {
+      selectors.push(selector);
+      if (selector === 'body') return { innerText: async () => '' };
+      assert.equal(selector, 'body *');
+      return { allInnerTexts: async () => ['Instalar modelo local', 'Modelo local Granite-Docling 258M'] };
+    },
+  };
+
+  assert.equal(await page.locator('body').innerText(), '');
+  assert.equal(await readAccessiblePageText(page), 'Instalar modelo local\nModelo local Granite-Docling 258M');
+  assert.deepEqual(selectors, ['body', 'body *']);
 });
 
 test('Cache Storage response bodies are scanned for synthetic document markers', async () => {

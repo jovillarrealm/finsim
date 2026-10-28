@@ -167,6 +167,21 @@ function valueOnLine(text, label) {
   return text.split(/\r?\n/).map(line => line.trim()).find(line => line.startsWith(label))?.slice(label.length).trim() ?? null;
 }
 
+// Compose exposes page text in an open shadow root, which body.innerText omits.
+export async function readAccessiblePageText(page) {
+  return [...new Set((await page.locator('body *').allInnerTexts()).filter(Boolean))].join('\n');
+}
+
+async function waitForAccessiblePageText(page, predicate, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const text = await readAccessiblePageText(page);
+    if (predicate(text)) return text;
+    await page.waitForTimeout(Math.min(250, deadline - Date.now()));
+  }
+  throw new Error(`No se encontró el texto accesible esperado en ${timeoutMs} ms.`);
+}
+
 const artifactPaths = new Set(MODEL_ARTIFACTS.map(artifact => artifact.path));
 // shortcut: permite el CDN us observado; ampliar la allowlist si Hugging Face cambia la región de descarga.
 const modelRedirectOrigins = new Set([MODEL_ORIGIN, 'https://us.aws.cdn.hf.co']);
@@ -472,12 +487,10 @@ async function run() {
     });
     await page.goto(url);
     await clickComposeControl(page, page.getByRole('button', { name: 'Importar extracto', exact: true }).first());
-    await page.waitForFunction(() => {
-      const text = document.body?.innerText ?? '';
-      return text.includes('Instalar modelo local') || text.includes('✓ Instalado y verificado') || text.includes('No se pudo verificar Granite-Docling');
-    }, null, { timeout: 180_000 });
+    let bodyText = await waitForAccessiblePageText(page, text =>
+      text.includes('Instalar modelo local') || text.includes('✓ Instalado y verificado') || text.includes('No se pudo verificar Granite-Docling'),
+    180_000);
 
-    let bodyText = await page.locator('body').innerText();
     if (!bodyText.includes('✓ Instalado y verificado')) {
       if (!bodyText.includes('Instalar modelo local')) {
         record('DOC-MODEL', 'BLOCKED', null, bodyText.match(/No se pudo verificar Granite-Docling[^\n]*/) ?? 'No se pudo establecer estado del modelo.');
@@ -486,15 +499,13 @@ async function run() {
       report.model.installStarted = true;
       await clickComposeControl(page, page.getByRole('button', { name: /Instalar modelo local/ }));
       try {
-        await page.waitForFunction(() => {
-          const text = document.body?.innerText ?? '';
-          return text.includes('✓ Instalado y verificado') || text.includes('No se pudo verificar Granite-Docling');
-        }, null, { timeout: 15 * 60_000 });
+        bodyText = await waitForAccessiblePageText(page, text =>
+          text.includes('✓ Instalado y verificado') || text.includes('No se pudo verificar Granite-Docling'),
+        15 * 60_000);
       } catch (error) {
         record('DOC-MODEL-INSTALL', 'BLOCKED', null, error instanceof Error ? error.message : String(error));
         return;
       }
-      bodyText = await page.locator('body').innerText();
       if (!bodyText.includes('✓ Instalado y verificado')) {
         record('DOC-MODEL-INSTALL', 'BLOCKED', null, bodyText.match(/No se pudo verificar Granite-Docling[^\n]*/) ?? 'No se completó la instalación verificada.');
         return;
@@ -510,10 +521,9 @@ async function run() {
     await chooser.setFiles({ name: report.fixture.name, mimeType: 'application/pdf', buffer: pdfBytes });
     await clickComposeControl(page, page.getByRole('button', { name: 'Analizar página 1 con Granite-Docling', exact: true }));
     try {
-      await page.waitForFunction(() => {
-        const text = document.body?.innerText ?? '';
-        return text.includes('Revisión de extracción') || text.includes('Error al analizar el documento visual');
-      }, null, { timeout: 240_000 });
+      bodyText = await waitForAccessiblePageText(page, text =>
+        text.includes('Revisión de extracción') || text.includes('Error al analizar el documento visual'),
+      240_000);
     } catch (error) {
       report.inference.error = error instanceof Error ? error.message : String(error);
     }
@@ -521,7 +531,7 @@ async function run() {
     const workerEvidence = await page.evaluate(() => window.__doclingProfile);
     report.inference.progress = workerEvidence?.progress ?? [];
     report.inference.result = workerEvidence?.result ?? null;
-    bodyText = await page.locator('body').innerText();
+    bodyText = await readAccessiblePageText(page);
     if (!report.inference.result) {
       report.inference.status = 'FAIL';
       report.inference.error ??= bodyText.match(/Error al analizar el documento visual[^\n]*/) ?? 'No llegó una respuesta real del Worker.';
