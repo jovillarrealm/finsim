@@ -94,3 +94,9 @@ Continuidad: para repetir con la caché conservada, usar `npm run verify:docling
 - `WORKER_NATIVE_ERROR` precede al estado de corte cuando falta un resultado y se conserva por separado el mensaje de observación. El control oficial usa solo eventos posteriores al inicio de su solicitud, para no atribuirle señales anteriores.
 - Pruebas dirigidas: `node --test scripts/verify-docling.test.mjs` 12/12; `npm --prefix kmp/composeApp/docling-worker test` 13/13; `node --check scripts/verify-docling.mjs` y `git diff --check` correctos. La regresión simula ambos eventos y comprueba que texto, ruta y nombre de excepción arbitrario no se filtren.
 - Commit de código local: `054659d`. No se repitió inferencia ni se generó una distribución.
+
+## Correlación de eventos con cada solicitud (2026-10-28)
+
+- El perfil guarda el índice de eventos nativos al interceptar el `postMessage` real de cada `analyze-image`. PDF, `--reference-only` y el control posterior clasifican solo los eventos desde ese índice; el reporte mantiene aparte la lista global completa.
+- La prueba genera un evento antes y otro durante cada ruta PDF/control: el anterior no convierte un timeout en error del Worker y el ocurrido durante sí lo hace. Verifica además que el registro global conserve los cuatro eventos.
+- Pruebas dirigidas actuales: `node --test scripts/verify-docling.test.mjs` 13/13; `npm --prefix kmp/composeApp/docling-worker test` 13/13; `node --check scripts/verify-docling.mjs` y `git diff --check` correctos. Commit de código local: `60be3b0`.
