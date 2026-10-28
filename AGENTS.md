@@ -8,6 +8,6 @@ Actualiza el registro de tu tarea antes de cerrar la sesión. Solo la sesión co
 
 ## Trabajo con subagentes
 
-- Al delegar, usa `gpt-6-luna` con esfuerzo `max`.
+- Al delegar, usa `gpt-6.1-terra` con esfuerzo `high`.
 - Mantén como máximo un subagente activo a la vez. Ejecuta implementación, revisión y correcciones por turnos; espera a que termine el turno actual antes de activar el siguiente.
 - Estas son las reglas predeterminadas del proyecto. Cambia el modelo, esfuerzo o concurrencia solo por una instrucción explícita posterior del propietario.
