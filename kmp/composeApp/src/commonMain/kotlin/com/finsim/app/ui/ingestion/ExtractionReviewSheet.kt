@@ -324,7 +324,7 @@ fun ExtractionReviewSheet(
                         } else {
                             extractedData.insurances.forEach { insurance ->
                                 Text(
-                                    "Seguro ${insurance.name.ifBlank { "Sin nombre informado" }}: ${insurance.monthlyCost ?: "No informado"} · ${insurance.amountMeaning}",
+                                    "Seguro ${insurance.name.ifBlank { "Sin nombre informado" }}: ${insurance.monthlyCost ?: "No informado"} · ${insurance.amountMeaning} · periodicidad ${insurance.periodicity.label}",
                                     fontSize = 11.sp,
                                     color = TextForestMuted
                                 )
@@ -532,7 +532,7 @@ fun ExtractionReviewSheet(
                                 )
                                 extractedData.insurances.forEach { ins ->
                                     Text(
-                                        text = "• ${ins.name.ifBlank { "Sin nombre informado" }}: ${ins.monthlyCost ?: "No informado"} · ${ins.amountMeaning}",
+                                        text = "• ${ins.name.ifBlank { "Sin nombre informado" }}: ${ins.monthlyCost ?: "No informado"} · ${ins.amountMeaning} · periodicidad ${ins.periodicity.label}",
                                         fontSize = 11.sp,
                                         color = TextForestMuted
                                     )
@@ -884,7 +884,8 @@ fun ExtractionReviewSheet(
                                         ExtractedInsurance(
                                             name = item.name.trim().ifBlank { error("Indica el nombre de cada seguro.") },
                                             monthlyCost = amount,
-                                            amountMeaning = InsuranceAmountMeaning.PERIODIC_CHARGE
+                                            amountMeaning = InsuranceAmountMeaning.PERIODIC_CHARGE,
+                                            periodicity = InsurancePeriodicity.MONTHLY
                                         )
                                     }
                                     val reviewedTerm = termMonths.trim().toIntOrNull()

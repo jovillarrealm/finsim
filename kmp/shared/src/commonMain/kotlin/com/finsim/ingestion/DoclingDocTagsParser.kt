@@ -18,11 +18,16 @@ object DoclingDocTagsParser {
         """\b((?:cuota|pago)(?:\s+mensual)?\s+total)\s+con\s+seguros?\b""",
         RegexOption.IGNORE_CASE
     )
+    private val explicitMonthlyInsuranceTotal = Regex(
+        """\b(?:total\s+mensual\s+(?:de\s+)?seguros?|seguros?\s+mensuales?|total\s+seguros?\s+(?:del\s+)?mes)\b""",
+        RegexOption.IGNORE_CASE
+    )
 
     fun parse(
         docTags: String,
         framework: RegulatoryFramework,
-        pageIndex: Int = 1
+        pageIndex: Int = 1,
+        stoppedAtTokenLimit: Boolean = false
     ): ExtractedDocumentData {
         val trimmedDocTags = docTags.trim()
         require(Regex("""<doctag(?:\s|>)""").containsMatchIn(trimmedDocTags) &&
@@ -72,6 +77,20 @@ object DoclingDocTagsParser {
         }
 
         val warnings = mutableListOf<String>()
+        val monthlyInsuranceEvidence = parsed.insurances.any {
+            it.amountMeaning == InsuranceAmountMeaning.PERIODIC_CHARGE &&
+                it.periodicity == InsurancePeriodicity.MONTHLY &&
+                it.monthlyCost != null
+        }
+        val ambiguousTotalInsurance = parsed.totalInsurance != null &&
+            !monthlyInsuranceEvidence &&
+            !explicitMonthlyInsuranceTotal.containsMatchIn(normalizedText)
+        if (stoppedAtTokenLimit) warnings += "La salida de Granite-Docling alcanzó el límite de tokens y puede estar incompleta; revisa el resultado antes de usarlo."
+        val nonMonthlyInsuranceAmount = parsed.insurances.any {
+            it.monthlyCost != null &&
+                it.amountMeaning != InsuranceAmountMeaning.INSURED_VALUE &&
+                it.periodicity != InsurancePeriodicity.MONTHLY
+        }
         val conflictingOriginalPrincipal = distinctCandidates { it.originalPrincipal }.size > 1
         val conflictingCapitalBalance = distinctCandidates { it.capitalBalance }.size > 1
         val conflictingOriginalTerm = distinctCandidates { it.originalTermMonths }.size > 1
@@ -93,6 +112,9 @@ object DoclingDocTagsParser {
         if (conflictingPrincipalPaid) warnings += "Se detectaron abonos a capital diferentes; revisa el periodo correspondiente."
         if (conflictingInterest) warnings += "Se detectaron intereses diferentes; revisa el periodo correspondiente."
         if (conflictingInsurance) warnings += "Se detectaron cargos de seguro diferentes; revisa su periodicidad y significado."
+        if (nonMonthlyInsuranceAmount || ambiguousTotalInsurance) {
+            warnings += "Se detectó un importe o total de seguro sin periodicidad mensual confirmada; no se asignará como cargo mensual."
+        }
 
         return parsed.copy(
             sourceEngine = ExtractionEngine.TIER_2_LOCAL_DOCLING,
@@ -109,7 +131,9 @@ object DoclingDocTagsParser {
             rate = parsed.rate.takeUnless { conflictingRate },
             principalPaid = parsed.principalPaid.takeUnless { conflictingPrincipalPaid },
             interestCharged = parsed.interestCharged.takeUnless { conflictingInterest },
-            totalInsurance = parsed.totalInsurance.takeUnless { conflictingInsurance },
+            totalInsurance = parsed.totalInsurance.takeUnless {
+                conflictingInsurance || nonMonthlyInsuranceAmount || ambiguousTotalInsurance
+            },
             reviewWarnings = warnings
         )
     }

@@ -164,11 +164,16 @@ private class DoclingBrowserWorkerClient {
             }
         val request = pending[message.id]
         if (message.id == "__worker_error") {
+            terminateWorker()
             val active = activeRequestId ?: return
+            activeRequestId = null
             val activeRequest = pending.remove(active) ?: return
-            activeRequest.continuation.resumeWithException(
-                IllegalStateException(message.message ?: "Falló el Worker local de Granite-Docling.")
-            )
+            activeRequest.watchdog.cancel()
+            if (activeRequest.continuation.isActive) {
+                activeRequest.continuation.resumeWithException(
+                    IllegalStateException(message.message ?: "Falló el Worker local de Granite-Docling.")
+                )
+            }
             return
         }
         if (request == null) return
@@ -378,7 +383,12 @@ private class BrowserDoclingVisionRunner(
         validateImageForInMemoryInference(imageBytes, format)
         val response = client.request("analyze-image", bytes = imageBytes, format = format)
         val docTags = response.docTags ?: error("La inferencia no devolvió DocTags.")
-        return DoclingDocTagsParser.parse(docTags, framework, pageIndex = 1)
+        return DoclingDocTagsParser.parse(
+            docTags,
+            framework,
+            pageIndex = 1,
+            stoppedAtTokenLimit = response.stoppedAtTokenLimit == true
+        )
     }
 }
 

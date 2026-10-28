@@ -50,6 +50,14 @@ enum class InsuranceAmountMeaning {
 }
 
 @Serializable
+enum class InsurancePeriodicity(val label: String) {
+    MONTHLY("mensual"),
+    ANNUAL("anual"),
+    OTHER("otra"),
+    UNKNOWN("no identificada")
+}
+
+@Serializable
 enum class ExtractionEngine(val label: String) {
     TIER_1_DIGITAL_TEXT("Texto digital"),
     TIER_2_LOCAL_VLM("Visión local VLM"),
@@ -89,7 +97,8 @@ data class ExtractedRate(
 data class ExtractedInsurance(
     val name: String,
     val monthlyCost: String? = null,
-    val amountMeaning: InsuranceAmountMeaning = InsuranceAmountMeaning.UNKNOWN
+    val amountMeaning: InsuranceAmountMeaning = InsuranceAmountMeaning.UNKNOWN,
+    val periodicity: InsurancePeriodicity = InsurancePeriodicity.UNKNOWN
 )
 
 @Serializable

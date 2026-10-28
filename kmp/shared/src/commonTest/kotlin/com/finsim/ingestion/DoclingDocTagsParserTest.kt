@@ -40,7 +40,11 @@ class DoclingDocTagsParserTest {
         assertEquals(PaymentMeaning.BASE_PAYMENT, extracted.paymentMeaning)
         assertEquals("20.00", extracted.totalInsurance)
         assertEquals(InsuranceAmountMeaning.PERIODIC_CHARGE, extracted.insurances.single().amountMeaning)
+        assertEquals(InsurancePeriodicity.MONTHLY, extracted.insurances.single().periodicity)
         assertEquals("20.00", extracted.insurances.single().monthlyCost)
+
+        val scenario = extracted.toScenario(startDate = "2026-10", confirmCurrencyAssumption = true)
+        assertEquals("20.00", scenario.insurance.single().value)
     }
 
     @Test
@@ -53,6 +57,62 @@ class DoclingDocTagsParserTest {
         assertEquals(InsuranceAmountMeaning.UNKNOWN, extracted.insurances.single().amountMeaning)
         assertNull(extracted.basePayment)
         assertNull(extracted.totalPayment)
+    }
+
+    @Test
+    fun doesNotTreatAnnualInsurancePremiumAsMonthlyScenarioInsurance() {
+        val extracted = DoclingDocTagsParser.parse(
+            """<doctag>
+                <text>Extracto de préstamo COP</text>
+                <text>Capital original: $ 1.000,00</text>
+                <text>Plazo original: 12 meses</text>
+                <text>Tasa efectiva mensual: 1,00%</text>
+                <text>Cuota base: $ 100,00</text>
+                <text>Prima anual del seguro de vida: $ 120,00</text>
+            </doctag>""",
+            RegulatoryFramework.COLOMBIA_SFC
+        )
+
+        assertEquals("120.00", extracted.insurances.single().monthlyCost)
+        assertEquals(InsuranceAmountMeaning.UNKNOWN, extracted.insurances.single().amountMeaning)
+        assertEquals(InsurancePeriodicity.ANNUAL, extracted.insurances.single().periodicity)
+        assertNull(extracted.totalInsurance)
+        assertContains(extracted.reviewWarnings, "Se detectó un importe o total de seguro sin periodicidad mensual confirmada; no se asignará como cargo mensual.")
+
+        val scenario = extracted.toScenario(
+            startDate = "2026-10",
+            confirmNoInsurance = true,
+            confirmCurrencyAssumption = true
+        )
+        assertEquals(0, scenario.insurance.size)
+    }
+
+    @Test
+    fun doesNotAssumeInsuranceTotalIsMonthlyWithoutPeriodicEvidence() {
+        val extracted = DoclingDocTagsParser.parse(
+            "<doctag><text>Total seguros: $ 20,00</text></doctag>",
+            RegulatoryFramework.COLOMBIA_SFC
+        )
+
+        assertNull(extracted.totalInsurance)
+        assertContains(
+            extracted.reviewWarnings,
+            "Se detectó un importe o total de seguro sin periodicidad mensual confirmada; no se asignará como cargo mensual."
+        )
+    }
+
+    @Test
+    fun marksDocTagsAsIncompleteWhenInferenceStoppedAtTokenLimit() {
+        val extracted = DoclingDocTagsParser.parse(
+            "<doctag><text>Extracto de préstamo</text></doctag>",
+            RegulatoryFramework.COLOMBIA_SFC,
+            stoppedAtTokenLimit = true
+        )
+
+        assertContains(
+            extracted.reviewWarnings,
+            "La salida de Granite-Docling alcanzó el límite de tokens y puede estar incompleta; revisa el resultado antes de usarlo."
+        )
     }
 
     @Test

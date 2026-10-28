@@ -360,15 +360,25 @@ object DocumentTextParser {
         val insurances = mutableListOf<ExtractedInsurance>()
         val insuranceNamesFound = mutableSetOf<String>()
 
+        val annualPeriod = Regex("""(?i)\b(?:anual(?:es|mente)?|por\s+año|al\s+año|cada\s+año)\b""")
+        val monthlyPeriod = Regex("""(?i)\b(?:mensual(?:es|idad(?:es)?)?|por\s+mes|al\s+mes|cada\s+mes)\b""")
+        val otherPeriod = Regex("""(?i)\b(?:semanal|quincenal|bimestral|trimestral|semestral|diari[oa])\b""")
+
         val insuranceLineRegex = Regex("""(?i)(?:^|.*?\b)(seguro(?:\s+de\s+[a-záéíóúñ]+|\s+vida|\s+deudores|\s+desgravamen|\s+incendio|\s+terremoto|\s+desempleo|\s+cesant[ií]a)?).*?[:\s]+\$?([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2})?|[0-9]+(?:[.,][0-9]{1,2})?)""")
         val insuranceNameRegex = Regex(
             """(?i)\bseguro(?:\s+de\s+[a-záéíóúñ]+|\s+vida|\s+deudores|\s+desgravamen|\s+incendio|\s+terremoto|\s+desempleo|\s+cesant[ií]a)?"""
         )
 
-        fun meaningFor(line: String): InsuranceAmountMeaning = when {
+        fun periodicityFor(line: String): InsurancePeriodicity = when {
+            annualPeriod.containsMatchIn(line) -> InsurancePeriodicity.ANNUAL
+            monthlyPeriod.containsMatchIn(line) -> InsurancePeriodicity.MONTHLY
+            otherPeriod.containsMatchIn(line) -> InsurancePeriodicity.OTHER
+            else -> InsurancePeriodicity.UNKNOWN
+        }
+
+        fun meaningFor(line: String, periodicity: InsurancePeriodicity): InsuranceAmountMeaning = when {
             line.contains("valor asegurado") || line.contains("suma asegurada") -> InsuranceAmountMeaning.INSURED_VALUE
-            line.contains("prima") || line.contains("cargo") || line.contains("cobro") || line.contains("mensual") ->
-                InsuranceAmountMeaning.PERIODIC_CHARGE
+            periodicity == InsurancePeriodicity.MONTHLY -> InsuranceAmountMeaning.PERIODIC_CHARGE
             else -> InsuranceAmountMeaning.UNKNOWN
         }
 
@@ -384,17 +394,25 @@ object DocumentTextParser {
                     ?.trim()?.replaceFirstChar { it.uppercase() }
                 if (rawName != null && !insuranceNamesFound.contains(rawName)) {
                     val cleanAmount = match?.groupValues?.get(2)?.let(::cleanCurrencyNumber)
-                    val meaning = meaningFor(lower)
+                    val periodicity = periodicityFor(lower)
+                    val meaning = meaningFor(lower, periodicity)
                     if (cleanAmount == null) {
                         insuranceNamesFound.add(rawName)
-                        insurances.add(ExtractedInsurance(name = rawName, monthlyCost = null, amountMeaning = meaning))
+                        insurances.add(
+                            ExtractedInsurance(name = rawName, monthlyCost = null, amountMeaning = meaning, periodicity = periodicity)
+                        )
                     } else {
                         try {
                             val dec = Decimal.parse(cleanAmount)
                             if (!dec.isNegative) {
                                 insuranceNamesFound.add(rawName)
                                 insurances.add(
-                                    ExtractedInsurance(name = rawName, monthlyCost = dec.toFixed(2), amountMeaning = meaning)
+                                    ExtractedInsurance(
+                                        name = rawName,
+                                        monthlyCost = dec.toFixed(2),
+                                        amountMeaning = meaning,
+                                        periodicity = periodicity
+                                    )
                                 )
                             }
                         } catch (_: Exception) {}
