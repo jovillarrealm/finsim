@@ -6,6 +6,8 @@
 
 ## Estado actual
 
+Continuidad 2026-10-28: diagnóstico #33 publicado en rama `codex/spec37-issue33` hasta `252b2bd`. PDF sintético e imagen oficial llegaron a `vision.run` con WASM, sin fin/error observado en 60 s; resultado inconcluso, no aceptación ni causa demostrada. Sonda revisada y pruebas dirigidas 13/13 perfil y Worker; [evidencia GitHub](https://github.com/jovillarrealm/finsim/issues/33#issuecomment-6470667860). #33 abierta; #46 sigue pendiente.
+
 Continuidad 2026-10-27: #33 publicada hasta `cc474c9`; perfil de verificación corregido y evidencia [en GitHub](https://github.com/jovillarrealm/finsim/issues/33#issuecomment-6460336281). WebGPU quedó sin respuesta en carga (240 s); WASM inició generación, sin tokens en 180 s. Sin inferencia semántica acreditada, #33 sigue abierta y #46 pendiente. No integrado en main.
 
 Continuidad 2026-10-27: #33 conserva avance y correcciones revisadas en `codex/spec37-issue33` publicada, punta `9bb3f32`, sin integrar. `npm run check`, build Wasm y prueba de recuperación en Chrome pasaron; inferencia real se detuvo durante carga WebGPU, PNG/JPEG no verificados y perfil completo pendiente. #33 sigue abierta; [evidencia y límites](https://github.com/jovillarrealm/finsim/issues/33#issuecomment-6459776054). #46 espera resultados reales de #33.
