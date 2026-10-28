@@ -84,6 +84,53 @@ test('Cache Storage response bodies are scanned for synthetic document markers',
   }
 });
 
+test('browser-serialized storage scan skips pinned model artifacts without module-scope imports', async () => {
+  const keys = ['localStorage', 'sessionStorage', 'caches', 'indexedDB'];
+  const previous = new Map(keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const modelUrl = modelArtifactUrl(MODEL_ARTIFACTS[0].path);
+  const modelRequest = new Request(modelUrl);
+  const appRequest = new Request('https://app.example/cache/entry');
+  const matchedUrls = [];
+  const syntheticMarker = 'SYNTHETIC-DOCUMENT-IN-MODEL-BODY';
+  const responseByUrl = new Map([
+    [modelUrl, new Response(syntheticMarker)],
+    [appRequest.url, new Response(null, { status: 204 })],
+  ]);
+  const fakeStorage = { length: 0, key: () => null, getItem: () => null };
+  Object.defineProperties(globalThis, {
+    localStorage: { configurable: true, value: fakeStorage },
+    sessionStorage: { configurable: true, value: fakeStorage },
+    caches: { configurable: true, value: {
+      keys: async () => ['model-cache'],
+      open: async () => ({
+        keys: async () => [modelRequest, appRequest],
+        match: async request => { matchedUrls.push(request.url); return responseByUrl.get(request.url); },
+      }),
+    } },
+    indexedDB: { configurable: true, value: { databases: async () => [] } },
+  });
+
+  try {
+    const browserFunction = new Function(`return (${inspectBrowserStorage.toString()})`)();
+    const result = await browserFunction({
+      markers: [{ id: 'synthetic-marker', value: syntheticMarker }],
+      pdfBytes: [1, 2, 3],
+      cookieValues: [],
+      modelArtifactUrls: [modelUrl],
+    });
+
+    assert.equal(result.storage.cacheStorage.status, 'INSPECTED');
+    assert.equal(result.storage.cacheStorage.modelArtifactBodiesSkipped, 1);
+    assert.deepEqual(matchedUrls, [appRequest.url]);
+    assert.deepEqual(result.markerIds, []);
+  } finally {
+    for (const [key, descriptor] of previous) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  }
+});
+
 test('PDF-only PASS evidence remains incomplete for PNG, JPEG, ambiguity, and global privacy', () => {
   const pdfOnlyPasses = report.steps.map(step => step.id.endsWith('-PDF') ? { ...step, status: 'PASS' } : step);
   const summary = summarizeVerification(pdfOnlyPasses);

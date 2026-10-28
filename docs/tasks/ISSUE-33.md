@@ -47,6 +47,12 @@
 - Siguiente experimento: instrumentar en el Worker, sin registrar bytes del documento, las URL/nombres fijados atendidos por `customCache`, el inicio y fin de `AutoModel.from_pretrained` y la creación de `InferenceSession` por proveedor. Luego comparar una corrida WebGPU y otra WASM con el mismo perfil/caché y una espera reiniciada por señales de progreso reales. Si se confirma un bloqueo de sesión WebGPU, probar en Worker nuevo la variante JSEP local compatible con el runtime; conservar `NOT_RUN` para semántica y privacidad global hasta obtener sus pruebas.
 - Fuentes primarias: [Playwright: locators en shadow DOM abierto](https://playwright.dev/docs/locators#locate-in-shadow-dom), [ONNX Runtime: flags y límites de proxy Worker](https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html), [ONNX Runtime: artefactos WebGPU/JSEP](https://onnxruntime.ai/docs/tutorials/web/deploy.html) y [Transformers.js: seguimiento de carga en Worker](https://github.com/huggingface/transformers.js/blob/main/packages/transformers/docs/source/tutorials/next.md).
 
+## Corrección del escáner de Cache Storage (2026-10-27)
+
+- `inspectBrowserStorage` se envía a `page.evaluate` como función serializada; por ello no puede resolver el import de módulo `artifactForUrl`. El escáner ahora recibe la lista explícita de URLs fijadas del modelo y las omite al inspeccionar los cuerpos de Cache Storage.
+- La prueba dirigida serializa la función sin su ámbito de módulo, pone un marcador sintético dentro del cuerpo de un artefacto fijado y confirma que el cuerpo del modelo se omite mientras el resto del cache se inspecciona. Antes del arreglo fallaba con `cacheStorage: UNAVAILABLE`; después `node --test scripts/verify-docling.test.mjs` pasó 6/6.
+- El informe WebGPU existente no se reescribió ni se repitió el perfil, así que `SEC-01-SCOPED` de esa corrida permanece `NOT_RUN`. `SEC-01` global también permanece `NOT_RUN`; corregir el escáner no demuestra privacidad global ni acredita el análisis documental.
+
 ## Pendiente para aceptar #33
 
 1. Obtener un resultado de inferencia real del fixture sintético en navegador (PDF y, por separado, PNG/JPEG), con progreso observable o una ventana de espera adecuada a la velocidad del runtime.

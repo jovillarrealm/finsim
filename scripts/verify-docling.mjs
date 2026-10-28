@@ -15,6 +15,7 @@ import {
   MODEL_TOTAL_BYTES,
   MODEL_ARTIFACTS,
   artifactForUrl,
+  modelArtifactUrl,
 } from '../kmp/composeApp/docling-worker/src/model-artifacts.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -206,8 +207,9 @@ export function isAllowedNetworkRequest({ url: input, method, hasBody = false, r
   }) && knownModelRedirect(url);
 }
 
-export async function inspectBrowserStorage({ markers, pdfBytes, cookieValues }) {
+export async function inspectBrowserStorage({ markers, pdfBytes, cookieValues, modelArtifactUrls = [] }) {
   const encoder = new TextEncoder();
+  const modelArtifactUrlSet = new Set(modelArtifactUrls);
   const markerBytes = markers.map(marker => ({ id: marker.id, bytes: encoder.encode(marker.value) }));
   markerBytes.push({ id: 'pdf-bytes', bytes: Uint8Array.from(pdfBytes) });
   const maxMarkerLength = Math.max(...markerBytes.map(marker => marker.bytes.length));
@@ -299,7 +301,7 @@ export async function inspectBrowserStorage({ markers, pdfBytes, cookieValues })
       for (const request of await cache.keys()) {
         entries += 1;
         scanText(request.url, 'Cache Storage request URL');
-        if (artifactForUrl(request.url)) {
+        if (modelArtifactUrlSet.has(request.url)) {
           modelArtifactBodiesSkipped += 1;
           continue;
         }
@@ -373,6 +375,7 @@ async function inspectStorage(page, markers, pdfBytes, cookies) {
     markers,
     pdfBytes: [...pdfBytes],
     cookieValues: cookies.flatMap(cookie => [cookie.name, cookie.value]),
+    modelArtifactUrls: MODEL_ARTIFACTS.map(artifact => modelArtifactUrl(artifact.path)),
   });
 }
 
