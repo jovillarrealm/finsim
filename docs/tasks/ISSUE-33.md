@@ -29,6 +29,13 @@
 - Verificación invocable: `npm run check` pasó (typecheck, 21 verificaciones, 10 pruebas del Worker, shared JVM y Android Host). `:composeApp:wasmJsBrowserDistribution` pasó con Gradle 9.3.1 en 3m25s; webpack reportó recomendaciones de tamaño para los bundles. El test de ciclo de vida del Worker pasó en Chrome contra esa distribución (1/1). `git diff --check` no encontró errores de whitespace.
 - `npm run verify:docling` está disponible pero **no se ejecutó** en esta revisión: no se obtuvo una causa que justificara reintentar el perfil real. El último intento registrado terminó por inactividad durante `loading-model` WebGPU; el perfil no tiene resultado de inferencia ni aceptación semántica. La salida del perfil real continúa pendiente y no se declara PASS.
 
+## Corrección del perfil tras revisión independiente (2026-10-27)
+
+- `verify:docling` informa estados separados para DOC-01–04 por PDF, PNG y JPEG. Esta rutina solo selecciona el PDF sintético; PNG, JPEG y las filas ambiguas/conflictivas quedan `NOT_RUN`, por lo que los PASS del PDF no producen un PASS general.
+- La red del navegador permite el origen local y los artefactos fijados del modelo, incluidos sus redirects conocidos de descarga. Bloquea los demás destinos, también GET externos con query. El informe conserva origen, método y presencia de query sin copiar rutas ni valores de query.
+- `SEC-01` general queda `NOT_RUN`. `SEC-01-SCOPED` solo describe la corrida aislada: revisa localStorage, sessionStorage, URLs y cuerpos de Cache Storage distintos de los artefactos fijados del modelo, IndexedDB y cookies accesibles; busca marcadores sintéticos sin escribir sus valores en el informe. No examina OPFS, memoria de página ni otros perfiles, así que no acredita privacidad global.
+- `node --test scripts/verify-docling.test.mjs` pasó 4/4 pruebas ligeras: reproduce el falso PASS del GET externo con query, detecta contenido sintético en un cuerpo de Cache Storage incluso dividido entre fragmentos y conserva resultado incompleto cuando solo hay evidencia PDF. Estas pruebas **no ejecutan el modelo ni acreditan inferencia real**.
+
 ## Pendiente para aceptar #33
 
 1. Obtener un resultado de inferencia real del fixture sintético en navegador (PDF y, por separado, PNG/JPEG), con progreso observable o una ventana de espera adecuada a la velocidad del runtime.
